@@ -34,6 +34,8 @@
   void d_plus_clover_dagger_PRECISION( vector_PRECISION eta, vector_PRECISION phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
   void g5D_plus_clover_PRECISION( vector_PRECISION eta, vector_PRECISION phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
   void block_d_plus_clover_PRECISION( vector_PRECISION eta, vector_PRECISION phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
+  void set_clover_vectorized_PRECISION( operator_PRECISION_struct *op, level_struct *l, Thread *threading );
+
   void diagonal_aggregate_PRECISION( vector_PRECISION eta1, vector_PRECISION eta2, vector_PRECISION phi, config_PRECISION diag, level_struct *l );
   void d_plus_clover_aggregate_PRECISION( vector_PRECISION eta1, vector_PRECISION eta2, vector_PRECISION phi, schwarz_PRECISION_struct *s, level_struct *l );
   void d_neighbor_aggregate_PRECISION( vector_PRECISION eta1, vector_PRECISION eta2, vector_PRECISION phi, const int mu, schwarz_PRECISION_struct *s, level_struct *l );
@@ -146,6 +148,96 @@
     eta[2] -=   conj_PRECISION(D[8])*phi[2];
   }
 
+/*
+  // 1 +/- gamma_mu
+  static inline void pr_PRECISION( const vector_PRECISION prp_pt, const vector_PRECISION l_pt, const int mu, const int sign ) {
+    prp_pt[0] = l_pt[0] + sign*gamma_val_PRECISION[mu][0]*l_pt[3*gamma_co[mu][0]+0];
+    prp_pt[1] = l_pt[1] + sign*gamma_val_PRECISION[mu][0]*l_pt[3*gamma_co[mu][0]+1];
+    prp_pt[2] = l_pt[2] + sign*gamma_val_PRECISION[mu][0]*l_pt[3*gamma_co[mu][0]+2];
+    prp_pt[3] = l_pt[3] + sign*gamma_val_PRECISION[mu][1]*l_pt[3*gamma_co[mu][1]+0];
+    prp_pt[4] = l_pt[4] + sign*gamma_val_PRECISION[mu][1]*l_pt[3*gamma_co[mu][1]+1];
+    prp_pt[5] = l_pt[5] + sign*gamma_val_PRECISION[mu][1]*l_pt[3*gamma_co[mu][1]+2];
+  }
+
+  // 1 +/- gamma_mu
+  static inline void pr_doublet_PRECISION( const vector_PRECISION prp_pt, const vector_PRECISION l_pt, const int mu, const int sign ) {
+    prp_pt[ 0] = l_pt[ 0] + sign*gamma_val_PRECISION[mu][0]*l_pt[3*gamma_co[mu][0]+6*gamma_doublet_offset[mu][0]+0];
+    prp_pt[ 1] = l_pt[ 1] + sign*gamma_val_PRECISION[mu][0]*l_pt[3*gamma_co[mu][0]+6*gamma_doublet_offset[mu][0]+1];
+    prp_pt[ 2] = l_pt[ 2] + sign*gamma_val_PRECISION[mu][0]*l_pt[3*gamma_co[mu][0]+6*gamma_doublet_offset[mu][0]+2];
+    prp_pt[ 3] = l_pt[ 3] + sign*gamma_val_PRECISION[mu][1]*l_pt[3*gamma_co[mu][1]+6*gamma_doublet_offset[mu][1]+0];
+    prp_pt[ 4] = l_pt[ 4] + sign*gamma_val_PRECISION[mu][1]*l_pt[3*gamma_co[mu][1]+6*gamma_doublet_offset[mu][1]+1];
+    prp_pt[ 5] = l_pt[ 5] + sign*gamma_val_PRECISION[mu][1]*l_pt[3*gamma_co[mu][1]+6*gamma_doublet_offset[mu][1]+2];
+    prp_pt[ 6] = l_pt[ 6] + sign*gamma_val_PRECISION[mu][0]*l_pt[3*gamma_co[mu][0]+6*gamma_doublet_offset[mu][0]+6];
+    prp_pt[ 7] = l_pt[ 7] + sign*gamma_val_PRECISION[mu][0]*l_pt[3*gamma_co[mu][0]+6*gamma_doublet_offset[mu][0]+7];
+    prp_pt[ 8] = l_pt[ 8] + sign*gamma_val_PRECISION[mu][0]*l_pt[3*gamma_co[mu][0]+6*gamma_doublet_offset[mu][0]+8];
+    prp_pt[ 9] = l_pt[ 9] + sign*gamma_val_PRECISION[mu][1]*l_pt[3*gamma_co[mu][1]+6*gamma_doublet_offset[mu][1]+6];
+    prp_pt[10] = l_pt[10] + sign*gamma_val_PRECISION[mu][1]*l_pt[3*gamma_co[mu][1]+6*gamma_doublet_offset[mu][1]+7];
+    prp_pt[11] = l_pt[11] + sign*gamma_val_PRECISION[mu][1]*l_pt[3*gamma_co[mu][1]+6*gamma_doublet_offset[mu][1]+8];
+  }
+
+static inline void project_PRECISION( complex_double *pr[4], complex_double *phi, int start, int end, level_struct *l ) {
+  int site_var = l->num_lattice_site_var;
+  complex_double *phi_pt = phi+start*site_var;
+  complex_double *phi_end = phi+end*site_var;
+  complex_double *pr_pt[4] = {pr[0]+start*site_var/2, pr[1]+start*site_var/2, pr[2]+start*site_var/2, prn[3]+start*site_var/2};
+
+#ifndef OPTIMIZED_NEIGHBOR_COUPLING_PRECISION
+#ifdef HAVE_TM1p1
+  if( g.n_flavours == 2 )
+    while( phi_pt < phi_end ) {
+      int mu = 0;
+      FOR4( pr_doublet_PRECISION( pr_pt[mu], phi_pt, mu, -1 ); pr_pt[mu]+=site_var/2; mu++;);
+      phi_pt += site_var;
+    }
+  else 
+#endif
+    while( phi_pt < phi_end ) {
+      int mu = 0;
+      FOR4( pr_PRECISION( pr_pt[mu], phi_pt, mu, -1 ); pr_pt[mu]+=site_var/2; mu++;);
+      phi_pt += site_var;
+    }
+
+#else
+
+  PRECISION sign_re[4*3*SIMD_LENGTH_PRECISION];
+  PRECISION sign_im[4*3*SIMD_LENGTH_PRECISION];
+  int index_re[4*3*SIMD_LENGTH_PRECISION];
+  int index_im[4*3*SIMD_LENGTH_PRECISION];
+
+  int j=0;
+  for ( int mu=0; mu<4; mu++ )
+    for ( int i=0; i<3*SIMD_LENGTH_PRECISION; i++, j++ ) {
+      int spin = (i%6)/3;
+      sign_re[j] = creal(gamma_val_PRECISION[mu][spin])+creal(I*gamma_val_PRECISION[mu][spin]);
+      sign_im[j] = cimag(gamma_val_PRECISION[mu][spin])+cimag(I*gamma_val_PRECISION[mu][spin]);
+      index_re[j] = 6*gamma_co[mu][spin] + gamma_offset[mu][spin] + 0 + 2*(i%(site_var/2));
+      index_im[j] = 6*gamma_co[mu][spin] - gamma_offset[mu][spin] + 1 + 2*(i%(site_var/2));
+    }
+
+#ifdef HAVE_TM1p1
+  if( g.n_flavours == 2 ) {
+  } else 
+#endif  
+    while( phi_pt < phi_end ) {
+      mm_PRECISION phi_pt1_re[3], phi_pt1_im[3];
+      mm_loadi_6times_float( (PRECISION*) phi_pt+0, &(phi_pt1_re[0]), &(phi_pt1_re[1]), &(phi_pt1_re[2]), 2, 24 );
+      mm_loadi_6times_float( (PRECISION*) phi_pt+1, &(phi_pt1_im[0]), &(phi_pt1_im[1]), &(phi_pt1_im[2]), 2, 24 );
+      for ( int mu=0; mu<4; mu++ )
+        for ( int i=0; i<3; i++ ) {
+          mm_PRECISION phi_pt2_re = mm_set_from_list( (PRECISION*) phi_pt+0, &(sign_re[(mu*3+i)*SIMD_LENGTH_PRECISION]), &(index_re[(mu*3+i)*SIMD_LENGTH_PRECISION]) );
+          mm_PRECISION phi_pt2_im = mm_set_from_list( (PRECISION*) phi_pt+1, &(sign_im[(mu*3+i)*SIMD_LENGTH_PRECISION]), &(index_im[(mu*3+i)*SIMD_LENGTH_PRECISION]) );
+          mm_PRECISION res_re = mm_sub_PRECISION( phi_pt1_re, phi_pt2_re );
+          mm_PRECISION res_im = mm_sub_PRECISION( phi_pt1_im, phi_pt2_im );
+          cstore_PRECISION( res_re, res_im, pr[mu] );
+          pr[mu] += SIMD_LENGTH_PRECISION;
+        }
+      phi_pt += 4*3*SIMD_LENGTH_PRECISION;
+    }
+  
+  
+#endif
+} 
+*/ 
   // 1 - gamma_T
   static inline void prp_T_PRECISION( const vector_PRECISION prp_pt, const vector_PRECISION l_pt ) {
     prp_pt[0] = l_pt[0] -GAMMA_T_SPIN0_VAL*l_pt[3*GAMMA_T_SPIN0_CO];
@@ -1353,5 +1445,37 @@
     eta[11] += conj_PRECISION(clover[40])*phi[ 9];
     eta[11] += conj_PRECISION(clover[41])*phi[10];
   }
-  
+
+  static inline void site_clover_vectorized_PRECISION( PRECISION *eta, PRECISION *phi, PRECISION *clover ) {
+    mm_PRECISION in_re[3][6];
+    mm_PRECISION in_im[3][6];
+    
+    mm_PRECISION clov_re;
+    mm_PRECISION clov_im;
+    
+    mm_PRECISION out_re;
+    mm_PRECISION out_im;
+
+    for ( int i=0; i<6; i++ ) {
+      mm_loadi_6times_PRECISION( phi+2*i+0, &(in_re[0][i]), &(in_re[1][i]), &(in_re[2][i]), 0, 12 );
+      mm_loadi_6times_PRECISION( phi+2*i+1, &(in_im[0][i]), &(in_im[1][i]), &(in_im[2][i]), 0, 12 );
+    }
+
+    for ( int n=0; n<3; n++ ) {
+      clov_re = mm_load_PRECISION( clover );
+      clov_im = mm_load_PRECISION( clover+SIMD_LENGTH_PRECISION );
+      cmul_PRECISION( clov_re, clov_im, in_re[n][0], in_im[n][0], &out_re, &out_im );
+      clover+=2*SIMD_LENGTH_PRECISION;
+
+      for ( int i=1; i<6; i++ ) {
+        clov_re = mm_load_PRECISION( clover );
+        clov_im = mm_load_PRECISION( clover+SIMD_LENGTH_PRECISION );
+        cfmadd_PRECISION( clov_re, clov_im, in_re[n][i], in_im[n][i], &out_re, &out_im );
+        clover+=2*SIMD_LENGTH_PRECISION;
+      }
+
+      cstore_PRECISION( eta, out_re, out_im );
+      eta+=2*SIMD_LENGTH_PRECISION;
+    }
+  }
 #endif 

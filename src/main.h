@@ -181,8 +181,8 @@
   #define DEBUGOUTPUT( A, FORMAT )
   #endif
 
+  #include "simd_vectorization_control.h"
   #include "vectorization_control.h"
-  #include "simd_intrinsic.h"
   #include "threading.h"
 
   // enumerations
@@ -478,8 +478,6 @@
 #include "vectorization_dirac_double.h"
 #include "sse_complex_float_intrinsic.h"
 #include "sse_complex_double_intrinsic.h"
-#include "sse_coarse_operator_float.h"
-#include "sse_coarse_operator_double.h"
 #endif
 
 #include "data_layout.h"

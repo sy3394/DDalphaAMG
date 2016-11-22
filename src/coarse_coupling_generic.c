@@ -21,10 +21,6 @@
 
 #include "main.h"
 
-#ifdef SSE
-
-#include "sse_coarse_operator.h"
-
 #ifdef OPTIMIZED_INTERPOLATION_SETUP_PRECISION
 void coarse_operator_PRECISION_setup_vectorized( complex_PRECISION *operator, level_struct *l, struct Thread *threading ) {
   
@@ -258,16 +254,174 @@ void coarse_operator_PRECISION_setup_vectorized( complex_PRECISION *operator, le
 }
 #endif
  
+
 void set_coarse_self_coupling_PRECISION_vectorized( complex_PRECISION *spin_0_1, complex_PRECISION *spin_2_3,
     complex_PRECISION *V, level_struct *l, int site, const int n_rhs, complex_PRECISION *tmp ) {
 
-  sse_set_coarse_self_coupling_PRECISION( spin_0_1, spin_2_3, V, l, site, n_rhs, tmp );
+  int k, m, k1, k2, num_eig_vect = l->next_level->num_lattice_site_var/2,
+      offset = l->num_lattice_site_var/2;
+  PRECISION *spin_0_1_pt;
+  PRECISION *spin_2_3_pt;
+  PRECISION *interpolation_data;
+
+  int component_offset = SIMD_LENGTH_PRECISION;
+  int fine_components = l->num_lattice_site_var;
+
+  // U(x) = [ A B      , A=A*, D=D*, C = -B*
+  //          C D ]
+  // storage order: upper triangle of A, upper triangle of D, B, columnwise
+  // diagonal coupling
+  for ( int n=0; n<n_rhs; n++ ) {
+
+    int max = SIMD_LENGTH_PRECISION*((n+1+SIMD_LENGTH_PRECISION-1)/SIMD_LENGTH_PRECISION);
+    int spin_offset = (n/SIMD_LENGTH_PRECISION)*2*offset*SIMD_LENGTH_PRECISION;
+    spin_0_1_pt = (PRECISION *)(spin_0_1 + spin_offset) + n%SIMD_LENGTH_PRECISION;
+    spin_2_3_pt = (PRECISION *)(spin_2_3 + spin_offset) + n%SIMD_LENGTH_PRECISION;
+
+
+    // index k used for vectorization
+    // original loop runs to k<=n, we must pad as usual to fill SIMD
+    for ( k=0; k<max; k+=SIMD_LENGTH_PRECISION ) {
+      mm_PRECISION buffer_re;
+      mm_PRECISION buffer_im;
+
+      // this are the packed indices, which we do not use in tmp
+      //k1 = (n*(n+1))/2;
+      //k2 = (n*(n+1))/2+(num_eig_vect*(num_eig_vect+1))/2;
+      k1 = (n+0*num_eig_vect)*OPERATOR_COMPONENT_OFFSET_PRECISION;
+      k2 = (n+1*num_eig_vect)*OPERATOR_COMPONENT_OFFSET_PRECISION;
+
+      interpolation_data = (PRECISION *)(V + k*l->vector_size + fine_components*SIMD_LENGTH_PRECISION*site);
+
+      // A
+      buffer_re = mm_load_PRECISION((PRECISION *)(tmp+k1)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      buffer_im = mm_load_PRECISION((PRECISION *)(tmp+k1)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      for ( m=0; m<offset; m++ ) {
+        // spin_0_1 is the same for all k => broadcast
+        mm_PRECISION spin_0_1_re = mm_set1_PRECISION(spin_0_1_pt[(2*m+0)*component_offset]);
+        mm_PRECISION spin_0_1_im = mm_set1_PRECISION(spin_0_1_pt[(2*m+1)*component_offset]);
+        mm_PRECISION interpolation_data_re = mm_load_PRECISION(interpolation_data + (2*m+0)*component_offset);
+        mm_PRECISION interpolation_data_im = mm_load_PRECISION(interpolation_data + (2*m+1)*component_offset);
+
+        cfmadd_conj_PRECISION(interpolation_data_re, interpolation_data_im, spin_0_1_re, spin_0_1_im, &buffer_re, &buffer_im);
+      }
+      mm_store_PRECISION((PRECISION *)(tmp+k1)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_re);
+      mm_store_PRECISION((PRECISION *)(tmp+k1)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_im);
+
+      // D
+      buffer_re = mm_load_PRECISION((PRECISION *)(tmp+k2)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      buffer_im = mm_load_PRECISION((PRECISION *)(tmp+k2)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      for ( m=offset; m<2*offset; m++ ) {
+        // spin_2_3 is the same for all k => broadcast
+        mm_PRECISION spin_2_3_re = mm_set1_PRECISION(spin_2_3_pt[(2*m+0)*component_offset]);
+        mm_PRECISION spin_2_3_im = mm_set1_PRECISION(spin_2_3_pt[(2*m+1)*component_offset]);
+        mm_PRECISION interpolation_data_re = mm_load_PRECISION(interpolation_data + (2*m+0)*component_offset);
+        mm_PRECISION interpolation_data_im = mm_load_PRECISION(interpolation_data + (2*m+1)*component_offset);
+
+        cfmadd_conj_PRECISION(interpolation_data_re, interpolation_data_im, spin_2_3_re, spin_2_3_im, &buffer_re, &buffer_im);
+      }
+      mm_store_PRECISION((PRECISION *)(tmp+k2)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_re);
+      mm_store_PRECISION((PRECISION *)(tmp+k2)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_im);
+    }
+
+    // index k used for vectorization
+    for ( k=0; k<OPERATOR_COMPONENT_OFFSET_PRECISION; k+=SIMD_LENGTH_PRECISION ) {
+      mm_PRECISION buffer_re;
+      mm_PRECISION buffer_im;
+
+      // this are the packed indices, which we do not use in tmp
+      //k1 = component_offset*(num_eig_vect+1+n);
+      k1 = (n+2*num_eig_vect)*OPERATOR_COMPONENT_OFFSET_PRECISION;
+
+      interpolation_data = (PRECISION *)(V + k*l->vector_size + fine_components*component_offset*site);
+
+      // B
+      buffer_re = mm_load_PRECISION((PRECISION *)(tmp+k1)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      buffer_im = mm_load_PRECISION((PRECISION *)(tmp+k1)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      for ( m=0; m<offset; m++ ) {
+        // spin_2_3 is the same for all k => broadcast
+        mm_PRECISION spin_2_3_re = mm_set1_PRECISION(spin_2_3_pt[(2*m+0)*component_offset]);
+        mm_PRECISION spin_2_3_im = mm_set1_PRECISION(spin_2_3_pt[(2*m+1)*component_offset]);
+        mm_PRECISION interpolation_data_re = mm_load_PRECISION(interpolation_data + (2*m+0)*component_offset);
+        mm_PRECISION interpolation_data_im = mm_load_PRECISION(interpolation_data + (2*m+1)*component_offset);
+
+        cfmadd_conj_PRECISION(interpolation_data_re, interpolation_data_im, spin_2_3_re, spin_2_3_im, &buffer_re, &buffer_im);
+      }
+      mm_store_PRECISION((PRECISION *)(tmp+k1)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_re);
+      mm_store_PRECISION((PRECISION *)(tmp+k1)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_im);
+    }
+  }
 }
+
 
 void set_coarse_block_diagonal_PRECISION_vectorized( complex_PRECISION *spin_0_1, complex_PRECISION *spin_2_3,
     complex_PRECISION *V, level_struct *l, int site, const int n_rhs, complex_PRECISION *tmp ) {
 
-  sse_set_coarse_block_diagonal_PRECISION( spin_0_1, spin_2_3, V, l, site, n_rhs, tmp );
+  int k, m, k1, k2, num_eig_vect = l->next_level->num_parent_eig_vect,
+      offset = l->num_parent_eig_vect;
+  PRECISION *spin_0_1_pt;
+  PRECISION *spin_2_3_pt;
+  PRECISION *interpolation_data;
+
+  int component_offset = SIMD_LENGTH_PRECISION;
+  int fine_components = l->num_lattice_site_var;
+
+  // U(x) = [ A 0      , A=A*, D=D*
+  //          0 D ]
+  // storage order: upper triangle of A, upper triangle of D, B, columnwise
+  // diagonal coupling
+  for ( int n=0; n<n_rhs; n++ ) {
+
+    int max = SIMD_LENGTH_PRECISION*((n+1+SIMD_LENGTH_PRECISION-1)/SIMD_LENGTH_PRECISION);
+    spin_0_1_pt = (PRECISION *)(spin_0_1 + (n/SIMD_LENGTH_PRECISION)*2*offset*SIMD_LENGTH_PRECISION) + n%SIMD_LENGTH_PRECISION;
+    spin_2_3_pt = (PRECISION *)(spin_2_3 + (n/SIMD_LENGTH_PRECISION)*2*offset*SIMD_LENGTH_PRECISION) + n%SIMD_LENGTH_PRECISION;
+
+
+    // index k used for vectorization
+    // original loop runs to k<=n, we must pad as usual to fill SIMD
+    for ( k=0; k<max; k+=SIMD_LENGTH_PRECISION ) {
+      mm_PRECISION buffer_re;
+      mm_PRECISION buffer_im;
+
+      // this are the packed indices, which we do not use in tmp
+      //k1 = (n*(n+1))/2;
+      //k2 = (n*(n+1))/2+(num_eig_vect*(num_eig_vect+1))/2;
+      k1 = (n+0*num_eig_vect)*OPERATOR_COMPONENT_OFFSET_PRECISION;
+      k2 = (n+1*num_eig_vect)*OPERATOR_COMPONENT_OFFSET_PRECISION;
+
+      interpolation_data = (PRECISION *)(V + k*l->vector_size + fine_components*SIMD_LENGTH_PRECISION*site);
+
+      // A
+      buffer_re = mm_load_PRECISION((PRECISION *)(tmp+k1)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      buffer_im = mm_load_PRECISION((PRECISION *)(tmp+k1)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      for ( m=0; m<offset; m++ ) {
+        // spin_0_1 is the same for all k => broadcast
+        mm_PRECISION spin_0_1_re = mm_set1_PRECISION(spin_0_1_pt[(2*m+0)*component_offset]);
+        mm_PRECISION spin_0_1_im = mm_set1_PRECISION(spin_0_1_pt[(2*m+1)*component_offset]);
+        mm_PRECISION interpolation_data_re = mm_load_PRECISION(interpolation_data + (2*m+0)*component_offset);
+        mm_PRECISION interpolation_data_im = mm_load_PRECISION(interpolation_data + (2*m+1)*component_offset);
+
+        cfmadd_conj_PRECISION(interpolation_data_re, interpolation_data_im, spin_0_1_re, spin_0_1_im, &buffer_re, &buffer_im);
+      }
+      mm_store_PRECISION((PRECISION *)(tmp+k1)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_re);
+      mm_store_PRECISION((PRECISION *)(tmp+k1)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_im);
+
+      // D
+      buffer_re = mm_load_PRECISION((PRECISION *)(tmp+k2)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      buffer_im = mm_load_PRECISION((PRECISION *)(tmp+k2)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      for ( m=offset; m<2*offset; m++ ) {
+        // spin_2_3 is the same for all k => broadcast
+        mm_PRECISION spin_2_3_re = mm_set1_PRECISION(spin_2_3_pt[(2*m+0)*component_offset]);
+        mm_PRECISION spin_2_3_im = mm_set1_PRECISION(spin_2_3_pt[(2*m+1)*component_offset]);
+        mm_PRECISION interpolation_data_re = mm_load_PRECISION(interpolation_data + (2*m+0)*component_offset);
+        mm_PRECISION interpolation_data_im = mm_load_PRECISION(interpolation_data + (2*m+1)*component_offset);
+
+        cfmadd_conj_PRECISION(interpolation_data_re, interpolation_data_im, spin_2_3_re, spin_2_3_im, &buffer_re, &buffer_im);
+      }
+      mm_store_PRECISION((PRECISION *)(tmp+k2)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_re);
+      mm_store_PRECISION((PRECISION *)(tmp+k2)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_im);
+    }
+  }
 }
 
 void set_coarse_self_coupling_PRECISION_vectorized_finalize( level_struct *l, int site, const int n_rhs, complex_PRECISION *tmp ) {
@@ -302,10 +456,10 @@ void set_coarse_self_coupling_PRECISION_vectorized_finalize( level_struct *l, in
       t2 = (n+1*num_eig_vect)*component_offset;
 
       // A
-      clover_pt[ k1+k ] += ((float *)(tmp+t1))[k] + I * ((float *)(tmp+t1)+component_offset)[k];
+      clover_pt[ k1+k ] += ((PRECISION *)(tmp+t1))[k] + I * ((PRECISION *)(tmp+t1)+component_offset)[k];
 
       // D
-      clover_pt[ k2+k ] += ((float *)(tmp+t2))[k] + I * ((float *)(tmp+t2)+component_offset)[k];
+      clover_pt[ k2+k ] += ((PRECISION *)(tmp+t2))[k] + I * ((PRECISION *)(tmp+t2)+component_offset)[k];
     }
 
     // index k used for vectorization
@@ -315,7 +469,7 @@ void set_coarse_self_coupling_PRECISION_vectorized_finalize( level_struct *l, in
       t1 = (n+2*num_eig_vect)*component_offset;
 
       // B
-      clover_pt[ k1+k ] += ((float *)(tmp+t1))[k] + I * ((float *)(tmp+t1)+component_offset)[k];
+      clover_pt[ k1+k ] += ((PRECISION *)(tmp+t1))[k] + I * ((PRECISION *)(tmp+t1)+component_offset)[k];
     }
   }
 }
@@ -325,7 +479,99 @@ void set_coarse_neighbor_coupling_PRECISION_vectorized( complex_PRECISION *spin_
                                                         complex_PRECISION *V, const int mu, level_struct *l, int site,
                                                         const int n_rhs, complex_PRECISION *tmp ) {
 
-  sse_set_coarse_neighbor_coupling_PRECISION( spin_0_1, spin_2_3, V, mu, l, site, n_rhs, tmp );
+  int k, k1, k2, m, num_eig_vect = l->next_level->num_lattice_site_var/2,
+      offset = l->num_lattice_site_var/2;
+
+  PRECISION *spin_0_1_pt;
+  PRECISION *spin_2_3_pt;
+  PRECISION *interpolation_data;
+
+  int component_offset = SIMD_LENGTH_PRECISION;
+  int fine_components = l->num_lattice_site_var;
+
+  // U_mu(x) = [ A B      , U_-mu(x+muhat) = [ A* -C*
+  //             C D ]                        -B*  D* ]
+  // storage order: A, C, B, D, each column wise
+  for ( int n=0; n<n_rhs; n++ ) {
+
+    spin_0_1_pt = (PRECISION *)(spin_0_1 + (n/SIMD_LENGTH_PRECISION)*2*offset*SIMD_LENGTH_PRECISION) + n%SIMD_LENGTH_PRECISION;
+    spin_2_3_pt = (PRECISION *)(spin_2_3 + (n/SIMD_LENGTH_PRECISION)*2*offset*SIMD_LENGTH_PRECISION) + n%SIMD_LENGTH_PRECISION;
+
+    // index k used for vectorization
+    for ( k=0; k<OPERATOR_COMPONENT_OFFSET_PRECISION; k+=SIMD_LENGTH_PRECISION ) {
+      mm_PRECISION buffer_re;
+      mm_PRECISION buffer_im;
+
+      interpolation_data = (PRECISION *)(V + k*l->vector_size + fine_components*component_offset*site);
+
+      k1 = (n+0*num_eig_vect)*OPERATOR_COMPONENT_OFFSET_PRECISION;
+      k2 = (n+1*num_eig_vect)*OPERATOR_COMPONENT_OFFSET_PRECISION;
+
+      // A
+      buffer_re = mm_load_PRECISION((PRECISION *)(tmp+k1)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      buffer_im = mm_load_PRECISION((PRECISION *)(tmp+k1)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      for ( m=0; m<offset; m++ ) {
+        // spin_0_1 is the same for all k => broadcast
+        mm_PRECISION spin_0_1_re = mm_set1_PRECISION(spin_0_1_pt[(2*m+0)*component_offset]);
+        mm_PRECISION spin_0_1_im = mm_set1_PRECISION(spin_0_1_pt[(2*m+1)*component_offset]);
+        mm_PRECISION interpolation_data_re = mm_load_PRECISION(interpolation_data + (2*m+0)*component_offset);
+        mm_PRECISION interpolation_data_im = mm_load_PRECISION(interpolation_data + (2*m+1)*component_offset);
+
+        cfmadd_conj_PRECISION(interpolation_data_re, interpolation_data_im, spin_0_1_re, spin_0_1_im, &buffer_re, &buffer_im);
+      }
+      mm_store_PRECISION((PRECISION *)(tmp+k1)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_re);
+      mm_store_PRECISION((PRECISION *)(tmp+k1)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_im);
+
+      // C
+      buffer_re = mm_load_PRECISION((PRECISION *)(tmp+k2)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      buffer_im = mm_load_PRECISION((PRECISION *)(tmp+k2)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      for ( m=offset; m<2*offset; m++ ) {
+        // spin_0_1 is the same for all k => broadcast
+        mm_PRECISION spin_0_1_re = mm_set1_PRECISION(spin_0_1_pt[(2*m+0)*component_offset]);
+        mm_PRECISION spin_0_1_im = mm_set1_PRECISION(spin_0_1_pt[(2*m+1)*component_offset]);
+        mm_PRECISION interpolation_data_re = mm_load_PRECISION(interpolation_data + (2*m+0)*component_offset);
+        mm_PRECISION interpolation_data_im = mm_load_PRECISION(interpolation_data + (2*m+1)*component_offset);
+
+        cfmadd_conj_PRECISION(interpolation_data_re, interpolation_data_im, spin_0_1_re, spin_0_1_im, &buffer_re, &buffer_im);
+      }
+      mm_store_PRECISION((PRECISION *)(tmp+k2)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_re);
+      mm_store_PRECISION((PRECISION *)(tmp+k2)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_im);
+
+
+      k1 = (n+2*num_eig_vect)*OPERATOR_COMPONENT_OFFSET_PRECISION;
+      k2 = (n+3*num_eig_vect)*OPERATOR_COMPONENT_OFFSET_PRECISION;
+
+      // B
+      buffer_re = mm_load_PRECISION((PRECISION *)(tmp+k1)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      buffer_im = mm_load_PRECISION((PRECISION *)(tmp+k1)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      for ( m=0; m<offset; m++ ) {
+        // spin_2_3 is the same for all k => broadcast
+        mm_PRECISION spin_2_3_re = mm_set1_PRECISION(spin_2_3_pt[(2*m+0)*component_offset]);
+        mm_PRECISION spin_2_3_im = mm_set1_PRECISION(spin_2_3_pt[(2*m+1)*component_offset]);
+        mm_PRECISION interpolation_data_re = mm_load_PRECISION(interpolation_data + (2*m+0)*component_offset);
+        mm_PRECISION interpolation_data_im = mm_load_PRECISION(interpolation_data + (2*m+1)*component_offset);
+
+        cfmadd_conj_PRECISION(interpolation_data_re, interpolation_data_im, spin_2_3_re, spin_2_3_im, &buffer_re, &buffer_im);
+      }
+      mm_store_PRECISION((PRECISION *)(tmp+k1)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_re);
+      mm_store_PRECISION((PRECISION *)(tmp+k1)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_im);
+
+      // D
+      buffer_re = mm_load_PRECISION((PRECISION *)(tmp+k2)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      buffer_im = mm_load_PRECISION((PRECISION *)(tmp+k2)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION);
+      for ( m=offset; m<2*offset; m++ ) {
+        // spin_2_3 is the same for all k => broadcast
+        mm_PRECISION spin_2_3_re = mm_set1_PRECISION(spin_2_3_pt[(2*m+0)*component_offset]);
+        mm_PRECISION spin_2_3_im = mm_set1_PRECISION(spin_2_3_pt[(2*m+1)*component_offset]);
+        mm_PRECISION interpolation_data_re = mm_load_PRECISION(interpolation_data + (2*m+0)*component_offset);
+        mm_PRECISION interpolation_data_im = mm_load_PRECISION(interpolation_data + (2*m+1)*component_offset);
+
+        cfmadd_conj_PRECISION(interpolation_data_re, interpolation_data_im, spin_2_3_re, spin_2_3_im, &buffer_re, &buffer_im);
+      }
+      mm_store_PRECISION((PRECISION *)(tmp+k2)+k+0*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_re);
+      mm_store_PRECISION((PRECISION *)(tmp+k2)+k+1*OPERATOR_COMPONENT_OFFSET_PRECISION, buffer_im);
+    }
+  }
 }
 
 
@@ -360,10 +606,10 @@ void set_coarse_neighbor_coupling_PRECISION_vectorized_finalize( const int mu, l
 
       
       // A
-      D_pt[ k1+k ] += ((float *)(tmp+t1))[k] + I * ((float *)(tmp+t1)+component_offset)[k];
+      D_pt[ k1+k ] += ((PRECISION *)(tmp+t1))[k] + I * ((PRECISION *)(tmp+t1)+component_offset)[k];
 
       // C
-      D_pt[ k2+k ] += ((float *)(tmp+t2))[k] + I * ((float *)(tmp+t2)+component_offset)[k];
+      D_pt[ k2+k ] += ((PRECISION *)(tmp+t2))[k] + I * ((PRECISION *)(tmp+t2)+component_offset)[k];
 
 
       k1 = (n+2*num_eig_vect)*num_eig_vect;
@@ -372,10 +618,10 @@ void set_coarse_neighbor_coupling_PRECISION_vectorized_finalize( const int mu, l
       t2 = (n+3*num_eig_vect)*component_offset;
 
       // B
-      D_pt[ k1+k ] += ((float *)(tmp+t1))[k] + I * ((float *)(tmp+t1)+component_offset)[k];
+      D_pt[ k1+k ] += ((PRECISION *)(tmp+t1))[k] + I * ((PRECISION *)(tmp+t1)+component_offset)[k];
 
       // D
-      D_pt[ k2+k ] += ((float *)(tmp+t2))[k] + I * ((float *)(tmp+t2)+component_offset)[k];
+      D_pt[ k2+k ] += ((PRECISION *)(tmp+t2))[k] + I * ((PRECISION *)(tmp+t2)+component_offset)[k];
     }
   }
 }
@@ -412,10 +658,10 @@ void set_coarse_block_diagonal_PRECISION_vectorized_finalize( level_struct *l, i
       t2 = (n+1*num_eig_vect)*component_offset;
 
       // A
-      block_pt[ k1+k ] += ((float *)(tmp+t1))[k] + I * ((float *)(tmp+t1)+component_offset)[k];
+      block_pt[ k1+k ] += ((PRECISION *)(tmp+t1))[k] + I * ((PRECISION *)(tmp+t1)+component_offset)[k];
 
       // D
-      block_pt[ k2+k ] += ((float *)(tmp+t2))[k] + I * ((float *)(tmp+t2)+component_offset)[k];
+      block_pt[ k2+k ] += ((PRECISION *)(tmp+t2))[k] + I * ((PRECISION *)(tmp+t2)+component_offset)[k];
     }
   }
 }
@@ -434,7 +680,7 @@ void copy_coarse_operator_to_vectorized_layout_PRECISION( config_PRECISION D,
 
   PRECISION *out_tmp = D_vectorized;
 
-  // we zero out the padded area (o) to avoid potential floating-point errors
+  // we zero out the padded area (o) to avoid potential PRECISIONing-point errors
   // D_vectorized is
   // AB
   // oo
@@ -501,7 +747,7 @@ void copy_coarse_operator_to_transformed_vectorized_layout_PRECISION(config_PREC
 
   PRECISION *out_tmp = D_vectorized;
 
-  // we zero out the padded area to avoid potential floating-point errors
+  // we zero out the padded area to avoid potential PRECISIONing-point errors
   // D_vectorized is
   // A^T C^T
   //  o   o
@@ -567,7 +813,7 @@ void copy_coarse_operator_clover_to_vectorized_layout_PRECISION(config_PRECISION
 
   PRECISION *out_tmp = clover_vectorized;
 
-  // we zero out the padded area to avoid potential floating-point errors
+  // we zero out the padded area to avoid potential PRECISIONing-point errors
   // cloverD_vectorized is
   // AB
   // CD
@@ -652,7 +898,7 @@ void copy_coarse_operator_clover_to_doublet_vectorized_layout_PRECISION(config_P
   // 0A0B
   // C0D0
   // 0C0D
-  // 0000  we zero out the padded area to avoid potential floating-point errors
+  // 0000  we zero out the padded area to avoid potential PRECISIONing-point errors
   // (column wise, size of zeros such that columns length is multiple of 64B)
 
   // 4 directions
@@ -914,7 +1160,7 @@ void coarse_aggregate_self_couplings_PRECISION_vectorized( complex_PRECISION *et
     if ( direction_flags[2*mu+1] == 1 ) {
       D_pt = D + D_site_offset*site + D_link_offset*mu;
       phi_pt = phi + site_offset*index_fw;
-      coarse_spinwise_n_hopp_PRECISION_vectorized( eta1, eta2, phi_pt, D_pt, offset, l );
+      coarse_spinwise_pn_hopp_PRECISION_vectorized( eta1, eta2, phi_pt, D_pt, offset, l, -1 );
     }
   }
 }
@@ -927,8 +1173,70 @@ void coarse_aggregate_block_diagonal_PRECISION_vectorized( complex_PRECISION *et
   int site_offset = l->num_lattice_site_var*offset;
   int n = l->num_parent_eig_vect;
   int block_offset = (n*(n+1))*site;
- 
-  sse_coarse_aggregate_block_diagonal_PRECISION( eta1, eta2, phi+site_offset*site, s->op.odd_proj+block_offset, offset, l );
+  config_PRECISION block = s->op.odd_proj+block_offset;
+  int num_eig_vect = l->num_parent_eig_vect;
+  int block_step_size = (num_eig_vect * (num_eig_vect+1))/2;
+  complex_PRECISION *eta[2] = {eta1, eta2};  
+  phi += site_offset*site;
+
+  // U(x) = [ A 0      , A=A*, D=D*
+  //          0 D ]
+  // storage order: upper triangle of A, upper triangle of D, B, columnwise
+
+  mm_PRECISION block_re;
+  mm_PRECISION block_im;
+  mm_PRECISION in_re;
+  mm_PRECISION in_im;
+  mm_PRECISION out_re;
+  mm_PRECISION out_im;
+
+  // zero output matrices
+  mm_PRECISION zero = mm_setzero_PRECISION();
+  for(int s=0; s<2; s++) {
+    for(int i=0; i<offset; i+=SIMD_LENGTH_PRECISION) {
+      for(int row=0; row<2*num_eig_vect; row++) {
+        mm_store_PRECISION((PRECISION *)eta[s] + i + (2*row+0)*offset, zero);
+        mm_store_PRECISION((PRECISION *)eta[s] + i + (2*row+1)*offset, zero);
+      }
+    }
+  }
+
+  // s refers to "spin" components 0and1 (->eta1) or 2and3 (->eta2)
+  eta[1] += num_eig_vect*offset;
+  for(int s=0; s<2; s++) {
+    // A and D: column major hermitian, stored as upper triangular
+    for(int i=0; i<offset; i+=SIMD_LENGTH_PRECISION) {
+      for(int column=0; column<num_eig_vect; column++) {
+        in_re  = mm_load_PRECISION((PRECISION *)phi + i + (2*column+0)*offset);
+        in_im  = mm_load_PRECISION((PRECISION *)phi + i + (2*column+1)*offset);
+        for(int row=0; row<=column; row++) {
+          out_re = mm_load_PRECISION((PRECISION *)eta[s] + i + (2*row+0)*offset);
+          out_im = mm_load_PRECISION((PRECISION *)eta[s] + i + (2*row+1)*offset);
+          block_re = mm_set1_PRECISION(creal(block[(column*column+column)/2+row]));
+          block_im = mm_set1_PRECISION(cimag(block[(column*column+column)/2+row]));
+
+          cfmadd_PRECISION(block_re, block_im, in_re, in_im, &out_re, &out_im);
+
+          mm_store_PRECISION((PRECISION *)eta[s] + i + (2*row+0)*offset, out_re);
+          mm_store_PRECISION((PRECISION *)eta[s] + i + (2*row+1)*offset, out_im);
+        }
+        for(int row=column+1; row<num_eig_vect; row++) {
+          out_re = mm_load_PRECISION((PRECISION *)eta[s] + i + (2*row+0)*offset);
+          out_im = mm_load_PRECISION((PRECISION *)eta[s] + i + (2*row+1)*offset);
+          block_re = mm_set1_PRECISION(creal(block[(row*row+row)/2+column]));
+          block_im = mm_set1_PRECISION(cimag(block[(row*row+row)/2+column]));
+
+          cfmadd_conj_PRECISION(block_re, block_im, in_re, in_im, &out_re, &out_im);
+
+          mm_store_PRECISION((PRECISION *)eta[s] + i + (2*row+0)*offset, out_re);
+          mm_store_PRECISION((PRECISION *)eta[s] + i + (2*row+1)*offset, out_im);
+        }
+      }
+    }
+    block += block_step_size;
+    phi += num_eig_vect*offset;
+  }
+
 }
 
 void coarse_aggregate_neighbor_couplings_PRECISION_vectorized( complex_PRECISION *eta1, complex_PRECISION *eta2, 
@@ -953,7 +1261,7 @@ void coarse_aggregate_neighbor_couplings_PRECISION_vectorized( complex_PRECISION
   index_fw  = neighbor[5*site+1 + mu];
   D_pt = D + D_site_offset*site + D_link_offset*mu;
   phi_pt = phi + site_offset*index_fw;
-  coarse_spinwise_hopp_PRECISION_vectorized( eta1, eta2, phi_pt, D_pt, offset, l );
+  coarse_spinwise_pn_hopp_PRECISION_vectorized( eta1, eta2, phi_pt, D_pt, offset, l, +1 );
 }
 
 
@@ -961,7 +1269,106 @@ void coarse_spinwise_site_self_couplings_PRECISION_vectorized(
     complex_PRECISION *eta1, complex_PRECISION *eta2,
     complex_PRECISION *phi, config_PRECISION clover, int elements, level_struct *l ) {
   
-  sse_coarse_spinwise_site_self_couplings_PRECISION( eta1, eta2, phi, clover, elements, l );
-}
+  int num_eig_vect = l->num_lattice_site_var/2;
+  int clover_step_size1 = (num_eig_vect * (num_eig_vect+1))/2;
+  complex_PRECISION *eta[2] = {eta1, eta2};
+  // U(x) = [ A B      , A=A*, D=D*, C = -B*
+  //          C D ]
+  // storage order: upper triangle of A, upper triangle of D, B, columnwise
 
-#endif
+  mm_PRECISION clover_re;
+  mm_PRECISION clover_im;
+  mm_PRECISION in_re;
+  mm_PRECISION in_im;
+  mm_PRECISION out_re;
+  mm_PRECISION out_im;
+
+  // zero output matrices
+  mm_PRECISION zero = mm_setzero_PRECISION();
+  for(int s=0; s<2; s++) {
+    for(int i=0; i<elements; i+=SIMD_LENGTH_PRECISION) {
+      for(int row=0; row<2*num_eig_vect; row++) {
+        mm_store_PRECISION((PRECISION *)eta[s] + i + (2*row+0)*elements, zero);
+        mm_store_PRECISION((PRECISION *)eta[s] + i + (2*row+1)*elements, zero);
+      }
+    }
+  }
+
+  // s refers to "spin" components 0and1 (->eta1) or 2and3 (->eta2)
+  eta[1] += num_eig_vect*elements;
+  for(int s=0; s<2; s++) {
+    // A and D: column major hermitian, stored as upper triangular
+    for(int i=0; i<elements; i+=SIMD_LENGTH_PRECISION) {
+      for(int column=0; column<num_eig_vect; column++) {
+        in_re  = mm_load_PRECISION((PRECISION *)phi + i + (2*column+0)*elements);
+        in_im  = mm_load_PRECISION((PRECISION *)phi + i + (2*column+1)*elements);
+        for(int row=0; row<=column; row++) {
+          out_re = mm_load_PRECISION((PRECISION *)eta[s] + i + (2*row+0)*elements);
+          out_im = mm_load_PRECISION((PRECISION *)eta[s] + i + (2*row+1)*elements);
+          clover_re = mm_set1_PRECISION(creal(clover[(column*column+column)/2+row]));
+          clover_im = mm_set1_PRECISION(cimag(clover[(column*column+column)/2+row]));
+
+          cfmadd_PRECISION(clover_re, clover_im, in_re, in_im, &out_re, &out_im);
+
+          mm_store_PRECISION((PRECISION *)eta[s] + i + (2*row+0)*elements, out_re);
+          mm_store_PRECISION((PRECISION *)eta[s] + i + (2*row+1)*elements, out_im);
+        }
+        for(int row=column+1; row<num_eig_vect; row++) {
+          out_re = mm_load_PRECISION((PRECISION *)eta[s] + i + (2*row+0)*elements);
+          out_im = mm_load_PRECISION((PRECISION *)eta[s] + i + (2*row+1)*elements);
+          clover_re = mm_set1_PRECISION(creal(clover[(row*row+row)/2+column]));
+          clover_im = mm_set1_PRECISION(cimag(clover[(row*row+row)/2+column]));
+
+          cfmadd_conj_PRECISION(clover_re, clover_im, in_re, in_im, &out_re, &out_im);
+
+          mm_store_PRECISION((PRECISION *)eta[s] + i + (2*row+0)*elements, out_re);
+          mm_store_PRECISION((PRECISION *)eta[s] + i + (2*row+1)*elements, out_im);
+        }
+      }
+    }
+    clover += clover_step_size1;
+    phi += num_eig_vect*elements;
+  }
+  // rewind phi back to upper components
+  phi -= 2*num_eig_vect*elements;
+  eta[0] += num_eig_vect*elements;
+  eta[1] -= num_eig_vect*elements;
+  // C = -B^{\dagger}
+  for(int i=0; i<elements; i+=SIMD_LENGTH_PRECISION) {
+    for(int column=0; column<num_eig_vect; column++) {
+      in_re  = mm_load_PRECISION((PRECISION *)phi + i + (2*column+0)*elements);
+      in_im  = mm_load_PRECISION((PRECISION *)phi + i + (2*column+1)*elements);
+      for(int row=0; row<num_eig_vect; row++) {
+        out_re = mm_load_PRECISION((PRECISION *)eta[0] + i + (2*row+0)*elements);
+        out_im = mm_load_PRECISION((PRECISION *)eta[0] + i + (2*row+1)*elements);
+        // load transposed B
+        clover_re = mm_set1_PRECISION(creal(clover[row*num_eig_vect+column]));
+        clover_im = mm_set1_PRECISION(cimag(clover[row*num_eig_vect+column]));
+
+        cfnmadd_conj_PRECISION(clover_re, clover_im, in_re, in_im, &out_re, &out_im);
+
+        mm_store_PRECISION((PRECISION *)eta[0] + i + (2*row+0)*elements, out_re);
+        mm_store_PRECISION((PRECISION *)eta[0] + i + (2*row+1)*elements, out_im);
+      }
+    }
+  }
+  phi += num_eig_vect*elements;
+  // B
+  for(int i=0; i<elements; i+=SIMD_LENGTH_PRECISION) {
+    for(int column=0; column<num_eig_vect; column++) {
+      in_re  = mm_load_PRECISION((PRECISION *)phi + i + (2*column+0)*elements);
+      in_im  = mm_load_PRECISION((PRECISION *)phi + i + (2*column+1)*elements);
+      for(int row=0; row<num_eig_vect; row++) {
+        out_re = mm_load_PRECISION((PRECISION *)eta[1] + i + (2*row+0)*elements);
+        out_im = mm_load_PRECISION((PRECISION *)eta[1] + i + (2*row+1)*elements);
+        clover_re = mm_set1_PRECISION(creal(clover[column*num_eig_vect+row]));
+        clover_im = mm_set1_PRECISION(cimag(clover[column*num_eig_vect+row]));
+
+        cfmadd_PRECISION(clover_re, clover_im, in_re, in_im, &out_re, &out_im);
+
+        mm_store_PRECISION((PRECISION *)eta[1] + i + (2*row+0)*elements, out_re);
+        mm_store_PRECISION((PRECISION *)eta[1] + i + (2*row+1)*elements, out_im);
+      }
+    }
+  }
+}

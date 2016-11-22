@@ -19,10 +19,8 @@
  * 
  */
 
-#ifndef SIMD_INTRINSIC_HEADER
-#define SIMD_INTRINSIC_HEADER
-
-#if   defined AVX
+#ifndef SIMD_AVX_INTRINSIC_HEADER
+#define SIMD_AVX_INTRINSIC_HEADER
 
 #include "immintrin.h"
 #include "xmmintrin.h"
@@ -32,6 +30,8 @@
 #define SIMD               _AVX
 #define SIMD_LENGTH_float  8
 #define SIMD_LENGTH_double 4
+#define mm_FOR_float(e)  { e e e e  e e e e }
+#define mm_FOR_double(e) { e e e e }
 
 #define mm_float  __m256
 #define mm_double __m256d
@@ -60,13 +60,53 @@
 #define mm_store_float    _mm256_store_ps
 #define mm_store_double   _mm256_store_pd
 
-static inline mm_float mm_seteven_float( float *data ) {
-  return mm_setr_float( data[0], data[2], data[4], data[6], data[8], data[10], data[12], data[14] );
+#ifdef _FMA_
+
+#define mm_fmadd_float   _mm256_fmadd_ps
+#define mm_fmadd_double  _mm256_fmadd_pd
+#define mm_fnmadd_float  _mm256_fnmadd_ps
+#define mm_fnmadd_double _mm256_fnmadd_pd
+#define mm_fmsub_float   _mm256_fmsub_ps
+#define mm_fmsub_double  _mm256_fmsub_pd
+#define mm_fnmsub_float  _mm256_fnmsub_ps
+#define mm_fnmsub_double _mm256_fnmsub_pd
+
+#endif
+
+// Load even components
+static inline mm_float mm_seti_float( float *data, const int i ) {
+  return mm_setr_float( data[0*i], data[1*i], data[2*i], data[3*i], data[4*i], data[5*i], data[6*i], data[7*i] );
 }
-static inline mm_double mm_seteven_double( double *data ) {
-  return mm_setr_double( data[0], data[2], data[4], data[6] );
+static inline mm_double mm_seti_double( double *data, const int i ) {
+  return mm_setr_double( data[0*i], data[1*i], data[2*i], data[3*i] );
 }
 
+// Loading 6 time the same component and then jumping 12 components 
+static inline void mm_set1_6times_float( float *data, mm_float *pack1of3, mm_float *pack2of3,
+                                          mm_float *pack3of3, const int skip ) {
+  *pack1of3 = mm_setr_float( data[0*i+0*skip], data[1*i+0*skip], data[2*i+0*skip], data[3*i+0*skip],
+                             data[4*i+0*skip], data[5*i+0*skip], data[0*i+1*skip], data[1*i+1*skip] );
+  *pack2of3 = mm_setr_float( data[2*i+1*skip], data[3*i+1*skip], data[4*i+1*skip], data[5*i+1*skip],
+                             data[0*i+2*skip], data[1*i+2*skip], data[2*i+2*skip], data[3*i+2*skip] );
+  *pack3of3 = mm_setr_float( data[4*i+2*skip], data[5*i+2*skip], data[0*i+3*skip], data[1*i+3*skip],
+                             data[2*i+3*skip], data[3*i+3*skip], data[4*i+3*skip], data[5*i+3*skip] );
+}
+static inline void mm_loadi_6times_double( double *data, mm_double *pack1of3, mm_double *pack2of3,
+                                           mm_double *pack3of3, const int i, const int skip ) {
+  *pack1of3 = mm_setr_double( data[0*i+0*skip], data[1*i+0*skip], data[2*i+0*skip], data[3*i+0*skip] );
+  *pack2of3 = mm_setr_double( data[4*i+0*skip], data[5*i+0*skip], data[0*i+1*skip], data[1*i+1*skip] );
+  *pack3of3 = mm_setr_double( data[2*i+1*skip], data[3*i+1*skip], data[4*i+1*skip], data[5*i+1*skip] );
+}
+
+static inline mm_float mm_set_from_list_float( float *data, float *alpha, int *list ) {
+  return mm_setr_float( alpha[0]*data[list[0]], alpha[1]*data[list[1]], alpha[2]*data[list[2]], alpha[3]*data[list[3]],
+                        alpha[4]*data[list[4]], alpha[5]*data[list[5]], alpha[6]*data[list[6]], alpha[7]*data[list[7]] );
+}
+static inline mm_double mm_set_from_list_double( double *data, double *alpha, int *list ) {
+  return mm_setr_double( alpha[0]*data[list[0]], alpha[1]*data[list[1]], alpha[2]*data[list[2]], alpha[3]*data[list[3]] );
+}
+
+// Sum all components of mm_PRECISION
 static inline float mm_reduce_add_float( mm_float v) {
   __m128 vlow  = _mm256_castps256_ps128(v);
   __m128 vhigh = _mm256_extractf128_ps(v, 1); // high 128
@@ -88,6 +128,7 @@ static inline double mm_reduce_add_double( mm_double v ) {
   return _mm_cvtsd_f64(vlow) + tmp; // cast the low half and sum
 }
 
+// Transpose a block of SIMD_LENGTH * SIMD_LENGTH
 static inline void mm_transpose_float( mm_float *data ) {
   mm_float __t0, __t1, __t2, __t3, __t4, __t5, __t6, __t7;
   mm_float __tt0, __tt1, __tt2, __tt3, __tt4, __tt5, __tt6, __tt7;
@@ -130,147 +171,5 @@ static inline void mm_transpose_double( mm_double *data)
    data[2] = _mm256_movelh_pd( tmp[2], tmp[3] );
    data[3] = _mm256_movehl_pd( tmp[3], tmp[2] );
 }
-#elif defined SSE
-
-#include "xmmintrin.h"
-#include "emmintrin.h"
-#include "pmmintrin.h"
-
-#define SIMD               _SSE
-#define SIMD_LENGTH_float  4
-#define SIMD_LENGTH_double 2
-
-#define mm_float  __m128
-#define mm_double __m128d
-
-#define mm_mul_float  _mm_mul_ps
-#define mm_mul_double _mm_mul_pd
-#define mm_add_float  _mm_add_ps
-#define mm_add_double _mm_add_pd
-#define mm_sub_float  _mm_sub_ps
-#define mm_sub_double _mm_sub_pd
-#define mm_and_float  _mm_and_ps
-#define mm_and_double _mm_and_pd
-
-#define mm_setzero_float   _mm_setzero_ps
-#define mm_setzero_double  _mm_setzero_pd
-#define mm_setr_float      _mm_setr_ps
-#define mm_setr_double     _mm_setr_pd
-#define mm_set1_float      _mm_set1_ps
-#define mm_set1_double     _mm_set1_pd
-#define mm_load_float      _mm_load_ps
-#define mm_load_double     _mm_load_pd
-#define mm_unpacklo_float  _mm_unpacklo_ps
-#define mm_unpacklo_double _mm_unpacklo_pd
-#define mm_unpackhi_float  _mm_unpackhi_ps
-#define mm_unpackhi_double _mm_unpackhi_pd
-#define mm_store_float    _mm_store_ps
-#define mm_store_double   _mm_store_pd
-
-static inline mm_float mm_seteven_float( float *data ) {
-  return mm_setr_float( data[0], data[2], data[4], data[6] );
-}
-static inline mm_double mm_seteven_double( double *data ) {
-  return mm_setr_double( data[0], data[2] );
-}
-
-static inline float mm_reduce_add_float( mm_float v ) {
-  mm_float shuf = _mm_movehdup_ps(v);        // broadcast elements 3,1 to 2,0
-  mm_float sums = _mm_add_ps(v, shuf);
-  shuf          = _mm_movehl_ps(shuf, sums); // high half -> low half
-  sums          = _mm_add_ss(sums, shuf);
-  return        _mm_cvtss_f32(sums);
-}
-static inline double mm_reduce_add_double( mm_double v ) {
-  double tmp;
-  _mm_storeh_pd(&tmp, v);        // store the high half
-  return _mm_cvtsd_f64(v) + tmp; // cast the low half and sum
-}
-#endif 
-
-static inline mm_float mm_setodd_float( float *data ) {
-  return mm_seteven_float( data+1 );
-}
-static inline mm_double mm_setodd_double( double *data ) {
-  return mm_seteven_double( data+1 );
-}
-
-static inline void mm_transpose_float( mm_float *data ) {
-  _MM_TRANSPOSE4_PS(data[0],data[1],data[2],data[3]);
-}
-static inline void mm_transpose_double( mm_double *data ) {
-  double tmp01, tmp10 = _mm_cvtsd_f64(data[1]);
-  _mm_storeh_pd(&tmp01, data[0]);
-  _mm_loadl_pd(data[1], &tmp01);
-  _mm_loadh_pd(data[0], &tmp10);
-}
-
-#ifdef FMA
-
-#if   defined AVX
-
-#define mm_fmadd_float   _mm256_fmadd_ps
-#define mm_fmadd_double  _mm256_fmadd_pd
-#define mm_fnmadd_float  _mm256_fnmadd_ps
-#define mm_fnmadd_double _mm256_fnmadd_pd
-#define mm_fmsub_float   _mm256_fmsub_ps
-#define mm_fmsub_double  _mm256_fmsub_pd
-#define mm_fnmsub_float  _mm256_fnmsub_ps
-#define mm_fnmsub_double _mm256_fnmsub_pd
-
-#elif defined SSE
-
-#include "immintrin.h"
-
-#define mm_fmadd_float   _mm_fmadd_ps
-#define mm_fmadd_double  _mm_fmadd_pd
-#define mm_fnmadd_float  _mm_fnmadd_ps
-#define mm_fnmadd_double _mm_fnmadd_pd
-#define mm_fmsub_float   _mm_fmsub_ps
-#define mm_fmsub_double  _mm_fmsub_pd
-#define mm_fnmsub_float  _mm_fnmsub_ps
-#define mm_fnmsub_double _mm_fnmsub_pd
-
-#endif
-
-#else
-
-// a*b + c
-static inline mm_double mm_fmadd_double( mm_double a, mm_double b, mm_double c ) {
-  return mm_add_double( mm_mul_double( a, b ), c );
-}
-static inline mm_float mm_fmadd_float( mm_float a, mm_float b, mm_float c ) {
-  return mm_add_float( mm_mul_float( a, b ), c );
-}
-
-// -a*b + c
-static inline mm_double mm_fnmadd_double( mm_double a, mm_double b, mm_double c ) {
-  return mm_sub_double( c, mm_mul_double( a, b ) );
-}
-static inline mm_float mm_fnmadd_float( mm_float a, mm_float b, mm_float c ) {
-  return mm_sub_float( c, mm_mul_float( a, b ) );
-}
-
-// a*b - c
-static inline mm_double mm_fmsub_double( mm_double a, mm_double b, mm_double c ) {
-  return mm_sub_double( mm_mul_double( a, b ), c );
-}
-static inline mm_float mm_fmsub_float( mm_float a, mm_float b, mm_float c ) {
-  return mm_sub_float( mm_mul_float( a, b ), c );
-}
-
-// res = -a*b - c
-static inline mm_double mm_fnmsub_double( mm_double a, mm_double b, mm_double c ) {
-
-  mm_double na = mm_sub_double( mm_setzero_double(), a );
-  return mm_sub_double( mm_mul_double( na, b ), c );
-}
-static inline mm_float mm_fnmsub_float( mm_float a, mm_float b, mm_float c ) {
-
-  mm_float na = mm_sub_float( mm_setzero_float(), a );
-  return mm_sub_float( mm_mul_float( na, b ), c );
-}
-
-#endif
 
 #endif

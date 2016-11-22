@@ -148,8 +148,8 @@ static inline void cfnmadd_conj_PRECISION(
 }
 
 static inline void cload_PRECISION( PRECISION *data, mm_PRECISION *result_re, mm_PRECISION *result_im  ) {  
-  *result_re = mm_seteven_PRECISION( data );
-  *result_im = mm_setodd_PRECISION( data );
+  *result_re = mm_seti_PRECISION( data+0, 2 );
+  *result_im = mm_seti_PRECISION( data+1, 2 );
 }
 
 

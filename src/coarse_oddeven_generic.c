@@ -299,11 +299,7 @@ void coarse_diag_ee_PRECISION( vector_PRECISION y, vector_PRECISION x, operator_
   int start, end;
   compute_core_start_end_custom( 0, op->num_even_sites, &start, &end, l, threading, 1 );
   // even sites
-#ifndef OPTIMIZED_COARSE_SELF_COUPLING_PRECISION
   coarse_self_couplings_PRECISION( y, x, op, start, end, l );
-#else
-  coarse_self_couplings_PRECISION_vectorized( y, x, op, start, end, l );
-#endif
 }
 
 void coarse_diag_oo_PRECISION( vector_PRECISION y, vector_PRECISION x, operator_PRECISION_struct *op, 
@@ -334,7 +330,7 @@ void coarse_diag_oo_PRECISION( vector_PRECISION y, vector_PRECISION x, operator_
   
 #else
   compute_core_start_end_custom( op->num_even_sites, l->num_inner_lattice_sites, &start, &end, l, threading, 1 );
-  coarse_self_couplings_PRECISION_vectorized( y, x, op, start, end, l );
+  coarse_self_couplings_PRECISION( y, x, op, start, end, l );
 #endif
 }
 

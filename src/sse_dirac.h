@@ -251,8 +251,8 @@ static inline void sse_twospin_float( complex_float *out_spin0and1, complex_floa
   for(int spin=0; spin<4; spin++) {
     if(spin == 2)
       out = out_spin0and1;
-    scale_re = _mm_set1_ps(sign*creal(gamma_val[mu][spin]));
-    scale_im = _mm_set1_ps(sign*cimag(gamma_val[mu][spin]));
+    scale_re = _mm_set1_ps(sign*creal(gamma_val_float[mu][spin]));
+    scale_im = _mm_set1_ps(sign*cimag(gamma_val_float[mu][spin]));
     // factors of 2 are for complex
     for(int j=0; j<3; j++) {
       for(int i=0; i<elements; i+=SIMD_LENGTH_float) {
@@ -299,8 +299,8 @@ static inline void sse_twospin2_p_float_simd_length( complex_float *out_spin0and
   for(int spin=0; spin<4; spin++) {
     if(spin == 2)
       out = out_spin0and1;
-    scale_re = _mm_set1_ps(-creal(gamma_val[mu][spin]));
-    scale_im = _mm_set1_ps(-cimag(gamma_val[mu][spin]));
+    scale_re = _mm_set1_ps(-creal(gamma_val_float[mu][spin]));
+    scale_im = _mm_set1_ps(-cimag(gamma_val_float[mu][spin]));
     // factors of 2 are for complex
     for(int j=0; j<3; j++) {
       __m128 in_re  = _mm_load_ps((float *)in   + (2*(3*gamma_co[mu][spin]+j)+0)*elements);
@@ -345,8 +345,8 @@ static inline void sse_twospin2_p_float( complex_float *out_spin0and1, complex_f
   for(int spin=0; spin<4; spin++) {
     if(spin == 2)
       out = out_spin0and1;
-    scale_re = _mm_set1_ps(-creal(gamma_val[mu][spin]));
-    scale_im = _mm_set1_ps(-cimag(gamma_val[mu][spin]));
+    scale_re = _mm_set1_ps(-creal(gamma_val_float[mu][spin]));
+    scale_im = _mm_set1_ps(-cimag(gamma_val_float[mu][spin]));
     // factors of 2 are for complex
     for(int j=0; j<3; j++) {
       for(int i=0; i<elements; i+=SIMD_LENGTH_float) {

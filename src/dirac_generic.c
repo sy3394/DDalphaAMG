@@ -133,9 +133,9 @@ void clover_PRECISION( vector_PRECISION eta, vector_PRECISION phi, operator_PREC
 #endif
     clover += start*12;
     while ( leta < leta_end ) { // tm_term included in the clover vectorized
-      sse_site_clover_PRECISION( (PRECISION*) leta, (PRECISION*) lphi, clover );
-      leta += nv; lphi += nv;
-      clover += 12*nv;
+      site_clover_vectorized_PRECISION( (PRECISION*) leta, (PRECISION*) lphi, clover );
+      leta += 3*SIMD_LENGTH_PRECISION; lphi += 3*SIMD_LENGTH_PRECISION;
+      clover += 12*3*SIMD_LENGTH_PRECISION;
     }
     
 #endif
@@ -991,6 +991,98 @@ void g5D_plus_clover_PRECISION( vector_PRECISION eta, vector_PRECISION phi, oper
   gamma5_PRECISION( eta, eta, l, threading );
   SYNC_CORES(threading)
 }
+
+void set_clover_vectorized_PRECISION( operator_PRECISION_struct *op, level_struct *l, Thread *threading ) {
+
+#define real_index( i, j ) ((i)/SIMD_LENGTH_PRECISION)*12*SIMD_LENGTH_PRECISION + SIMD_LENGTH_PRECISION*(j)*2 + (i)%SIMD_LENGTH_PRECISION
+#define imag_index( i, j ) ((i)/SIMD_LENGTH_PRECISION)*12*SIMD_LENGTH_PRECISION + SIMD_LENGTH_PRECISION*((j)*2+1) + (i)%SIMD_LENGTH_PRECISION
+
+  int clover_size = 42;
+  config_PRECISION clover_pt = op->clover;
+  PRECISION *clover_v_pt = op->clover_vectorized;
+#ifdef HAVE_TM
+  config_PRECISION tm_term_pt = op->tm_term;
+#endif
+#ifdef HAVE_TM1p1
+  PRECISION *clover_doublet_v_pt = op->clover_doublet_vectorized;
+#endif
+  int start, end;
+  // ASSUMPTION: SIMD_LENGTH_PRECISION power of 2.
+  compute_core_start_end_custom( 0, l->num_inner_lattice_sites, &start, &end, l, threading, (SIMD_LENGTH_PRECISION<4) ? 1:(SIMD_LENGTH_PRECISION/4));
+
+  int index;
+  PRECISION sign = 0.0;
+  for ( int i=start*12; i<end*12; i+=SIMD_LENGTH_PRECISION ) {
+    int n = i/12;
+    int i12 = i%12;
+    for ( int j=0; j<6; j++ ) {
+      for ( int k=0; k<SIMD_LENGTH_PRECISION; k++ ) {
+        index = (i12+k);
+        if ( index > 12 ) index = index % 12;
+        if ( index == j || index-6 == j ) {
+          // diagonal entry i+k,i+k
+          index = n*clover_size + index;
+          sign = 1.0;
+        } else if ( index < 6 ) {
+          // first 6-by-6 matrix
+          if ( j > index ) {
+            // upper triangle
+            index = n*clover_size + 12 + ( 30 - (5-index)*(6-index) )/2 + (j-(index+1));
+            sign = 1.0;
+          } else {
+            // lower triangle, j < i+k
+            index = n*clover_size + 12 + ( 30 - (5-(j))*(6-(j)) )/2 + (index-(j+1));
+            sign = -1.0;
+          } 
+        } else {
+          // i+k >= 6
+          // second 6-by-6 matrix
+          index = index - 6;
+          if ( j > index ) {
+            // upper triangle
+            index = n*clover_size + 12 + 15 + ( 30 - (5-index)*(6-index) )/2 + (j-(index+1));
+            sign = 1.0;
+          } else {
+            // j < i+k-6
+            // lower triangle
+            index = n*clover_size + 12 + 15 + ( 30 - (5-(j))*(6-(j)) )/2 + (index-(j+1));
+            sign = -1.0;
+          }
+        }
+        PRECISION c_re = creal_PRECISION( clover_pt[index] );
+        PRECISION c_im = sign*cimag_PRECISION( clover_pt[index] );
+#ifdef HAVE_TM
+        if ((i+k)%6 == j) {
+          // add tm_term to diagonal
+          c_re += creal_PRECISION( tm_term_pt[i+k] );
+          c_im += cimag_PRECISION( tm_term_pt[i+k] );
+        }
+#endif
+        clover_v_pt[ real_index(i+k,j) ] = c_re;
+        clover_v_pt[ imag_index(i+k,j) ] = c_im;
+#ifdef HAVE_TM1p1
+        int d = ( (i+k)%12 < 6 ) ? 0:6;
+        clover_doublet_v_pt[ real_index(12*n+i+k+d,j) ] = c_re;
+        clover_doublet_v_pt[ imag_index(12*n+i+k+d,j) ] = c_im;
+#ifdef HAVE_TM
+        if ((i+k)%6 == j) {
+          // change sign to tm_term on diagonal
+          c_re -= 2*creal_PRECISION( tm_term_pt[i+k] );
+          c_im -= 2*cimag_PRECISION( tm_term_pt[i+k] );
+        }
+#endif
+        clover_doublet_v_pt[ real_index(12*n+i+k+d+6,j) ] = c_re;
+        clover_doublet_v_pt[ imag_index(12*n+i+k+d+6,j) ] = c_im;
+#endif
+      }
+    }
+  }
+
+#undef real_index
+#undef imag_index
+
+}
+
 
 void diagonal_aggregate_PRECISION( vector_PRECISION eta1, vector_PRECISION eta2, vector_PRECISION phi, config_PRECISION diag, level_struct *l ) {
 

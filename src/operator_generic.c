@@ -356,27 +356,9 @@ void operator_PRECISION_set_neighbor_couplings( operator_PRECISION_struct *op, l
 void operator_PRECISION_set_self_couplings( operator_PRECISION_struct *op, level_struct *l ) {
 
 #ifdef OPTIMIZED_SELF_COUPLING_PRECISION
-  int i, n = l->num_inner_lattice_sites;
-  
   if ( g.csw != 0 )
-    for ( i=0; i<n; i++ ) {
-      PRECISION *clover_vectorized_pt = op->clover_vectorized + 144*i;
-      config_PRECISION clover_pt = op->clover + 42*i;
-      sse_set_clover_PRECISION( clover_vectorized_pt, clover_pt );
-#ifdef HAVE_TM1p1
-      PRECISION *clover_doublet_vectorized_pt = op->clover_doublet_vectorized + 288*i;
-      sse_set_clover_doublet_PRECISION( clover_doublet_vectorized_pt, clover_pt );
+    set_clover_vectorized_PRECISION( op, l, no_threading );
 #endif
-#ifdef HAVE_TM
-      config_PRECISION tm_term_pt = op->tm_term + 12*i;
-      sse_add_diagonal_clover_PRECISION( clover_vectorized_pt, tm_term_pt );
-#ifdef HAVE_TM1p1
-      sse_add_diagonal_clover_doublet_PRECISION( clover_doublet_vectorized_pt, tm_term_pt );
-#endif
-#endif
-    }
-#endif
-  
 }
 
 void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {

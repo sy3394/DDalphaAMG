@@ -1407,7 +1407,9 @@ void schwarz_PRECISION_setup( schwarz_PRECISION_struct *s, operator_double_struc
   
   operator_PRECISION_set_couplings( &(s->op), l );
 
-  if ( g.odd_even )
+  if ( g.method >= 4 && g.odd_even )
+    oddeven_setup_PRECISION( &(g.op_double), l );
+  else
     schwarz_PRECISION_oddeven_setup( s, l );
 
 }

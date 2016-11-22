@@ -40,8 +40,6 @@
   void set_coarse_neighbor_coupling_PRECISION( vector_PRECISION buffer1, vector_PRECISION buffer2,
                                                vector_PRECISION *V, const int mu, const int n, level_struct *l );
 
-  void coarse_self_couplings_PRECISION( vector_PRECISION eta, vector_PRECISION phi,
-                                        operator_PRECISION_struct *op, int start, int end, level_struct *l );
   void coarse_spinwise_self_couplings_PRECISION( vector_PRECISION eta1, vector_PRECISION eta2, vector_PRECISION phi, 
                                                  config_PRECISION clover, int length, level_struct *l );
   

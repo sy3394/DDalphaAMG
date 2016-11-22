@@ -301,11 +301,7 @@ void coarse_block_operator_PRECISION( vector_PRECISION eta, vector_PRECISION phi
   vector_PRECISION lphi = phi+start, leta = eta+start;
   
   // site-wise self coupling
-#ifndef OPTIMIZED_COARSE_SELF_COUPLING_PRECISION
   coarse_self_couplings_PRECISION( eta, phi, &(s->op), (start/m), (start/m)+n, l);
-#else
-  coarse_self_couplings_PRECISION_vectorized( eta, phi, &(s->op), (start/m), (start/m)+n, l );
-#endif
 
   // inner block couplings
 #ifndef OPTIMIZED_COARSE_NEIGHBOR_COUPLING_PRECISION
@@ -392,29 +388,6 @@ void coarse_aggregate_neighbor_couplings_PRECISION( vector_PRECISION eta1, vecto
   }
 }
 
-void coarse_self_couplings_PRECISION( vector_PRECISION eta, vector_PRECISION phi,
-                                      operator_PRECISION_struct *op, int start, int end, level_struct *l ) {
-
-  int num_eig_vect = l->num_parent_eig_vect, 
-    vector_size = l->num_lattice_site_var,
-    clover_size = (2*num_eig_vect*num_eig_vect+num_eig_vect), 
-    block_size = (num_eig_vect*num_eig_vect+num_eig_vect);
-
-  coarse_self_couplings_clover_PRECISION( eta+start*vector_size, phi+start*vector_size,
-                                          op->clover+start*clover_size, (end-start)*vector_size, l );
-#ifdef HAVE_TM // tm_term
-  if (op->mu + op->mu_odd_shift != 0.0 || op->mu + op->mu_even_shift != 0.0 )
-    coarse_add_anti_block_diagonal_PRECISION( eta+start*vector_size, phi+start*vector_size, 
-                                              op->tm_term+start*block_size, (end-start)*vector_size, l );
-#endif
-#ifdef HAVE_TM1p1 //eps_term
-  if ( g.n_flavours == 2 &&
-       ( op->epsbar != 0 || op->epsbar_ig5_odd_shift != 0 || op->epsbar_ig5_odd_shift != 0 ) )
-    coarse_add_doublet_coupling_PRECISION( eta+start*vector_size, phi+start*vector_size, 
-                                           op->epsbar_term+start*block_size, (end-start)*vector_size, l );
-#endif
-
-}
 
 void coarse_aggregate_block_diagonal_PRECISION( vector_PRECISION eta1, vector_PRECISION eta2, vector_PRECISION phi,
                                                 config_PRECISION block, level_struct *l ) {
@@ -672,11 +645,7 @@ void apply_coarse_operator_PRECISION( vector_PRECISION eta, vector_PRECISION phi
   int end;
   compute_core_start_end_custom(0, l->num_inner_lattice_sites, &start, &end, l, threading, 1);
 
-#ifndef OPTIMIZED_COARSE_SELF_COUPLING_PRECISION
   coarse_self_couplings_PRECISION( eta, phi, op, start, end, l);
-#else
-  coarse_self_couplings_PRECISION_vectorized( eta, phi, op, start, end, l );
-#endif
 
   PROF_PRECISION_STOP( _SC, 1, threading );
   PROF_PRECISION_START( _NC, threading );
