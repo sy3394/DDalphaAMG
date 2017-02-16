@@ -155,7 +155,7 @@
   void DDalphaAMG_solve_ms_doublet( double **vector1_out, double *vector1_in, 
                                     double **vector2_out, double *vector2_in,
                                     double  *even_shifts, double *odd_shifts, int n_shifts,
-                                    double tol, DDalphaAMG_status *mg_status );
+                                    double  *tol, DDalphaAMG_status *mg_status );
 
   /**
    ** Optional - Solve squared operator performing two inversions: 
@@ -173,7 +173,7 @@
   void DDalphaAMG_solve_ms_doublet_squared( double **vector1_out, double *vector1_in, 
                                             double **vector2_out, double *vector2_in,
                                             double  *even_shifts, double *odd_shifts, int n_shifts,
-                                            double tol, DDalphaAMG_status *mg_status );
+                                            double  *tol, DDalphaAMG_status *mg_status );
 
   /**
    ** Optional - Solve squared operator against the odd compoments performing two inversions: 
@@ -182,7 +182,7 @@
    **  mg_status.info = final residual
    **/
   void DDalphaAMG_solve_squared_odd( double *vector_out, double *vector_in,
-                                    double tol, DDalphaAMG_status *mg_status );
+                                     double tol, DDalphaAMG_status *mg_status );
   
   void DDalphaAMG_solve_doublet_squared_odd( double *vector1_out, double *vector1_in, 
                                              double *vector2_out, double *vector2_in,
@@ -191,7 +191,7 @@
   void DDalphaAMG_solve_ms_doublet_squared_odd( double **vector1_out, double *vector1_in, 
                                                 double **vector2_out, double *vector2_in,
                                                 double  *even_shifts, double *odd_shifts, int n_shifts,
-                                                double tol, DDalphaAMG_status *mg_status );
+                                                double  *tol, DDalphaAMG_status *mg_status );
 
   /**
    ** Optional - Solve squared operator against the even compoments performing two inversions:
@@ -200,7 +200,7 @@
    **  mg_status.info = final residual
    **/
   void DDalphaAMG_solve_squared_even( double *vector_out, double *vector_in,
-                                     double tol, DDalphaAMG_status *mg_status );
+                                      double tol, DDalphaAMG_status *mg_status );
   
   void DDalphaAMG_solve_doublet_squared_even( double *vector1_out, double *vector1_in, 
                                               double *vector2_out, double *vector2_in,
@@ -209,7 +209,7 @@
   void DDalphaAMG_solve_ms_doublet_squared_even( double **vector1_out, double *vector1_in, 
                                                  double **vector2_out, double *vector2_in,
                                                  double  *even_shifts, double *odd_shifts, int n_shifts,
-                                                 double tol, DDalphaAMG_status *mg_status );
+                                                 double  *tol, DDalphaAMG_status *mg_status );
 
   /**
    ** Optional - Apply the operator:

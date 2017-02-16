@@ -634,11 +634,38 @@ static inline change_epsbar_shift_sign( ) {
 }
 
 enum {_SOLVE, _SOLVE_SQ, _SOLVE_SQ_ODD, _SOLVE_SQ_EVEN, _PRECOND, _OPERATOR};
+
+// NOTE RESIDUAL
+//
+// The _SOLVE_SQ invert the squared operator in two inversion.
+// One has to be careful to return a solution with the right residual.
+//
+// We have:
+//   D^2 = Dd D
+//
+//   Dd D x = b   direct solution
+//   Dd  y  = b   first step
+//      D x = y   second step
+//
+//   r1 = Dd   y - b
+//   r2 =    D x - y
+//   r  = Dd D x - b = Dd r2 + r1
+//
+//  |r| < tol -->  |r| < |Dd| |r2| + |r1| < tol
+//
+// For the residual we do
+//  |r1| < tol/2
+//  |r2| < (tol - |r1|)/|Dd| using |Dd|=8 since is |Dd|<8
+//
+// With relative residual we have
+//  |r1|/|b| < tol/2
+//  |r2|/|y| < (tol - |r1|)/|Dd|*|b|/|y|
+
 static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, double *vector2_out, double *vector2_in, double tol, DDalphaAMG_status *mg_status, int _TYPE ) {
   
   int t, z, y, x, i, j, k, mu, *ll = l.local_lattice, *gl=l.global_lattice, sl[4], precision_changed;
   complex_double twisted_bc, tmp1, tmp2;
-  double phase[4] = {_COMPLEX_double_ZERO, _COMPLEX_double_ZERO, _COMPLEX_double_ZERO, _COMPLEX_double_ZERO}, vmin=1, vmax=EPS_float, vtmp;
+  double phase[4] = {_COMPLEX_double_ZERO, _COMPLEX_double_ZERO, _COMPLEX_double_ZERO, _COMPLEX_double_ZERO}, vmin=1, vmax=EPS_float, vtmp, nrhs, nrhs2;
   gmres_double_struct *p = g.mixed_precision==2?&(g.p_MP.dp):&(g.p);
   vector_double vb, rhs = p->b;
   vector_double vx, sol = p->x;
@@ -782,6 +809,10 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
         // sol = (D_d^{-1})*g5*(D_u^{-1})*g5*rhs
         gamma5_double( rhs, rhs, &l, threading[omp_get_thread_num()] );
     
+    // read NOTE RESIDUAL
+    THREADED(threading[0]->n_core)
+      nrhs = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+    p->tol = tol/2.;
     solver( );
       
     THREADED(threading[0]->n_core)
@@ -799,6 +830,10 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
 #endif
       DDalphaAMG_change_mu_sign( &tmp_status );
 
+    // read NOTE RESIDUAL
+    THREADED(threading[0]->n_core)
+      nrhs2 = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+    p->tol = (tol-g.norm_res)*nrhs/nrhs2/8.;
     solver( );
 
     // DDalphaAMG_change_mu_sign( &tmp_status );
@@ -816,6 +851,10 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
         // sol = (D_d^{-1})*g5*(D_u^{-1})*g5*rhs
         gamma5_set_even_to_zero_double(rhs, rhs, &l, threading[omp_get_thread_num()]);
 
+    // read NOTE RESIDUAL
+    THREADED(threading[0]->n_core)
+      nrhs = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+    p->tol = tol/2.;
     solver( );
 
     THREADED(threading[0]->n_core)
@@ -833,6 +872,10 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
 #endif
       DDalphaAMG_change_mu_sign( &tmp_status );
 
+    // read NOTE RESIDUAL
+    THREADED(threading[0]->n_core)
+      nrhs2 = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+    p->tol = (tol-g.norm_res)*nrhs/nrhs2/8.;
     solver( );
 
     // DDalphaAMG_change_mu_sign( &tmp_status );
@@ -850,6 +893,10 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
         // sol = (D_d^{-1})*g5*(D_u^{-1})*g5*rhs
         gamma5_set_odd_to_zero_double(rhs, rhs, &l, threading[omp_get_thread_num()]);
 
+    // read NOTE RESIDUAL
+    THREADED(threading[0]->n_core)
+      nrhs = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+    p->tol = tol/2.;
     solver( );
 
     THREADED(threading[0]->n_core)
@@ -867,6 +914,10 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
 #endif
       DDalphaAMG_change_mu_sign( &tmp_status );
 
+    // read NOTE RESIDUAL
+    THREADED(threading[0]->n_core)
+      nrhs2 = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+    p->tol = (tol-g.norm_res)*nrhs/nrhs2/8.;
     solver( );
 
     // DDalphaAMG_change_mu_sign( &tmp_status );
@@ -972,12 +1023,12 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
 static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_in, 
                                          double **vector2_out, double *vector2_in, 
                                          double  *even_shifts, double *odd_shifts, int n_shifts,
-                                         double tol, DDalphaAMG_status *mg_status, int _TYPE ) 
+                                         double  *tol, DDalphaAMG_status *mg_status, int _TYPE ) 
 {
   int t, z, y, x, i, j, k, n, mu, *ll = l.local_lattice, *gl=l.global_lattice, sl[4], precision_changed;
   complex_double twisted_bc, tmp1, tmp2;
   double phase[4] = {_COMPLEX_double_ZERO, _COMPLEX_double_ZERO, _COMPLEX_double_ZERO, _COMPLEX_double_ZERO},
-      vmin=1, vmax=EPS_float, vtmp;
+    vmin=1, vmax=EPS_float, vtmp, nrhs, nrhs2;
   gmres_double_struct *p = g.mixed_precision==2?&(g.p_MP.dp):&(g.p);
   vector_double vb, rhs = p->b;
   vector_double vx, sol = p->x;
@@ -994,6 +1045,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
   
   ASSERT(vector1_out!=NULL);
   ASSERT(vector1_in!=NULL);
+  ASSERT(tol!=NULL);
 #ifdef HAVE_TM1p1
   if(g.n_flavours==2) {
     ASSERT(vector2_out!=NULL);
@@ -1002,9 +1054,9 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 #endif
 
   if(g.mixed_precision!=2)
-    g.p.tol = tol;
+    g.p.tol = tol[0];
   else
-    g.p_MP.dp.tol = tol;
+    g.p_MP.dp.tol = tol[0];
 
   for (i=0; i<4; i++)
     sl[i] = ll[i]*g.my_coords[i];
@@ -1116,34 +1168,34 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
       MALLOC( solution2, complex_double, l.inner_vector_size );
   }
   
-  for ( n = 0; n < n_shifts || n_shifts == 0; n++ ) {
+  for ( n = 0; n < n_shifts; n++ ) {
     
-    if ( n_shifts ) {
 #ifdef HAVE_TM1p1
-      if(g.n_flavours==2) {
-        if( g.epsbar_ig5_even_shift != even_shifts[n] || g.epsbar_ig5_odd_shift != odd_shifts[n] ) {
-          g.epsbar_ig5_even_shift = even_shifts[n];
-          g.epsbar_ig5_odd_shift  =  odd_shifts[n];
+    if(g.n_flavours==2) {
+      if( g.epsbar_ig5_even_shift != even_shifts[n] || g.epsbar_ig5_odd_shift != odd_shifts[n] ) {
+        g.epsbar_ig5_even_shift = even_shifts[n];
+        g.epsbar_ig5_odd_shift  =  odd_shifts[n];
+        THREADED(threading[0]->n_core)
+          epsbar_term_update( &l, threading[omp_get_thread_num()] );
+        THREADED(threading[0]->n_core)
+          finalize_operator_update( &l, threading[omp_get_thread_num()]);
+      }        
+    } else
+#endif
+      {
+#ifdef HAVE_TM
+        if( g.mu_even_shift != even_shifts[n] || g.mu_odd_shift != odd_shifts[n] ) {
+          g.mu_even_shift = even_shifts[n];
+          g.mu_odd_shift  =  odd_shifts[n];
           THREADED(threading[0]->n_core)
-            epsbar_term_update( &l, threading[omp_get_thread_num()] );
+            tm_term_update( g.mu, &l, threading[omp_get_thread_num()] );
           THREADED(threading[0]->n_core)
             finalize_operator_update( &l, threading[omp_get_thread_num()]);
-        }        
-      } else
-#endif
-        {
-#ifdef HAVE_TM
-          if( g.mu_even_shift != even_shifts[n] || g.mu_odd_shift != odd_shifts[n] ) {
-            g.mu_even_shift = even_shifts[n];
-            g.mu_odd_shift  =  odd_shifts[n];
-            THREADED(threading[0]->n_core)
-              tm_term_update( g.mu, &l, threading[omp_get_thread_num()] );
-            THREADED(threading[0]->n_core)
-              finalize_operator_update( &l, threading[omp_get_thread_num()]);
-          }
-#endif
         }
-    }
+#endif
+      }
+
+    p->tol = tol[n];
 
     switch(_TYPE) {
       
@@ -1177,6 +1229,10 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 
       if( n )
         correct_guess( sol, solution, solution2, even_shifts[n]-even_shifts[n-1], odd_shifts[n]-odd_shifts[n-1]);
+      // read NOTE RESIDUAL
+      THREADED(threading[0]->n_core)
+        nrhs = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      p->tol = tol[n]/2.;
       solver( );
       if ( n < n_shifts-1 ) 
         vector_copy( solution, sol );
@@ -1198,6 +1254,11 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 
       if( n )
         vector_copy( sol, solution2 );
+
+      // read NOTE RESIDUAL
+      THREADED(threading[0]->n_core)
+        nrhs2 = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      p->tol = (tol[n]-g.norm_res)*nrhs/nrhs2/8.;
       solver( );
       if ( n < n_shifts-1 ) 
         vector_copy( solution2, sol );
@@ -1227,6 +1288,11 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 
       if( n )
         correct_guess( sol, solution, solution2, even_shifts[n]-even_shifts[n-1], odd_shifts[n]-odd_shifts[n-1]);
+
+      // read NOTE RESIDUAL
+      THREADED(threading[0]->n_core)
+        nrhs = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      p->tol = tol[n]/2.;
       solver( );
       if ( n < n_shifts-1 ) 
         vector_copy( solution, sol );
@@ -1249,6 +1315,10 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
       if( n )
         vector_copy( sol, solution2 );
 
+      // read NOTE RESIDUAL
+      THREADED(threading[0]->n_core)
+        nrhs2 = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      p->tol = (tol[n]-g.norm_res)*nrhs/nrhs2/8.;
       solver( );
       if ( n < n_shifts-1 ) 
         vector_copy( solution2, sol );
@@ -1278,6 +1348,11 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 
       if( n )
         correct_guess( sol, solution, solution2, even_shifts[n]-even_shifts[n-1], odd_shifts[n]-odd_shifts[n-1]);
+
+      // read NOTE RESIDUAL
+      THREADED(threading[0]->n_core)
+        nrhs = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      p->tol = tol[n]/2.;
       solver( );
       if ( n < n_shifts-1 ) 
         vector_copy( solution, sol );
@@ -1299,6 +1374,10 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
       
       if( n )
         vector_copy( sol, solution2 );
+      // read NOTE RESIDUAL
+      THREADED(threading[0]->n_core)
+        nrhs2 = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      p->tol = (tol[n]-g.norm_res)*nrhs/nrhs2/8.;
       solver( );
       if ( n < n_shifts-1 ) 
         vector_copy( solution2, sol );
@@ -1388,12 +1467,12 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
     
   }
 
+  p->initial_guess_zero = 1;
   if ( n_shifts > 0 ) {
     FREE( source, complex_double, l.inner_vector_size );
     FREE( solution, complex_double, l.inner_vector_size );
     if( _TYPE == _SOLVE_SQ || _TYPE == _SOLVE_SQ_ODD || _TYPE == _SOLVE_SQ_EVEN )
       FREE( solution2, complex_double, l.inner_vector_size );
-    p->initial_guess_zero = 1;
   }
 
   
@@ -1406,7 +1485,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
   }
 #endif
     
-  if ( g.norm_res <= tol || _TYPE == _OPERATOR || _TYPE == _PRECOND )
+  if ( g.norm_res <= p->tol || _TYPE == _OPERATOR || _TYPE == _PRECOND )
     mg_status->success = 1;
   mg_status->info = g.norm_res;
   t1 = MPI_Wtime();
@@ -1446,7 +1525,7 @@ void DDalphaAMG_solve_doublet( double *vector1_out, double *vector1_in,
 void DDalphaAMG_solve_ms_doublet( double **vector1_out, double *vector1_in,
                                   double **vector2_out, double *vector2_in,
                                   double  *even_shifts, double *odd_shifts, int n_shifts,
-                                  double tol, DDalphaAMG_status *mg_status )
+                                  double  *tol, DDalphaAMG_status *mg_status )
 {
   set_n_flavours( 2 );
   DDalphaAMG_ms_driver( vector1_out, vector1_in, vector2_out, vector2_in, even_shifts, odd_shifts, n_shifts,
@@ -1471,7 +1550,7 @@ void DDalphaAMG_solve_doublet_squared( double *vector1_out, double *vector1_in,
 void DDalphaAMG_solve_ms_doublet_squared( double **vector1_out, double *vector1_in,
                                           double **vector2_out, double *vector2_in,
                                           double  *even_shifts, double *odd_shifts, int n_shifts,
-                                          double tol, DDalphaAMG_status *mg_status )
+                                          double  *tol, DDalphaAMG_status *mg_status )
 {
   set_n_flavours( 2 );
   DDalphaAMG_ms_driver( vector1_out, vector1_in, vector2_out, vector2_in, even_shifts, odd_shifts, n_shifts,
@@ -1496,7 +1575,7 @@ void DDalphaAMG_solve_doublet_squared_odd( double *vector1_out, double *vector1_
 void DDalphaAMG_solve_ms_doublet_squared_odd( double **vector1_out, double *vector1_in,
                                               double **vector2_out, double *vector2_in,
                                               double  *even_shifts, double *odd_shifts, int n_shifts,
-                                              double tol, DDalphaAMG_status *mg_status )
+                                              double  *tol, DDalphaAMG_status *mg_status )
 {
   set_n_flavours( 2 );
   DDalphaAMG_ms_driver( vector1_out, vector1_in, vector2_out, vector2_in, even_shifts, odd_shifts, n_shifts,
@@ -1521,7 +1600,7 @@ void DDalphaAMG_solve_doublet_squared_even( double *vector1_out, double *vector1
 void DDalphaAMG_solve_ms_doublet_squared_even( double **vector1_out, double *vector1_in,
                                                double **vector2_out, double *vector2_in,
                                                double  *even_shifts, double *odd_shifts, int n_shifts,
-                                               double tol, DDalphaAMG_status *mg_status )
+                                               double  *tol, DDalphaAMG_status *mg_status )
 {
   set_n_flavours( 2 );
   DDalphaAMG_ms_driver( vector1_out, vector1_in, vector2_out, vector2_in, even_shifts, odd_shifts, n_shifts,
