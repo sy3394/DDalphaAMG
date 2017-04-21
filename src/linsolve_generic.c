@@ -775,7 +775,7 @@ int arnoldi_step_PRECISION( vector_PRECISION *V, vector_PRECISION *Z, vector_PRE
       }
     } else {
       apply_operator_PRECISION( V[j+1], V[j], p, l, threading ); // w = D*V[j]
-      if ( -sigma ) vector_PRECISION_saxpy( V[j+1], V[j+1], V[j], -sigma, start, end, l );
+      if ( sigma ) vector_PRECISION_saxpy( V[j+1], V[j+1], V[j], -sigma, start, end, l );
     }
     
     complex_PRECISION tmp[j+2];

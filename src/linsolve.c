@@ -203,7 +203,12 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
     SYNC_MASTER_TO_ALL(threading)
     
     if( ol == 0) {
-      norm_r0 = creal(gamma0);
+     if (l->depth == 0 && !p->dp.initial_guess_zero) {
+       norm_r0 = global_norm_double( p->dp.b, start, end, l, threading );
+       printf0("| initial guess relative residual:            %le |\n", creal(gamma0)/norm_r0);
+     } else {
+       norm_r0 = creal(gamma0);
+     }
     } 
 #if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
     else {
