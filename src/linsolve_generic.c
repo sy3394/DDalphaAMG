@@ -272,17 +272,18 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
     gamma0 = global_norm_PRECISION( p->r, p->v_start, p->v_end, l, threading ); // gamma_0 = norm(r)
     START_MASTER(threading)
     p->gamma[0] = gamma0;
-    END_MASTER(threading)
-    SYNC_MASTER_TO_ALL(threading)
+    END_MASTER(threading);
+    SYNC_MASTER_TO_ALL(threading);
     
-    if ( ol == 0  && p->initial_guess_zero ) {
-      norm_r0 = creal(p->gamma[0]);
-    } else if ( ol == 0 ) {
-      norm_r0 = global_norm_PRECISION( p->b, p->v_start, p->v_end, l, threading );
-      if( l->depth == 0 )
-        printf0("| initial guess relative residual:            %le |\n", creal(gamma0)/norm_r0);
-    }        
-    
+    if ( ol == 0 ) {
+     if (l->depth == 0 && !p->initial_guess_zero) {
+       norm_r0 = global_norm_PRECISION( p->b, p->v_start, p->v_end, l, threading );
+       printf0("| initial guess relative residual:            %le |\n", creal(gamma0)/norm_r0);
+     } else {
+       norm_r0 = creal(p->gamma[0]);
+     }
+    }
+
     vector_PRECISION_real_scale( p->V[0], p->r, 1/p->gamma[0], start, end, l ); // v_0 = r / gamma_0
 #if defined(SINGLE_ALLREDUCE_ARNOLDI) && defined(PIPELINED_ARNOLDI)
     if ( l->level == 0 && l->depth > 0 ) {
