@@ -339,7 +339,7 @@ void operator_PRECISION_set_couplings( operator_PRECISION_struct *op, level_stru
 
 void operator_PRECISION_set_neighbor_couplings( operator_PRECISION_struct *op, level_struct *l ) {
 
-#ifdef OPTIMIZED_NEIGHBOR_COUPLING_float
+#ifdef OPTIMIZED_NEIGHBOR_COUPLING_PRECISION
   int i, n = 2*l->num_lattice_sites - l->num_inner_lattice_sites;
 
   for ( i=0; i<n; i++ ) {
