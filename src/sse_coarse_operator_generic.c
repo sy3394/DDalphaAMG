@@ -34,10 +34,10 @@ void coarse_operator_PRECISION_setup_vectorized( complex_PRECISION *operator, le
   double t0, t1;
   t0 = MPI_Wtime();
 
-  int mu, n = l->num_eig_vect, j, num_aggregates = l->is_PRECISION.num_agg,
+  int mu, j, n = l->num_eig_vect, num_aggregates = l->is_PRECISION.num_agg,
       aggregate_sites = l->num_inner_lattice_sites / num_aggregates,
-      clover_site_size = (l->next_level->num_lattice_site_var*(l->next_level->num_lattice_site_var+1))/2,
-      block_site_size = (l->next_level->num_parent_eig_vect*(l->next_level->num_parent_eig_vect+1)),
+      clover_site_size = (l->num_eig_vect*(l->num_eig_vect*2+1)),
+      block_site_size = (l->num_eig_vect*(l->num_eig_vect+1)),
       D_link_size = 4*l->num_eig_vect*l->num_eig_vect*4,  // size of links in all 4 directions
       fine_components = l->num_lattice_site_var;
 
@@ -72,23 +72,18 @@ void coarse_operator_PRECISION_setup_vectorized( complex_PRECISION *operator, le
     for(int t=0; t < l->block_lattice[T]; t++) {
       for(int z=0; z < l->block_lattice[Z]; z++) {
         for(int y=0; y < l->block_lattice[Y]; y++) {
-          for(int x=0; x < l->block_lattice[X]/2; x++) {
-            flags[2*X+0] = 1;
-            flags[2*X+1] = 1;
-            if((y+z+t)%2 == 0) {
-              if(x == 0)
-                flags[2*X+0] = 0;
-            } else {
-              if(x == l->block_lattice[X]/2-1)
-                flags[2*X+1] = 0;
+          for(int x=0; x < l->block_lattice[X]; x++) {
+            if((x+y+z+t)%2 == 0) {
+              flags[2*X+0] = (x ==                     0)?0:1;
+              flags[2*X+1] = (x == l->block_lattice[X]-1)?0:1;
+              flags[2*Y+0] = (y ==                     0)?0:1;
+              flags[2*Y+1] = (y == l->block_lattice[Y]-1)?0:1;
+              flags[2*Z+0] = (z ==                     0)?0:1;
+              flags[2*Z+1] = (z == l->block_lattice[Z]-1)?0:1;
+              flags[2*T+0] = (t ==                     0)?0:1;
+              flags[2*T+1] = (t == l->block_lattice[T]-1)?0:1;
+              flags += 8;
             }
-            flags[2*Y+0] = (y ==                     0)?0:1;
-            flags[2*Y+1] = (y == l->block_lattice[Y]-1)?0:1;
-            flags[2*Z+0] = (z ==                     0)?0:1;
-            flags[2*Z+1] = (z == l->block_lattice[Z]-1)?0:1;
-            flags[2*T+0] = (t ==                     0)?0:1;
-            flags[2*T+1] = (t == l->block_lattice[T]-1)?0:1;
-            flags += 8;
           }
         }
       }
@@ -97,28 +92,23 @@ void coarse_operator_PRECISION_setup_vectorized( complex_PRECISION *operator, le
     for(int t=0; t < l->block_lattice[T]; t++) {
       for(int z=0; z < l->block_lattice[Z]; z++) {
         for(int y=0; y < l->block_lattice[Y]; y++) {
-          for(int x=0; x < l->block_lattice[X]/2; x++) {
-            flags[2*X+0] = 1;
-            flags[2*X+1] = 1;
-            if((y+z+t)%2 == 1) {
-              if(x == 0)
-                flags[2*X+0] = 0;
-            } else {
-              if(x == l->block_lattice[X]/2-1)
-                flags[2*X+1] = 0;
+          for(int x=0; x < l->block_lattice[X]; x++) {
+            if((x+y+z+t)%2 == 1) {
+              flags[2*X+0] = (x ==                     0)?0:1;
+              flags[2*X+1] = (x == l->block_lattice[X]-1)?0:1;
+              flags[2*Y+0] = (y ==                     0)?0:1;
+              flags[2*Y+1] = (y == l->block_lattice[Y]-1)?0:1;
+              flags[2*Z+0] = (z ==                     0)?0:1;
+              flags[2*Z+1] = (z == l->block_lattice[Z]-1)?0:1;
+              flags[2*T+0] = (t ==                     0)?0:1;
+              flags[2*T+1] = (t == l->block_lattice[T]-1)?0:1;
+              flags += 8;
             }
-            flags[2*Y+0] = (y ==                     0)?0:1;
-            flags[2*Y+1] = (y == l->block_lattice[Y]-1)?0:1;
-            flags[2*Z+0] = (z ==                     0)?0:1;
-            flags[2*Z+1] = (z == l->block_lattice[Z]-1)?0:1;
-            flags[2*T+0] = (t ==                     0)?0:1;
-            flags[2*T+1] = (t == l->block_lattice[T]-1)?0:1;
-            flags += 8;
           }
         }
       }
     }
-  } else {
+    } else {
     for(int t=0; t < l->block_lattice[T]; t++) {
       for(int z=0; z < l->block_lattice[Z]; z++) {
         for(int y=0; y < l->block_lattice[Y]; y++) {
@@ -218,6 +208,12 @@ void coarse_operator_PRECISION_setup_vectorized( complex_PRECISION *operator, le
     // aggregate is done, finalize
     for ( mu=0; mu<4; mu++ )
       set_coarse_neighbor_coupling_PRECISION_vectorized_finalize( mu, l, a*aggregate_sites, n, tmp+mu*4*n*OPERATOR_COMPONENT_OFFSET_PRECISION );
+  }
+
+  SYNC_HYPERTHREADS(threading)
+  SYNC_CORES(threading)
+
+  for ( int a=threading->n_core*threading->thread+threading->core; a<num_aggregates; a+=threading->n_core*threading->n_thread ) {
 
     // new aggregate is starting, zero out tmp
     for(int i=0; i<4*4*n*OPERATOR_COMPONENT_OFFSET_PRECISION; i++)
@@ -238,7 +234,6 @@ void coarse_operator_PRECISION_setup_vectorized( complex_PRECISION *operator, le
 
     // aggregate is done, finalize
     set_coarse_block_diagonal_PRECISION_vectorized_finalize( l, a*aggregate_sites, n, tmp );
-
   }
 
   SYNC_HYPERTHREADS(threading)
