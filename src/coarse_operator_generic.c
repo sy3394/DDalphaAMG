@@ -42,6 +42,7 @@ void coarse_operator_PRECISION_free( level_struct *l ) {
 
 void coarse_operator_PRECISION_free_vectorized( operator_PRECISION_struct *op, level_struct *l ) {
 
+#ifdef OPTIMIZED_NEIGHBOR_COUPLING_PRECISION
   if( op->D_vectorized != NULL ) {
     int n2 = (l->depth>0 && l->level>0) ? (2*l->num_lattice_sites-l->num_inner_lattice_sites):l->num_inner_lattice_sites;
     int column_offset = 2*SIMD_LENGTH_PRECISION*((l->num_parent_eig_vect+SIMD_LENGTH_PRECISION-1)/SIMD_LENGTH_PRECISION);
@@ -49,7 +50,9 @@ void coarse_operator_PRECISION_free_vectorized( operator_PRECISION_struct *op, l
     FREE_HUGEPAGES( op->D_vectorized, OPERATOR_TYPE_PRECISION, 2*4*2*l->num_parent_eig_vect*column_offset*n2 );
     FREE_HUGEPAGES( op->D_transformed_vectorized, OPERATOR_TYPE_PRECISION, 2*4*2*l->num_parent_eig_vect*column_offset*n2 );
   }
+#endif
 
+#ifdef OPTIMIZED_SELF_COUPLING_PRECISION
   if( op->clover_vectorized != NULL ) {
     int n = l->num_inner_lattice_sites;
     int column_offset = SIMD_LENGTH_PRECISION*((2*l->num_parent_eig_vect+SIMD_LENGTH_PRECISION-1)/SIMD_LENGTH_PRECISION);
@@ -59,7 +62,7 @@ void coarse_operator_PRECISION_free_vectorized( operator_PRECISION_struct *op, l
     FREE_HUGEPAGES( op->clover_doublet_vectorized, OPERATOR_TYPE_PRECISION, 2*4*l->num_parent_eig_vect*column_doublet_offset*n );
 #endif
   }
-
+#endif
 }
 
 void coarse_operator_PRECISION_setup( vector_PRECISION *V, level_struct *l ) {
