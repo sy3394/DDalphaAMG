@@ -172,7 +172,7 @@ void DDalphaAMG_update_parameters( DDalphaAMG_parameters *mg_params, DDalphaAMG_
   
   // int mg_basis_vectors[MAX_MG_LEVELS-1];
   l_tmp=&l;
-  for ( i=0; i<g.num_levels; i++ ){
+  for ( i=0; i<g.num_levels-1; i++ ){
     if ( mg_params->mg_basis_vectors[i] != g.num_eig_vect[i] ) {
       g.num_eig_vect[i] = mg_params->mg_basis_vectors[i];
       if( i==0 )
@@ -1646,7 +1646,10 @@ void DDalphaAMG_finalize( void ) {
     FREE( threading[i], struct Thread, 1);
   }
   FREE( threading, struct Thread *, g.num_openmp_processes);
-  
+
+  free(no_threading);
+  free(commonthreaddata);
+
   if (g.setup_flag)
     method_free( &l );
   method_finalize( &l );

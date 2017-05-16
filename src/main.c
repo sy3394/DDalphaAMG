@@ -92,6 +92,9 @@ int main( int argc, char **argv ) {
   
   finalize_common_thread_data(commonthreaddata);
   finalize_no_threading(no_threading);
+  free(commonthreaddata);
+  free(no_threading);
+
   method_free( &l );
   method_finalize( &l );
   
