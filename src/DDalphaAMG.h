@@ -233,7 +233,32 @@
   void DDalphaAMG_preconditioner_doublet( double *vector1_out, double *vector1_in,
                                           double *vector2_out, double *vector2_in, DDalphaAMG_status *mg_status );
 
-  /*
+
+  /**
+   ** Optional - Restrict vector from level:
+   **   vector_out = P^\dagger * vector_in.
+   **  mg_status.success = 1
+   **/
+  void DDalphaAMG_restrict( double *vector_out, double *vector_in, int level,
+                            DDalphaAMG_status *mg_status );
+
+  /**
+   ** Optional - Prolongate vector to level:
+   **   vector_out = P * vector_in.
+   **  mg_status.success = 1
+   **/
+  void DDalphaAMG_prolongate( double *vector_out, double *vector_in, int level,
+                            DDalphaAMG_status *mg_status );
+
+  /**
+   ** Optional - Apply the operator:
+   **   vector_out = D * vector_in.
+   **  mg_status.success = 1
+   **/
+  void DDalphaAMG_apply_coarse_operator( double *vector_out, double *vector_in, int level,
+                                  DDalphaAMG_status *mg_status );
+
+/*
    *  Concluding the following functions have to be call for freeing the memory and finalizing
    * the software. 
    */

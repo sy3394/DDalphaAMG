@@ -633,7 +633,7 @@ static inline change_epsbar_shift_sign( ) {
 #endif
 }
 
-enum {_SOLVE, _SOLVE_SQ, _SOLVE_SQ_ODD, _SOLVE_SQ_EVEN, _PRECOND, _OPERATOR};
+enum {_SOLVE, _SOLVE_SQ, _SOLVE_SQ_ODD, _SOLVE_SQ_EVEN, _PRECOND, _OPERATOR, _RESTRICT, _PROLONGATE};
 
 // NOTE RESIDUAL
 //
@@ -1496,6 +1496,104 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
   
 }
 
+static inline void DDalphaAMG_proj_driver( double *vector_out, double *vector_in, int level, DDalphaAMG_status *mg_status, int _TYPE ) {
+  
+  int t, z, y, x, i, j, mu, *ll;
+
+  level_struct *ltmp=&l, *from, *to;
+  for(i=0; i<level; i++)
+    ltmp=ltmp->next_level;
+
+  if(_TYPE==_RESTRICT) {
+    from=ltmp;
+    to=ltmp->next_level;
+  } else if(_TYPE==_PROLONGATE) {
+    from=ltmp->next_level;
+    to=ltmp;    
+  } else {
+    from=ltmp->next_level;
+    to=ltmp;    
+  }
+  vector_float rhs = from->p_float.b;
+  vector_float sol = to->p_float.x;
+
+  double t0, t1;
+  t0 = MPI_Wtime();
+  g.coarse_time = 0;
+  g.iter_count = 0;
+  g.coarse_iter_count = 0;
+  mg_status->success = 0;
+  mg_status->info = 0;
+  
+  ASSERT(g.mixed_precision);
+  ASSERT(vector_out!=NULL);
+  ASSERT(vector_in!=NULL);
+
+  ll = from->local_lattice;
+  for (t=0, j=0; t<ll[T]; t++) 
+    for (z=0; z<ll[Z]; z++) 
+      for (y=0; y<ll[Y]; y++) 
+        for (x=0; x<ll[X]; x++) {
+          if(vector_index_fct!=NULL )
+            i = vector_index_fct( t, z, y, x );
+          else 
+            i = 2*j;
+          
+          for ( mu=0; mu<from->num_lattice_site_var; mu++, j++ )
+            rhs[j] = ((complex_float)vector_in[i+2*mu] + I*(complex_float)vector_in[i+2*mu+1]);
+        }
+
+  switch(_TYPE) {
+    
+  case _RESTRICT :
+    THREADED(threading[0]->n_core)
+      restrict_float( sol, rhs, from, threading[omp_get_thread_num()] );
+    break;
+    
+  case _PROLONGATE :
+    THREADED(threading[0]->n_core)
+      interpolate3_float( sol, rhs, to, threading[omp_get_thread_num()] );
+    break;
+
+  case _OPERATOR :
+    THREADED(threading[0]->n_core)
+      apply_operator_float( sol, rhs, &(from->p_float), from, threading[omp_get_thread_num()] );
+    break;
+
+  default :
+    warning0("_TYPE not found in DDalphaAMG_driver. Returing vector in as vector out.");
+    sol=rhs;
+    break;
+  }
+  
+  ll = to->local_lattice;
+  for (t=0, j=0; t<ll[T]; t++) 
+    for (z=0; z<ll[Z]; z++) 
+      for (y=0; y<ll[Y]; y++) 
+        for (x=0; x<ll[X]; x++) {
+          if(vector_index_fct!=NULL )
+            i = vector_index_fct( t, z, y, x );
+          else 
+            i = 2*j;
+          
+          for ( mu=0; mu<to->num_lattice_site_var; mu++, j++ ) {
+            vector_out[i+2*mu]   = (double) creal(sol[j]);
+            vector_out[i+2*mu+1] = (double) cimag(sol[j]);
+          }
+        }
+
+    
+  mg_status->success = 1;
+  mg_status->info = g.norm_res;
+  t1 = MPI_Wtime();
+  mg_status->time = t1-t0;
+  mg_status->coarse_time = g.coarse_time;
+  mg_status->iter_count = g.iter_count;
+  mg_status->coarse_iter_count = g.coarse_iter_count;
+  
+}
+
+
 static inline void set_n_flavours( int n) {
 
 #ifdef HAVE_TM1p1
@@ -1630,6 +1728,18 @@ void DDalphaAMG_preconditioner_doublet( double *vector1_out, double *vector1_in,
   set_n_flavours( 2 );
   DDalphaAMG_driver( vector1_out, vector1_in, vector2_out, vector2_in, 0, mg_status, _PRECOND );
   set_n_flavours( 1 );
+}
+
+void DDalphaAMG_restrict( double *vector_out, double *vector_in, int level, DDalphaAMG_status *mg_status ) {
+  DDalphaAMG_proj_driver( vector_out, vector_in, level, mg_status, _RESTRICT );
+}
+
+void DDalphaAMG_prolongate( double *vector_out, double *vector_in, int level, DDalphaAMG_status *mg_status ) {
+  DDalphaAMG_proj_driver( vector_out, vector_in, level, mg_status, _PROLONGATE );
+}
+
+void DDalphaAMG_apply_coarse_operator( double *vector_out, double *vector_in, int level, DDalphaAMG_status *mg_status ) {
+  DDalphaAMG_proj_driver( vector_out, vector_in, level, mg_status, _OPERATOR );
 }
 
 void DDalphaAMG_free( void ) {
