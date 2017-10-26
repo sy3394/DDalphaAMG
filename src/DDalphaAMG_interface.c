@@ -725,6 +725,17 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
                 rhs[j] = ((complex_double)vector1_in[i+2*(k+3*(3-mu))] + I*(complex_double)vector1_in[i+2*(k+3*(3-mu))+1]) * twisted_bc;
                 rhs[j+6] = ((complex_double)vector2_in[i+2*(k+3*(3-mu))] + I*(complex_double)vector2_in[i+2*(k+3*(3-mu))+1]) * twisted_bc;
 #endif
+
+                if(p->initial_guess_zero == 0) {
+#ifndef BASIS4 
+                  sol[j] = ((complex_double)vector1_out[i+2*(k+3*mu)] + I*(complex_double)vector1_out[i+2*(k+3*mu)+1]) * twisted_bc;
+                  sol[j+6] = ((complex_double)vector2_out[i+2*(k+3*mu)] + I*(complex_double)vector2_out[i+2*(k+3*mu)+1]) * twisted_bc;
+
+#else
+                  sol[j] = ((complex_double)vector1_out[i+2*(k+3*(3-mu))] + I*(complex_double)vector1_out[i+2*(k+3*(3-mu))+1]) * twisted_bc;
+                  sol[j+6] = ((complex_double)vector2_out[i+2*(k+3*(3-mu))] + I*(complex_double)vector2_out[i+2*(k+3*(3-mu))+1]) * twisted_bc;
+#endif
+                }
                 
 #ifndef INIT_ONE_PREC
                 if(g.mixed_precision==2) {
@@ -753,6 +764,15 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
 #else
                 rhs[j] = ((complex_double)vector1_in[i+2*(k+3*(3-mu))] + I*(complex_double)vector1_in[i+2*(k+3*(3-mu))+1]) * twisted_bc;
 #endif
+
+                if(p->initial_guess_zero == 0) {
+#ifndef BASIS4 
+                  sol[j] = ((complex_double)vector1_out[i+2*(k+3*mu)] + I*(complex_double)vector1_out[i+2*(k+3*mu)+1]) * twisted_bc;
+
+#else
+                  sol[j] = ((complex_double)vector1_out[i+2*(k+3*(3-mu))] + I*(complex_double)vector1_out[i+2*(k+3*(3-mu))+1]) * twisted_bc;
+#endif
+                }
                 
 #ifndef INIT_ONE_PREC
                 if(g.mixed_precision==2) {
@@ -1617,6 +1637,18 @@ void DDalphaAMG_solve_doublet( double *vector1_out, double *vector1_in,
 {
   set_n_flavours( 2 );
   DDalphaAMG_driver( vector1_out, vector1_in, vector2_out, vector2_in, tol, mg_status, _SOLVE );
+  set_n_flavours( 1 );
+}
+
+void DDalphaAMG_solve_doublet_with_guess( double *vector1_out, double *vector1_in,
+                                          double *vector2_out, double *vector2_in,
+                                          double tol, DDalphaAMG_status *mg_status )
+{
+  gmres_double_struct *p = g.mixed_precision==2?&(g.p_MP.dp):&(g.p);
+  set_n_flavours( 2 );
+  p->initial_guess_zero = 0;
+  DDalphaAMG_driver( vector1_out, vector1_in, vector2_out, vector2_in, tol, mg_status, _SOLVE );
+  p->initial_guess_zero = 1;
   set_n_flavours( 1 );
 }
 

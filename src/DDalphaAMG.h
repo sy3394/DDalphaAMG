@@ -152,6 +152,10 @@
                                  double *vector2_out, double *vector2_in,
                                  double tol, DDalphaAMG_status *mg_status );
 
+  void DDalphaAMG_solve_doublet_with_guess( double *vector1_out, double *vector1_in, 
+                                            double *vector2_out, double *vector2_in,
+                                            double tol, DDalphaAMG_status *mg_status );
+
   void DDalphaAMG_solve_ms_doublet( double **vector1_out, double *vector1_in, 
                                     double **vector2_out, double *vector2_in,
                                     double  *even_shifts, double *odd_shifts, int n_shifts,
