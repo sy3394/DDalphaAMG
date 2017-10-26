@@ -313,10 +313,10 @@
     int num_inner_lattice_sites;
     int num_boundary_sites[4];
     // complex d.o.f. in local volume + ghost shell = num_lattice_sites * num_lattice_site_var
-    int vector_size;
+    long int vector_size;
     // complex d.o.f. in local volume = num_inner_lattice_sites * num_lattice_site_var
-    int inner_vector_size;
-    int schwarz_vector_size;
+    long int inner_vector_size;
+    long int schwarz_vector_size;
     int D_size;
     int clover_size;
     // operator

@@ -28,7 +28,7 @@ void fgmres_MP_struct_init( gmres_MP_struct *p ) {
 }
 
 
-void fgmres_MP_struct_alloc( int m, int n, int vl, double tol, const int prec_kind, 
+void fgmres_MP_struct_alloc( int m, int n, long int vl, double tol, const int prec_kind, 
                              void (*precond)(), gmres_MP_struct *p, level_struct *l ) {
   long int total=0; 
   int i, k=0;

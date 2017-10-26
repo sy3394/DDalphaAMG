@@ -25,7 +25,7 @@
   struct Thread;
   
   void fgmres_PRECISION_struct_init( gmres_PRECISION_struct *p );
-  void fgmres_PRECISION_struct_alloc( int m, int n, int vl, PRECISION tol, const int type, const int prec_kind,
+  void fgmres_PRECISION_struct_alloc( int m, int n, long int vl, PRECISION tol, const int type, const int prec_kind,
                                       void (*precond)(), void (*eval_op)(), gmres_PRECISION_struct *p, level_struct* l );
   void fgmres_PRECISION_struct_free( gmres_PRECISION_struct *p, level_struct *l );
   
