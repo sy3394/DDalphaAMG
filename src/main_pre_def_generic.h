@@ -77,7 +77,8 @@
     operator_PRECISION_struct *op;
     PRECISION tol;
     int num_restart, restart_length, timing, print, kind,
-        initial_guess_zero, layout, v_start, v_end, total_storage;
+      initial_guess_zero, layout, v_start, v_end;
+    long int total_storage;
     void (*preconditioner)();
     void (*eval_operator)();
   } gmres_PRECISION_struct;
