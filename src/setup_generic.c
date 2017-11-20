@@ -203,25 +203,27 @@ void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct T
   if ( V == NULL ) {
     
     PUBLIC_MALLOC( buffer, complex_PRECISION*, 3 );
+    START_MASTER(threading)
     buffer[0] = NULL;
+    END_MASTER(threading)
     PUBLIC_MALLOC( buffer[0], complex_PRECISION, l->vector_size*3 );
     
+    START_MASTER(threading)
     for( i=1; i<3; i++)
       buffer[i] = buffer[0] + l->vector_size*i;
-    
-    START_MASTER(threading)
     if ( g.print > 0 ) printf0("initial definition --- depth: %d\n", l->depth );
 #ifdef DEBUG
     if ( g.print > 0 ) { printf0("\033[0;42m\033[1;37m|"); fflush(0); }
 #endif
     END_MASTER(threading)
     
+
     for ( k=0; k<n; k++ ) {
-      if ( l->depth == 0 ) {
+//       if ( l->depth == 0 ) {
         START_LOCKED_MASTER(threading)
         vector_PRECISION_define_random( l->is_PRECISION.test_vector[k], 0, l->inner_vector_size, l );
         END_LOCKED_MASTER(threading)
-      }
+//       }
       
       smoother_PRECISION( buffer[0], NULL, l->is_PRECISION.test_vector[k], 1, _NO_RES, l, threading );
       vector_PRECISION_copy( l->is_PRECISION.test_vector[k], buffer[0], start, end, l );
@@ -260,9 +262,12 @@ void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct T
   }
 
 #ifndef INTERPOLATION_SETUP_LAYOUT_OPTIMIZED_PRECISION
-  for ( k=0; k<n; k++ )
+  for ( k=0; k<n; k++ ) {
     vector_PRECISION_copy( l->is_PRECISION.interpolation[k], l->is_PRECISION.test_vector[k], start, end, l );
+  }
 #endif
+  
+  
     
   testvector_analysis_PRECISION( l->is_PRECISION.test_vector, l, threading );
 
@@ -328,6 +333,8 @@ void inv_iter_2lvl_extension_setup_PRECISION( int setup_iter, level_struct *l, s
   if ( !l->idle ) {
     vector_PRECISION buf1 = NULL;
     gmres_PRECISION_struct gmres;
+    
+    // TODO: bugfix - threading, etc
     
     START_LOCKED_MASTER(threading)
     MALLOC( buf1, complex_PRECISION, l->vector_size );
@@ -480,7 +487,9 @@ void inv_iter_inv_fcycle_PRECISION( int setup_iter, level_struct *l, struct Thre
       
       for ( int i=0; i<l->num_eig_vect; i++ ) {
         vcycle_PRECISION( l->p_PRECISION.x, NULL, l->is_PRECISION.test_vector[i], _NO_RES, l, threading );
+        
         test_vector_PRECISION_update( i, l, threading );
+        
         pc += l->post_smooth_iter;
 #ifdef DEBUG
         START_MASTER(threading)
