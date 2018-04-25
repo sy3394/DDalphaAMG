@@ -88,11 +88,11 @@ void DDalphaAMG_initialize( DDalphaAMG_init *mg_init, DDalphaAMG_parameters *mg_
    * BEGIN: setup_threading( ... );
    */
   no_threading = NULL;
-  no_threading = (struct Thread *)malloc(sizeof(struct Thread));
+  MALLOC( no_threading, struct Thread, 1);
   setup_no_threading(no_threading, &l);
 
   commonthreaddata = NULL;
-  commonthreaddata = (struct common_thread_data *)malloc(sizeof(struct common_thread_data));
+  MALLOC( commonthreaddata, struct common_thread_data, 1);
   init_common_thread_data(commonthreaddata);
 
   threading = NULL;
@@ -1789,8 +1789,8 @@ void DDalphaAMG_finalize( void ) {
   }
   FREE( threading, struct Thread *, g.num_openmp_processes);
 
-  free(no_threading);
-  free(commonthreaddata);
+  FREE( no_threading, struct Thread, 1);
+  FREE( commonthreaddata, struct common_thread_data, 1);
 
   if (g.setup_flag)
     method_free( &l );

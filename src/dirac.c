@@ -528,18 +528,18 @@ void SU3_storage_alloc( SU3_storage *U, level_struct *l ) {
   
   for (mu=0; mu<4; mu++)
     lsize[mu]=l->local_lattice[mu]+2;
-  
-  field = (complex_double*) malloc(sizeof(complex_double)*lsize[T]*lsize[Z]*lsize[Y]*lsize[X]*36);
 
-  (*U) = malloc( sizeof(complex_double******)*lsize[T] );
+  MALLOC( field, complex_double, lsize[T]*lsize[Z]*lsize[Y]*lsize[X]*36);
+
+  MALLOC( (*U), complex_double*****, lsize[T] );
   for (t=0; t<lsize[T]; t++) {
-    (*U)[t] = malloc( sizeof(complex_double*****)*lsize[Z] );
+    MALLOC( (*U)[t], complex_double****, lsize[Z] );
     for (z=0; z<lsize[Z]; z++) {
-      (*U)[t][z] = malloc( sizeof(complex_double****)*lsize[Y] );
+      MALLOC( (*U)[t][z], complex_double***, lsize[Y] );
       for (y=0; y<lsize[Y]; y++) {
-        (*U)[t][z][y] = malloc( sizeof(complex_double****)*lsize[X] );
+        MALLOC( (*U)[t][z][y], complex_double**, lsize[X] );
         for (x=0; x<lsize[X]; x++) {
-          (*U)[t][z][y][x] = malloc( sizeof(complex_double**)*4 );
+          MALLOC( (*U)[t][z][y][x], complex_double*, 4 );
           for (mu=0; mu<4; mu++) {
             (*U)[t][z][y][x][mu] = 
             &field[ t*lsize[Z]*lsize[Y]*lsize[X]*36
@@ -562,20 +562,20 @@ void SU3_storage_free( SU3_storage *U, level_struct *l ) {
   for (mu=0;mu<4; mu++)
     lsize[mu]=l->local_lattice[mu]+2;
 
-  free((*U)[0][0][0][0][0]);
+  FREE( (*U)[0][0][0][0][0], complex_double, lsize[T]*lsize[Z]*lsize[Y]*lsize[X]*36);
   for (t=0; t<lsize[T]; t++) {
     for (z=0; z<lsize[Z]; z++) {
       for (y=0; y<lsize[Y]; y++) {
         for (x=0; x<lsize[X]; x++) {
-          free((*U)[t][z][y][x]);
+          FREE( (*U)[t][z][y][x], complex_double*, 4 );
         }
-        free((*U)[t][z][y]);
+        FREE( (*U)[t][z][y], complex_double**, lsize[X] );
       }
-      free((*U)[t][z]);
+      FREE( (*U)[t][z], complex_double***, lsize[Y] );
     }
-    free((*U)[t]);
+    FREE( (*U)[t], complex_double****, lsize[Z] );
   }
-  free((*U));
+  FREE( (*U), complex_double*****, lsize[T] );
 }
 
 double calc_plaq( SU3_storage U, level_struct *l ) {
