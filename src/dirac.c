@@ -101,7 +101,7 @@ void dirac_setup( config_double hopp, level_struct *l ) {
 
   double t0, t1;
   int i, j, t, z, y, x, mu;
-  SU3_storage U;
+  SU3_storage U = NULL;
   complex_double phase[4];
   int *ll=l->local_lattice, onb[4];
   for (i=0; i<4; i++)
@@ -524,7 +524,7 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
 void SU3_storage_alloc( SU3_storage *U, level_struct *l ) {
 
   int t, z, y, x, mu, lsize[4];
-  complex_double *field;
+  complex_double *field = NULL;
   
   for (mu=0; mu<4; mu++)
     lsize[mu]=l->local_lattice[mu]+2;
@@ -533,12 +533,16 @@ void SU3_storage_alloc( SU3_storage *U, level_struct *l ) {
 
   MALLOC( (*U), complex_double*****, lsize[T] );
   for (t=0; t<lsize[T]; t++) {
+    (*U)[t] = NULL;
     MALLOC( (*U)[t], complex_double****, lsize[Z] );
     for (z=0; z<lsize[Z]; z++) {
+      (*U)[t][z] = NULL;
       MALLOC( (*U)[t][z], complex_double***, lsize[Y] );
       for (y=0; y<lsize[Y]; y++) {
+        (*U)[t][z][y] = NULL;
         MALLOC( (*U)[t][z][y], complex_double**, lsize[X] );
         for (x=0; x<lsize[X]; x++) {
+          (*U)[t][z][y][x] = NULL;
           MALLOC( (*U)[t][z][y][x], complex_double*, 4 );
           for (mu=0; mu<4; mu++) {
             (*U)[t][z][y][x][mu] = 

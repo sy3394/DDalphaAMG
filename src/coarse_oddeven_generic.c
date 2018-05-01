@@ -306,8 +306,7 @@ void coarse_diag_ee_PRECISION( vector_PRECISION y, vector_PRECISION x, operator_
 #endif
 }
 
-void coarse_diag_oo_PRECISION( vector_PRECISION y, vector_PRECISION x, operator_PRECISION_struct *op, 
-                               level_struct *l, struct Thread *threading ) {
+void coarse_diag_oo_PRECISION( vector_PRECISION y, vector_PRECISION x, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
   
   int start, end;
 #ifndef OPTIMIZED_COARSE_SELF_COUPLING_PRECISION 
@@ -438,8 +437,7 @@ void coarse_oddeven_PRECISION_set_couplings( level_struct *l, struct Thread *thr
 
 void coarse_oddeven_alloc_PRECISION( level_struct *l ) {
 
-  int n=l->num_inner_lattice_sites, nv = l->num_parent_eig_vect,
-    oe_offset=0, mu, nu, bs, **bt = NULL,
+  int nv = l->num_parent_eig_vect, oe_offset=0, mu, **bt = NULL,
     *eot = NULL, *nt = NULL, *tt = NULL, t, z, y, x, le[4], N[4];
   operator_PRECISION_struct *op = &(l->oe_op_PRECISION);
 

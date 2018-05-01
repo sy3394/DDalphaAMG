@@ -87,8 +87,7 @@ void DDalphaAMG_initialize( DDalphaAMG_init *mg_init, DDalphaAMG_parameters *mg_
   /*
    * BEGIN: setup_threading( ... );
    */
-  no_threading = NULL;
-  MALLOC( no_threading, struct Thread, 1);
+  no_threading = (struct Thread *)malloc(sizeof(struct Thread));
   setup_no_threading(no_threading, &l);
 
   commonthreaddata = NULL;
@@ -393,7 +392,7 @@ void DDalphaAMG_set_configuration( double *gauge_field, DDalphaAMG_status *mg_st
   
   int t, z, y, x, mu, i, j, k;
   double t0, t1;
-  SU3_storage U;
+  SU3_storage U=NULL;
   complex_double phase[4] = { _COMPLEX_double_ZERO, _COMPLEX_double_ZERO, _COMPLEX_double_ZERO, _COMPLEX_double_ZERO};
   int *ll=l.local_lattice, onb[4];
   for (i=0; i<4; i++)
@@ -609,7 +608,7 @@ static inline void correct_guess( vector_double guess, vector_double solution, v
   }  
 }
 
-static inline change_epsbar_shift_sign( ) {
+static inline void change_epsbar_shift_sign( ) {
   
 #ifdef HAVE_TM1p1  
   if ( g.epsbar_ig5_even_shift !=0 || g.epsbar_ig5_odd_shift !=0 ) {
@@ -667,8 +666,8 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
   complex_double twisted_bc, tmp1, tmp2;
   double phase[4] = {_COMPLEX_double_ZERO, _COMPLEX_double_ZERO, _COMPLEX_double_ZERO, _COMPLEX_double_ZERO}, vmin=1, vmax=EPS_float, vtmp, nrhs, nrhs2;
   gmres_double_struct *p = g.mixed_precision==2?&(g.p_MP.dp):&(g.p);
-  vector_double vb, rhs = p->b;
-  vector_double vx, sol = p->x;
+  vector_double vb=p->b, rhs = p->b;
+  vector_double vx=p->x, sol = p->x;
   DDalphaAMG_status tmp_status;
 
   double t0, t1;
@@ -1789,12 +1788,13 @@ void DDalphaAMG_finalize( void ) {
   }
   FREE( threading, struct Thread *, g.num_openmp_processes);
 
-  FREE( no_threading, struct Thread, 1);
   FREE( commonthreaddata, struct common_thread_data, 1);
 
   if (g.setup_flag)
     method_free( &l );
   method_finalize( &l );
+
+  free( no_threading );
   
 }
 

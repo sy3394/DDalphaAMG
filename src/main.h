@@ -429,6 +429,20 @@
     }
   }
 
+  static inline void warning( char* format, ... ) {
+    printf("\x1b[31mwarning, rank %d: ", g.my_rank);
+    va_list argpt;
+    va_start(argpt,format);
+    vprintf(format,argpt);
+#ifdef WRITE_LOGFILE
+    vfprintf(g.logfile,format,argpt);
+    fflush(g.logfile);
+#endif
+    va_end(argpt);
+    printf("\x1b[0m");
+    fflush(0);
+  }
+
   static inline void warning0( char* format, ... ) {
     if ( g.my_rank == 0 && g.print >= 0 ) {
       printf("\x1b[31mwarning: ");

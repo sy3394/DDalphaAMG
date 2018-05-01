@@ -527,7 +527,7 @@ void method_finalize( level_struct *l ) {
   var_table_free( &(g.vt) );
   
   if ( g.cur_storage )
-    warning0("amount of not freed memory/MPIproc: %lf MB\n", g.cur_storage );
+    warning("amount of not freed memory: %lf MB\n", g.cur_storage );
   
 #ifdef WRITE_LOGFILE
   fprintf(g.logfile,"---------- end of log file -----------\n\n");

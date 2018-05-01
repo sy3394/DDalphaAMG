@@ -45,6 +45,7 @@ void init_common_thread_data(struct common_thread_data *common)
 {
     common->barrier = &core_barrier;
     common->thread_barrier = &hyperthread_barrier;
+    common->workspace = NULL;
     MALLOC( common->workspace, char, 4*128*sizeof(double));
 }
 
@@ -101,6 +102,7 @@ void setup_no_threading(struct Thread *no_threading, struct level_struct *l)
     // no hyperthreading for now
     no_threading->thread = 0;
     no_threading->n_thread = 1;
+    no_threading->workspace = NULL;
 
     update_threading(no_threading, l);
 

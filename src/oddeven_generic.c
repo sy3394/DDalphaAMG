@@ -655,11 +655,13 @@ void oddeven_setup_PRECISION( operator_double_struct *in, level_struct *l ) {
     MALLOC( op->clover, complex_PRECISION, lu_dec_size*n );
     Aee = op->clover;
     Aoo = op->clover + op->num_even_sites*lu_dec_size;
+              /* TODO: fix the vectorized part
 #ifdef OPTIMIZED_SELF_COUPLING_PRECISION
     MALLOC_HUGEPAGES( op->clover_vectorized, PRECISION, l->num_inner_lattice_sites*2*2*36, 4*SIMD_LENGTH_PRECISION );
     PRECISION *Aee_vectorized = op->clover_vectorized;
     PRECISION *Aoo_vectorized = op->clover_vectorized + op->num_even_sites*2*2*36;
 #endif    
+              */
     for ( t=0; t<le[T]; t++ )
       for ( z=0; z<le[Z]; z++ )
         for ( y=0; y<le[Y]; y++ )
@@ -752,13 +754,15 @@ void oddeven_setup_PRECISION( operator_double_struct *in, level_struct *l ) {
   MALLOC( op->clover_doublet_oo_inv, complex_PRECISION, lu_doublet_dec_size*n );
   Aee = op->clover_doublet_oo_inv;
   Aoo = op->clover_doublet_oo_inv + op->num_even_sites*lu_doublet_dec_size;
+  /*
 #ifdef OPTIMIZED_SELF_COUPLING_PRECISION
   MALLOC_HUGEPAGES( op->clover_doublet_vectorized, PRECISION, l->num_inner_lattice_sites*2*4*36, 4*SIMD_LENGTH_PRECISION );
   MALLOC_HUGEPAGES( op->clover_doublet_oo_inv_vectorized, PRECISION, op->num_odd_sites*2*2*144, 4*SIMD_LENGTH_PRECISION );
   PRECISION *Aee_vectorized = op->clover_doublet_vectorized;
   PRECISION *Aoo_vectorized = op->clover_doublet_vectorized + op->num_even_sites*288;
   PRECISION *Aoo_inverse_vectorized = op->clover_doublet_oo_inv_vectorized;
-#endif    
+#endif
+  */
   for ( t=0; t<le[T]; t++ )
     for ( z=0; z<le[Z]; z++ )
       for ( y=0; y<le[Y]; y++ )

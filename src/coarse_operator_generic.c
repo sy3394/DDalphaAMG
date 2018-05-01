@@ -920,7 +920,6 @@ void coarse_operator_PRECISION_test_routine( level_struct *l, struct Thread *thr
     }
     START_LOCKED_MASTER(threading)
 
-      /*
     if ( l->level > 0 && l->depth > 0 && g.method == 3 && g.odd_even ) {
       vector_PRECISION_define_random( vp1, 0, ivs, l );
       block_to_oddeven_PRECISION( vp4, vp1, l, no_threading );
@@ -941,7 +940,7 @@ void coarse_operator_PRECISION_test_routine( level_struct *l, struct Thread *thr
       diff = global_norm_PRECISION( vp4, 0, ivs, l, no_threading ) / global_norm_PRECISION( vp2, 0, ivs, l, no_threading );
       test0_PRECISION("depth: %d, correctness of odd even preconditioned operator (smoother): %le\n", l->depth, diff );
     }
-      */
+
     FREE( vp1, complex_PRECISION, 4*vs );
     FREE( vc1, complex_PRECISION, 3*cvs );
     END_LOCKED_MASTER(threading)

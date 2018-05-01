@@ -54,5 +54,10 @@
   
   void coarse_odd_even_PRECISION_test( vector_PRECISION c4, vector_PRECISION c1,
                                        level_struct *l, struct Thread *threading );
+
+  void coarse_diag_ee_PRECISION( vector_PRECISION y, vector_PRECISION x, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
+
+  void coarse_diag_oo_PRECISION( vector_PRECISION y, vector_PRECISION x, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
+
   
 #endif
