@@ -344,6 +344,8 @@ int main( int argc, char *argv[] ) {
   DDalphaAMG_set_configuration( gauge_field, &status );
   printf0("Setting configuration time %.2f sec\n", status.time);
   printf0("Computed plaquette %.13lf\n", status.info);
+
+  free(gauge_field);
   
 
   printf0("Running setup\n");
@@ -413,9 +415,10 @@ int main( int argc, char *argv[] ) {
       break;
   }while(0);
   
-  //  free(vector_in);
-  // free(vector_out);
-  //free(gauge_field);
-  //  DDalphaAMG_finalize();
+  printf0("Freeing memory\n");
+  free(vector_in);
+  free(vector_out);
+  DDalphaAMG_finalize();
+  printf0("Freeing done\n");
   MPI_Finalize();
 }
