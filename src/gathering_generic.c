@@ -217,10 +217,10 @@ void gathering_PRECISION_free( gathering_PRECISION_struct *gs, level_struct *l )
 #else
     FREE( gs->buffer, complex_PRECISION, l->inner_vector_size );
 #endif
-    MPI_Comm_free( &(gs->level_comm) );
-    MPI_Group_free( &(gs->level_comm_group) );
   }
   
+  MPI_Comm_free( &(gs->level_comm) );
+  MPI_Group_free( &(gs->level_comm_group) );
 #ifdef HAVE_TM1p1
   FREE( gs->transfer_buffer, complex_PRECISION, 2 * gs->dist_inner_lattice_sites * l->num_lattice_site_var );
 #else

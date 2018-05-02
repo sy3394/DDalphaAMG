@@ -259,6 +259,7 @@ unsigned int initFile( char *filename, const int mode, level_struct *l ) {
     H5Pset_istore_k(fcpl_id, btree_ik);
   }
   H5Pset_fapl_mpio(fapl_id, g.comm_cart, info);
+  MPI_Info_free(&info);
 
   /* 
    * check if the file already exists:
