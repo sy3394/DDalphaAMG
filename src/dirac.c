@@ -434,13 +434,24 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
 * - SU3_storage *U: Current gauge matrix which sends and recieves ghost cells.
 *********************************************************************************/  
   
-  int i, j, t, z, y, x, mu, send_size, *ll = l->local_lattice, ls[4], le[4];
+  int t, z, y, x, mu, nu, *ll = l->local_lattice, ls[4], le[4];
+  long int i, j, send_size, max_size;
   vector_double buffer1 = NULL, buffer2 = NULL, buffer3 = NULL, buffer4 = NULL;
+
+  max_size = 0;
+  for ( mu=0; mu<4; mu++ ) {
+    send_size=36;
+    for ( nu=0; nu<4; nu++ ) {
+      if (nu < mu) send_size *= ll[nu]+2;
+      if (nu > mu) send_size *= ll[nu];
+    }
+    if (send_size > max_size) max_size = send_size;
+  }
   
-  MALLOC( buffer1, complex_double, 3*l->vector_size );
-  MALLOC( buffer2, complex_double, 3*l->vector_size );
-  MALLOC( buffer3, complex_double, 3*l->vector_size );
-  MALLOC( buffer4, complex_double, 3*l->vector_size );
+  MALLOC( buffer1, complex_double, max_size );
+  MALLOC( buffer2, complex_double, max_size );
+  MALLOC( buffer3, complex_double, max_size );
+  MALLOC( buffer4, complex_double, max_size );
   
   for ( mu=0; mu<4; mu++ ) {
     ls[mu] = 1;
@@ -458,8 +469,9 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
             j = 0;
             FOR36( buffer1[i] = *((*U)[t][z][y][x][0]+j); i++; j++; )
           }
-    send_size = i;
     le[mu] = ll[mu]+1;
+    send_size = i;
+    ASSERT(send_size<=max_size);
     MPI_Irecv( buffer3, send_size, MPI_COMPLEX_double, l->neighbor_rank[2*mu], 2*mu, g.comm_cart, &(g.rreqs[2*mu]) );
     MPI_Isend( buffer1, send_size, MPI_COMPLEX_double, l->neighbor_rank[2*mu+1], 2*mu, g.comm_cart, &(g.sreqs[2*mu]) );
     
@@ -473,8 +485,9 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
             j = 0;
             FOR36( buffer2[i] = *((*U)[t][z][y][x][0]+j); i++; j++; )
           }
-    send_size = i;
     ls[mu] = 1;
+    send_size = i;
+    ASSERT(send_size<=max_size);
     MPI_Irecv( buffer4, send_size, MPI_COMPLEX_double, l->neighbor_rank[2*mu+1], 2*mu+1, g.comm_cart, &(g.rreqs[2*mu+1]) );
     MPI_Isend( buffer2, send_size, MPI_COMPLEX_double, l->neighbor_rank[2*mu], 2*mu+1, g.comm_cart, &(g.sreqs[2*mu+1]) );
     
@@ -491,9 +504,10 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
             j = 0;
             FOR36( *((*U)[t][z][y][x][0]+j) = buffer3[i]; i++; j++; )
           }
-    send_size = i;
     le[mu] = ll[mu]+1;
     ls[mu] = 1;
+    send_size = i;
+    ASSERT(send_size<=max_size);
     
     // recv own negative boundary
     MPI_Wait( &(g.sreqs[2*mu+1]), MPI_STATUS_IGNORE );
@@ -508,22 +522,24 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
             j = 0;
             FOR36( *((*U)[t][z][y][x][0]+j) = buffer4[i]; i++; j++; )
           }
-    send_size = i;
-    // extend
+    // extending, we send also the corners
     le[mu] = ll[mu]+2;
     ls[mu] = 0;
+    send_size = i;
+    ASSERT(send_size<=max_size);
   }
   
-  FREE( buffer1, complex_double, 3*l->vector_size );
-  FREE( buffer2, complex_double, 3*l->vector_size );
-  FREE( buffer3, complex_double, 3*l->vector_size );
-  FREE( buffer4, complex_double, 3*l->vector_size );
+  FREE( buffer1, complex_double, max_size );
+  FREE( buffer2, complex_double, max_size );
+  FREE( buffer3, complex_double, max_size );
+  FREE( buffer4, complex_double, max_size );
 }
 
 
 void SU3_storage_alloc( SU3_storage *U, level_struct *l ) {
 
-  int t, z, y, x, mu, lsize[4];
+  int t, z, y, x, mu;
+  long int lsize[4];
   complex_double *field = NULL;
   
   for (mu=0; mu<4; mu++)
