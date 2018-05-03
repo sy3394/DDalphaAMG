@@ -101,7 +101,6 @@ void help( char * arg0 ) {
     printf0("   -V 1 [2] [3] Basis vectors between each level (l-1)\n");
     printf0("   -m 2 [3] [4] Factor for mu on coarse levels\n");
     printf0("   -s 1 [2] [3] Setup iterations on each level (l-1)\n");
-    printf0("   -S 1         Test additional setup iterations\n");
     printf0("   -v           Verbose\n");
   }
   printf0("\n\n");
@@ -277,9 +276,6 @@ void read_params_arg(int argc, char *argv[] ) {
 	mu++;        
       }
       break;
-    case 'S':
-      max_setup=atoi(optarg);
-      break;
     case 'v':
       params.print = 1;
       break;
@@ -316,6 +312,7 @@ int main( int argc, char *argv[] ) {
   DDalphaAMG_initialize( &init, &params, &status );
   printf0("Initialized %d levels in %.2f sec\n", status.success, status.time);
 
+  int nlvl = status.success;
   read_params_arg(argc, argv);
 
   comm_cart =  DDalphaAMG_get_communicator();
@@ -344,8 +341,6 @@ int main( int argc, char *argv[] ) {
   DDalphaAMG_set_configuration( gauge_field, &status );
   printf0("Setting configuration time %.2f sec\n", status.time);
   printf0("Computed plaquette %.13lf\n", status.info);
-
-  free(gauge_field);
   
 
   printf0("Running setup\n");
@@ -356,69 +351,62 @@ int main( int argc, char *argv[] ) {
   printf0("Total iterations on coarse grids %d\n", status.coarse_iter_count);
  
   /*
-   * Defining the vector randomly.
+   * Defining fine and coarse vector randomly.
    */
-  double *vector_in, *vector_out;
-  vector_in = (double *) malloc(24*vol*sizeof(double));
-  vector_out = (double *) malloc(24*vol*sizeof(double));
-  
-  DDalphaAMG_define_vector_rand(vector_in);
-  
-  do {
-    printf0("Running solver for up propagator\n");
-    DDalphaAMG_solve( vector_out, vector_in, residual, &status );
-    if (status.success)
-      printf0("Converged with final relative residual %e\n", status.info);
-    else
-      printf0("ERROR: not converged with final relative residual %e\n", status.info);
-    printf0("Solving time %.2f sec (%.1f %% on coarse grid)\n", status.time,
-	    100.*(status.coarse_time/status.time));
-    printf0("Total iterations on fine grid %d\n", status.iter_count);
-    printf0("Total iterations on coarse grids %d\n", status.coarse_iter_count);
-     
-    
-    if (params.mu != 0) {
-      // Changing mu to down.
-      DDalphaAMG_change_mu_sign(&status);
-      printf0("Changing mu time %.2f sec \n", status.time);
-      
-      printf0("Running solver for down propagator\n");
-      DDalphaAMG_solve( vector_out, vector_in, residual, &status );
-      if (status.success) {
-      printf0("Solving time %.2f sec (%.1f %% on coarse grid)\n", status.time,
-	      100.*(status.coarse_time/status.time));
-      printf0("Total iterations on fine grid %d\n", status.iter_count);
-      printf0("Total iterations on coarse grids %d\n", status.coarse_iter_count);
-      } 
-      else 
-	printf0("ERROR: not converged\n");
-      
-      DDalphaAMG_change_mu_sign(&status);
-      printf0("Changing mu time %.2f sec \n", status.time);
-    }
+  double *vector1[nlvl], *vector2[nlvl];
+  int vols[nlvl], vars[nlvl];
+  vols[0]=vol;
+  vars[0]=3*4*2;
 
-    if( params.setup_iterations[0]<max_setup){
-      if (params.mu != 0) {
-	DDalphaAMG_change_mu_sign(&status);
-	printf0("Changing mu time %.2f sec \n", status.time);
-      }
-      
-      params.setup_iterations[0]++;
-      printf0("Updating setup\n");
-      DDalphaAMG_update_setup( 1, &status );
-      printf0("Setup updated in %.2f sec (%.1f %% on coarse grid)\n",
-	      status.time, 100.*(status.coarse_time/status.time));
-      printf0("Total iterations on fine grid %d\n", status.iter_count);
-      printf0("Total iterations on coarse grids %d\n", status.coarse_iter_count);
-    }
-    else
-      break;
-  }while(0);
+  for ( int i=1; i<nlvl; i++ ) {
+    vols[i] = vols[i-1] / params.block_lattice[i-1][T] / params.block_lattice[i-1][X] / params.block_lattice[i-1][Y] / params.block_lattice[i-1][Z];
+    vars[i]=params.mg_basis_vectors[i-1]*2*2; // a factor of 2 is for the spin, the other for the complex
+  }
   
-  printf0("Freeing memory\n");
-  free(vector_in);
-  free(vector_out);
-  DDalphaAMG_finalize();
-  printf0("Freeing done\n");
+  for ( int i=0; i<nlvl; i++ ) {
+    vector1[i] = (double *) malloc(vars[i]*vols[i]*sizeof(double));
+    vector2[i] = (double *) malloc(vars[i]*vols[i]*sizeof(double));
+  }
+
+  for ( int i=0; i<nlvl; i++ )
+    for ( int j=0; j<vars[i]*vols[i]; j++ )
+      vector1[i][j] = ((double)rand()/(double)RAND_MAX)-0.5;
+
+
+  for ( int i=1; i<nlvl; i++ ) {
+    printf0("Testing RP=1 on level %d\n",i);
+    DDalphaAMG_prolongate(vector2[i-1], vector1[i], i-1, &status);
+    DDalphaAMG_restrict(vector2[i], vector2[i-1], i-1, &status);
+
+    double num=0, den=0;
+    for ( int j=0; j<vars[i]*vols[i]; j++ ) {
+      vector2[i][j] -= vector1[i][j];
+      num += vector2[i][j]*vector2[i][j];
+      den += vector1[i][j]*vector1[i][j];
+    }
+    printf0("Restult (1-RP)v = %e\n\n", num/den);
+  }
+
+  for ( int i=1; i<nlvl; i++ ) {
+    printf0("Testing coarse operator on level %d\n",i);
+    DDalphaAMG_prolongate(vector1[i-1], vector1[i], i-1, &status);
+    DDalphaAMG_apply_coarse_operator(vector2[i-1], vector1[i-1], i-1, &status);
+    DDalphaAMG_restrict(vector2[i], vector2[i-1], i-1, &status);
+
+    DDalphaAMG_apply_coarse_operator(vector1[i], vector1[i], i, &status);
+
+    double num=0, den=0;
+    for ( int j=0; j<vars[i]*vols[i]; j++ ) {
+      vector2[i][j] -= vector1[i][j];
+      num += vector2[i][j]*vector2[i][j];
+      den += vector1[i][j]*vector1[i][j];
+    }
+    printf0("Restult (D_c-RDP)v = %e\n\n", num/den);
+  }
+  
+  //  free(vector_in);
+  // free(vector_out);
+  //free(gauge_field);
+  //  DDalphaAMG_finalize();
   MPI_Finalize();
 }

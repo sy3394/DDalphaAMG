@@ -31,7 +31,9 @@ void no_hyperthread_barrier(void *barrier, int id)
 }
 void core_barrier(int core)
 {
+#ifdef OPENMP
 #pragma omp barrier
+#endif
 }
 void hyperthread_barrier(void *barrier, int hyperthead)
 {
@@ -43,7 +45,8 @@ void init_common_thread_data(struct common_thread_data *common)
 {
     common->barrier = &core_barrier;
     common->thread_barrier = &hyperthread_barrier;
-    common->workspace = (char *)malloc(4*128*sizeof(double));
+    common->workspace = NULL;
+    MALLOC( common->workspace, char, 4*128*sizeof(double));
 }
 
 
@@ -99,13 +102,14 @@ void setup_no_threading(struct Thread *no_threading, struct level_struct *l)
     // no hyperthreading for now
     no_threading->thread = 0;
     no_threading->n_thread = 1;
+    no_threading->workspace = NULL;
 
     update_threading(no_threading, l);
 
     no_threading->barrier = &no_barrier;
     no_threading->thread_barrier = &no_hyperthread_barrier;
     
-    no_threading->workspace = (char *)malloc(4*1024*sizeof(double));
+    MALLOC( no_threading->workspace, char, 4*1024*sizeof(double));
 }
 
 
@@ -159,10 +163,10 @@ void compute_core_start_end_custom(int start, int end, int *core_start, int *cor
 
 
 void finalize_common_thread_data( struct common_thread_data *common ) {
-  free(common->workspace);
+  FREE( common->workspace, char, 4*128*sizeof(double));
 }
 
 
 void finalize_no_threading( struct Thread *no_threading ) {
-  free(no_threading->workspace);
+  FREE( no_threading->workspace, char, 4*1024*sizeof(double));
 }

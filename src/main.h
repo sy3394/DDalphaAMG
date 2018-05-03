@@ -38,19 +38,21 @@
   #define EPS_float 1E-6
   #define EPS_double 1E-14
 
-  #define HAVE_TM // flag for enable twisted mass
+  #define HAVE_TM      // flag for enable twisted mass
+  #define HAVE_TM1p1   // flag for enable doublet for twisted mass
+
   #undef INIT_ONE_PREC // flag undef for enabling additional features in the lib
   
-  #define FOR2( e ) { e e }
-  #define FOR3( e ) { e e e }
-  #define FOR4( e ) { e e e e }
-  #define FOR10( e ) { e e e e e  e e e e e }
-  #define FOR20( e ) { e e e e e  e e e e e  e e e e e  e e e e e  }
-  #define FOR40( e ) { e e e e e  e e e e e  e e e e e  e e e e e  e e e e e  e e e e e  e e e e e  e e e e e }
+  #define FOR2( e )  { e e }
+  #define FOR3( e )  { e e e }
+  #define FOR4( e )  { e e e e }
   #define FOR6( e )  { e e e  e e e }
+  #define FOR10( e ) { e e e e e  e e e e e }
   #define FOR12( e ) { e e e  e e e  e e e  e e e }
-  #define FOR24( e ) { e e e  e e e  e e e  e e e  e e e  e e e  e e e  e e e }
+  #define FOR20( e ) { FOR10( e ) FOR10( e )  }
+  #define FOR24( e ) { FOR12( e ) FOR12( e ) }
   #define FOR36( e ) { FOR12( e ) FOR12( e ) FOR12( e ) }
+  #define FOR40( e ) { FOR20( e ) FOR20( e ) }
   #define FOR42( e ) { FOR36( e ) FOR6( e ) }
   
   #define SQUARE( e ) (e)*(e)
@@ -73,12 +75,14 @@
   #define cimag_float cimagf
   #define csqrt_double csqrt
   #define csqrt_float csqrtf
+  #define sqrt_double sqrt
+  #define sqrt_float sqrtf
   #define cpow_double cpow
   #define cpow_float cpowf
   #define pow_double pow
   #define pow_float powf
-  #define abs_float fabs
-  #define abs_double abs
+  #define abs_double fabs
+  #define abs_float fabsf
   
 #ifdef SSE
   #define MALLOC( variable, kind, length ) do{ if ( variable != NULL ) { \
@@ -185,7 +189,7 @@
   enum { _NO_DEFAULT_SET, _DEFAULT_SET };
   enum { _NO_REORDERING, _REORDER };
   enum { _ADD, _COPY };
-  enum { _ORDINARY, _SCHWARZ };
+  enum { _ORDINARY, _SCHWARZ, _ODDEVEN };
   enum { _RES, _NO_RES };
   enum { _STANDARD, _LIME }; //formats
   enum { _READ, _WRITE };
@@ -297,6 +301,7 @@
     int *local_lattice;
     int *block_lattice;
     int num_eig_vect;
+    int num_parent_eig_vect;
     int coarsening[4];
     int global_splitting[4];
     int periodic_bc[4];
@@ -319,13 +324,7 @@
     long int schwarz_vector_size;
     int D_size;
     int clover_size;
-    // operator
-    double real_shift;
-    complex_double dirac_shift, even_shift, odd_shift;
-#ifdef HAVE_TM
     int block_size;
-    complex_double tm_shift, tm_even_shift, tm_odd_shift;
-#endif
     // buffer vectors
     vector_float vbuf_float[9], sbuf_float[2];
     vector_double vbuf_double[9], sbuf_double[2];
@@ -369,15 +368,21 @@
     // profiling, analysis, output
     int coarse_iter_count, iter_count, iterator, print, conf_flag, setup_flag, in_setup;
     double coarse_time, prec_time, *output_table[8], cur_storage, max_storage, total_time,
-      plaq_hopp, plaq_clov, norm_res, plaq, setup_m0, solve_m0, bicgstab_tol, twisted_bc[4],
-      test;
+      plaq_hopp, plaq_clov, norm_res, plaq, bicgstab_tol, twisted_bc[4], test;
+
+    double m0, setup_m0;
 
 #ifdef HAVE_TM
     // twisted mass parameters
     int downprop;
-    double tm_mu, setup_tm_mu, tm_mu_odd_shift, tm_mu_even_shift, *tm_mu_factor;
+    double mu, setup_mu, mu_odd_shift, mu_even_shift, *mu_factor;
 #endif
-           
+
+#ifdef HAVE_TM1p1           
+    int n_flavours;
+    double epsbar, epsbar_ig5_odd_shift, epsbar_ig5_even_shift, *epsbar_factor;
+#endif
+
     // index functions for external usage
     int (*conf_index_fct)(), (*vector_index_fct)();
     int *odd_even_table;
@@ -422,6 +427,20 @@
       va_end(argpt);
       fflush(0);
     }
+  }
+
+  static inline void warning( char* format, ... ) {
+    printf("\x1b[31mwarning, rank %d: ", g.my_rank);
+    va_list argpt;
+    va_start(argpt,format);
+    vprintf(format,argpt);
+#ifdef WRITE_LOGFILE
+    vfprintf(g.logfile,format,argpt);
+    fflush(g.logfile);
+#endif
+    va_end(argpt);
+    printf("\x1b[0m");
+    fflush(0);
   }
 
   static inline void warning0( char* format, ... ) {
@@ -475,8 +494,6 @@
 #include "sse_linalg_double.h"
 #include "sse_interpolation_float.h"
 #include "sse_interpolation_double.h"
-#include "sse_schwarz_float.h"
-#include "sse_schwarz_double.h"
 #else
 //no intrinsics
 #include "interpolation_float.h"
