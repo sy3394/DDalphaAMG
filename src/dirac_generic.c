@@ -377,7 +377,7 @@ void d_plus_clover_PRECISION( vector_PRECISION eta, vector_PRECISION phi, operat
     dprp_PRECISION( prn, phi, start, end );
 #else
     complex_PRECISION pbuf[12];  
-    for ( i=start/2, phi_pt=phi+start; i<end/2; i+=12, phi_pt+=24 ) {
+    for ( i=start/2, phi_pt=phi+start; i<end/2; i+=nv/2, phi_pt+=nv ) {
       dprp_T_PRECISION( op->prnT+i, phi_pt );
       dprp_Z_PRECISION( op->prnZ+i, phi_pt );
       dprp_Y_PRECISION( op->prnY+i, phi_pt );
@@ -396,30 +396,30 @@ void d_plus_clover_PRECISION( vector_PRECISION eta, vector_PRECISION phi, operat
     dprn_su3_PRECISION( prp, phi, op, neighbor, start, end );
 #else
     // project plus dir and multiply with U dagger
-    for ( phi_pt=phi+start, end_pt=phi+end, D_pt = op->D+((start/nv)*36), nb_pt=neighbor+((start/nv)*4); phi_pt<end_pt; phi_pt+=24 ) {
+    for ( phi_pt=phi+start, end_pt=phi+end, D_pt = op->D+((start/nv)*36), nb_pt=neighbor+((start/nv)*4); phi_pt<end_pt; phi_pt+=nv ) {
       // T dir
-      j = 12*(*nb_pt); nb_pt++;
+      j = nv/2*(*nb_pt); nb_pt++;
       dprn_T_PRECISION( pbuf, phi_pt );
       mvmh_PRECISION( op->prpT+j, D_pt, pbuf );
       mvmh_PRECISION( op->prpT+j+3, D_pt, pbuf+3 );
       mvmh_PRECISION( op->prpT+j+6, D_pt, pbuf+6 );
       mvmh_PRECISION( op->prpT+j+9, D_pt, pbuf+9 ); D_pt += 9;
       // Z dir
-      j = 12*(*nb_pt); nb_pt++;
+      j = nv/2*(*nb_pt); nb_pt++;
       dprn_Z_PRECISION( pbuf, phi_pt );
       mvmh_PRECISION( op->prpZ+j, D_pt, pbuf );
       mvmh_PRECISION( op->prpZ+j+3, D_pt, pbuf+3 );
       mvmh_PRECISION( op->prpZ+j+6, D_pt, pbuf+6 );
       mvmh_PRECISION( op->prpZ+j+9, D_pt, pbuf+9 ); D_pt += 9;
       // Y dir
-      j = 12*(*nb_pt); nb_pt++;
+      j = nv/2*(*nb_pt); nb_pt++;
       dprn_Y_PRECISION( pbuf, phi_pt );
       mvmh_PRECISION( op->prpY+j, D_pt, pbuf );
       mvmh_PRECISION( op->prpY+j+3, D_pt, pbuf+3 );
       mvmh_PRECISION( op->prpY+j+6, D_pt, pbuf+6 );
       mvmh_PRECISION( op->prpY+j+9, D_pt, pbuf+9 ); D_pt += 9;
       // X dir
-      j = 12*(*nb_pt); nb_pt++;
+      j = nv/2*(*nb_pt); nb_pt++;
       dprn_X_PRECISION( pbuf, phi_pt );
       mvmh_PRECISION( op->prpX+j, D_pt, pbuf );
       mvmh_PRECISION( op->prpX+j+3, D_pt, pbuf+3 );
@@ -445,30 +445,30 @@ void d_plus_clover_PRECISION( vector_PRECISION eta, vector_PRECISION phi, operat
     su3_dpbp_PRECISION( eta, prn, op, neighbor, start, end );
 #else 
     // multiply with U and lift up minus dir
-    for ( eta_pt=eta+start, end_pt=eta+end, D_pt = op->D+(start/nv)*36, nb_pt=neighbor+(start/nv)*4; eta_pt<end_pt; eta_pt+=24 ) {
+    for ( eta_pt=eta+start, end_pt=eta+end, D_pt = op->D+(start/nv)*36, nb_pt=neighbor+(start/nv)*4; eta_pt<end_pt; eta_pt+=nv ) {
       // T dir
-      j = 12*(*nb_pt); nb_pt++;
+      j = nv/2*(*nb_pt); nb_pt++;
       mvm_PRECISION( pbuf, D_pt, op->prnT+j );
       mvm_PRECISION( pbuf+3, D_pt, op->prnT+j+3 );
       mvm_PRECISION( pbuf+6, D_pt, op->prnT+j+6 );
       mvm_PRECISION( pbuf+9, D_pt, op->prnT+j+9 );
       dpbp_su3_T_PRECISION( pbuf, eta_pt ); D_pt += 9;
       // Z dir
-      j = 12*(*nb_pt); nb_pt++;
+      j = nv/2*(*nb_pt); nb_pt++;
       mvm_PRECISION( pbuf, D_pt, op->prnZ+j );
       mvm_PRECISION( pbuf+3, D_pt, op->prnZ+j+3 );
       mvm_PRECISION( pbuf+6, D_pt, op->prnZ+j+6 );
       mvm_PRECISION( pbuf+9, D_pt, op->prnZ+j+9 );
       dpbp_su3_Z_PRECISION( pbuf, eta_pt ); D_pt += 9;
       // Y dir
-      j = 12*(*nb_pt); nb_pt++;
+      j = nv/2*(*nb_pt); nb_pt++;
       mvm_PRECISION( pbuf, D_pt, op->prnY+j );
       mvm_PRECISION( pbuf+3, D_pt, op->prnY+j+3 );
       mvm_PRECISION( pbuf+6, D_pt, op->prnY+j+6 );
       mvm_PRECISION( pbuf+9, D_pt, op->prnY+j+9 );
       dpbp_su3_Y_PRECISION( pbuf, eta_pt ); D_pt += 9;
       // X dir
-      j = 12*(*nb_pt); nb_pt++;
+      j = nv/2*(*nb_pt); nb_pt++;
       mvm_PRECISION( pbuf, D_pt, op->prnX+j );
       mvm_PRECISION( pbuf+3, D_pt, op->prnX+j+3 );
       mvm_PRECISION( pbuf+6, D_pt, op->prnX+j+6 );
@@ -1474,7 +1474,6 @@ void two_flavours_test_PRECISION( operator_PRECISION_struct *op, level_struct *l
   vpp2 = vpp1 + 2*ivs;
   
   START_LOCKED_MASTER(threading)
-
   vector_double_define_random( vd1, 0, l->inner_vector_size, l );
   vector_double_define_random( vd2, 0, l->inner_vector_size, l );
   apply_operator_double( vd3, vd1, &(g.p), l, no_threading );
@@ -1490,9 +1489,11 @@ void two_flavours_test_PRECISION( operator_PRECISION_struct *op, level_struct *l
 
   two_flavours_to_serial_double( vd1, vd2, vdd1, l, no_threading );
   two_flavours_to_serial_double( vd3, vd4, vdd2, l, no_threading );
+  END_LOCKED_MASTER(threading)
 
   data_layout_n_flavours( 2, l, threading );
 
+  START_LOCKED_MASTER(threading)
   trans_PRECISION( vpp1, vdd1, op->translation_table, l, no_threading );
   apply_operator_PRECISION( vpp2, vpp1, &(l->p_PRECISION), l, no_threading );
   trans_back_PRECISION( vdd3, vpp2, op->translation_table, l, no_threading );
