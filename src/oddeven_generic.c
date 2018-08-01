@@ -426,10 +426,9 @@ void diag_ee_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_PRECI
 #ifdef HAVE_TM1p1
   if( g.n_flavours == 2) {
 #ifdef OPTIMIZED_SELF_COUPLING_PRECISION
-    x->vector_buffer += start; y->vector_buffer += start;
     PRECISION *sc_pt = op->clover_doublet_vectorized + (start/24)*288;
-    PRECISION *x_pt = (PRECISION*)x->vector_buffer;
-    PRECISION *y_pt = (PRECISION*)y->vector_buffer;
+    PRECISION *x_pt = (PRECISION*) (x->vector_buffer+start);
+    PRECISION *y_pt = (PRECISION*) (y->vector_buffer+start);
     for ( int i=start; i<end; i+=24 ) {
       sse_site_clover_PRECISION( y_pt, x_pt, sc_pt );
       y_pt+=2*24; x_pt+=2*24; sc_pt+=288;
@@ -445,10 +444,9 @@ void diag_ee_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_PRECI
 #endif
     if ( g.csw ) {
 #ifdef OPTIMIZED_SELF_COUPLING_PRECISION
-      x->vector_buffer += start; y->vector_buffer += start;
       PRECISION *sc_pt = op->clover_vectorized + (start/12)*144;
-      PRECISION *x_pt = (PRECISION*)x->vector_buffer;
-      PRECISION *y_pt = (PRECISION*)y->vector_buffer;
+      PRECISION *x_pt = (PRECISION*) (x->vector_buffer+start);
+      PRECISION *y_pt = (PRECISION*) (y->vector_buffer+start);
       for ( int i=start; i<end; i+=12 ) {
         sse_site_clover_PRECISION( y_pt, x_pt, sc_pt );
         y_pt+=2*12; x_pt+=2*12; sc_pt+=144;
@@ -548,10 +546,9 @@ void diag_oo_inv_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_P
   if( g.n_flavours == 2) {
     // inverse diagonal blocks applied to the odd sites
 #ifdef OPTIMIZED_SELF_COUPLING_PRECISION
-    x->vector_buffer += start; y->vector_buffer += start;
     PRECISION *sc_pt = op->clover_doublet_oo_inv_vectorized + (start/24)*2*288;
-    PRECISION *x_pt = (PRECISION*)x->vector_buffer;
-    PRECISION *y_pt = (PRECISION*)y->vector_buffer;
+    PRECISION *x_pt = (PRECISION*) (x->vector_buffer+start);
+    PRECISION *y_pt = (PRECISION*) (y->vector_buffer+start);
     for ( int i=start; i<end; i+=24 ) {
       sse_site_clover_doublet_PRECISION( y_pt, x_pt, sc_pt );
       y_pt+=2*24; x_pt+=2*24; sc_pt+=2*288;
@@ -564,10 +561,9 @@ void diag_oo_inv_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_P
     // inverse diagonal blocks applied to the odd sites
     if ( g.csw ) {
 #ifdef OPTIMIZED_SELF_COUPLING_PRECISION
-      x->vector_buffer += start; y->vector_buffer += start;
       PRECISION *sc_pt = op->clover_vectorized + 2*2*(3*start);
-      PRECISION *x_pt = (PRECISION*)x->vector_buffer;
-      PRECISION *y_pt = (PRECISION*)y->vector_buffer;
+      PRECISION *x_pt = (PRECISION*) (x->vector_buffer+start);
+      PRECISION *y_pt = (PRECISION*) (y->vector_buffer+start);
       for ( int i=start; i<end; i+=12 ) {
         sse_site_clover_PRECISION( y_pt, x_pt, sc_pt );
         y_pt+=2*12; x_pt+=2*12; sc_pt+=2*2*36;
@@ -1446,7 +1442,7 @@ void g5_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, int 
   } else {
     for ( int i = start; i < end; ) {
       FOR6( eta->vector_buffer[i] = phi->vector_buffer[i]; i++; )
-      eta->vector_buffer+=6; phi->vector_buffer+=6;
+      i+=6;
     }
   }
 }
@@ -1460,7 +1456,7 @@ void minus_g5_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start
     }
   } else {
     for ( int i = start; i < end;  ) {
-      eta->vector_buffer+=6; phi->vector_buffer+=6;
+      i+=6;
       FOR6( eta->vector_buffer[i] = -phi->vector_buffer[i]; i++; )
     }
   }

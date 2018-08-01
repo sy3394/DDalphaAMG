@@ -327,7 +327,7 @@ void coarse_diag_oo_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operato
   sc += oo_inv_size*start;
 
   for ( int i=start; i<end; i++ ) {
-    coarse_LU_multiply_PRECISION( y, x, sc, l );
+    coarse_LU_multiply_PRECISION( &y_pt, &x_pt, sc, l );
     x_pt.vector_buffer += num_site_var;
     y_pt.vector_buffer += num_site_var;
     sc += oo_inv_size;
