@@ -365,6 +365,7 @@
   
     int num_eig_vect = l->num_parent_eig_vect,
         num_eig_vect2 = SQUARE(l->num_parent_eig_vect);
+    buffer_PRECISION phi_pt=phi->vector_buffer, eta_pt=eta->vector_buffer;
     // U_mu(x) = [ A B      , U_-mu(x+muhat) = [ A* -C*
     //             C D ]                        -B*  D* ]
     // storage order: A, C, B, D
@@ -373,51 +374,51 @@
 #ifdef HAVE_TM1p1
     if( g.n_flavours == 2 ) {
       // A  
-      nmv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//1
-      phi->vector_buffer += num_eig_vect;//1
-      nmv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//1
+      phi_pt += num_eig_vect;//1
+      nmv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // C
-      eta->vector_buffer += num_eig_vect;//2
-      phi->vector_buffer -= num_eig_vect;//0
+      eta_pt += num_eig_vect;//2
+      phi_pt -= num_eig_vect;//0
       D += num_eig_vect2;
-      nmv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//3
-      phi->vector_buffer += num_eig_vect;//1
-      nmv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//3
+      phi_pt += num_eig_vect;//1
+      nmv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // B
-      eta->vector_buffer -= 3*num_eig_vect;//0
-      phi->vector_buffer += num_eig_vect;//2
+      eta_pt -= 3*num_eig_vect;//0
+      phi_pt += num_eig_vect;//2
       D += num_eig_vect2;
-      nmv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//1
-      phi->vector_buffer += num_eig_vect;//3
-      nmv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//1
+      phi_pt += num_eig_vect;//3
+      nmv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // D
-      eta->vector_buffer += num_eig_vect;//2
-      phi->vector_buffer -= num_eig_vect;//2
+      eta_pt += num_eig_vect;//2
+      phi_pt -= num_eig_vect;//2
       D += num_eig_vect2;
-      nmv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//3
-      phi->vector_buffer += num_eig_vect;//3
-      nmv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//3
+      phi_pt += num_eig_vect;//3
+      nmv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
     } else {
 #endif
       // A  
-      nmv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // C
-      eta->vector_buffer += num_eig_vect;
+      eta_pt += num_eig_vect;
       D += num_eig_vect2;
-      nmv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // B
-      phi->vector_buffer += num_eig_vect;
-      eta->vector_buffer -= num_eig_vect;
+      phi_pt += num_eig_vect;
+      eta_pt -= num_eig_vect;
       D += num_eig_vect2;
-      nmv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // D
-      eta->vector_buffer += num_eig_vect;
+      eta_pt += num_eig_vect;
       D += num_eig_vect2;
-      nmv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
 #ifdef HAVE_TM1p1
     }
 #endif
@@ -429,6 +430,7 @@
     
     int num_eig_vect = l->num_parent_eig_vect,
         num_eig_vect2 = SQUARE(l->num_parent_eig_vect);
+    buffer_PRECISION phi_pt=phi->vector_buffer, eta_pt=eta->vector_buffer;
     // U_mu(x) = [ A B      , U_-mu(x+muhat) = [ A* -C*
     //             C D ]                        -B*  D* ]
     // storage order: A, C, B, D
@@ -437,51 +439,51 @@
 #ifdef HAVE_TM1p1
     if( g.n_flavours == 2 ) {
       // A* 
-      nmvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//1
-      phi->vector_buffer += num_eig_vect;//1
-      nmvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//1
+      phi_pt += num_eig_vect;//1
+      nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // -C*
-      eta->vector_buffer -= num_eig_vect;//0
-      phi->vector_buffer += num_eig_vect;//2
+      eta_pt -= num_eig_vect;//0
+      phi_pt += num_eig_vect;//2
       D += num_eig_vect2;
-      mvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//1
-      phi->vector_buffer += num_eig_vect;//3
-      mvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//1
+      phi_pt += num_eig_vect;//3
+      mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // -B*
-      eta->vector_buffer += num_eig_vect;//2
-      phi->vector_buffer -= 3*num_eig_vect;//0
+      eta_pt += num_eig_vect;//2
+      phi_pt -= 3*num_eig_vect;//0
       D += num_eig_vect2;
-      mvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//3
-      phi->vector_buffer += num_eig_vect;//1
-      mvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//3
+      phi_pt += num_eig_vect;//1
+      mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // D*
-      eta->vector_buffer -= num_eig_vect;//2
-      phi->vector_buffer += num_eig_vect;//2
+      eta_pt -= num_eig_vect;//2
+      phi_pt += num_eig_vect;//2
       D += num_eig_vect2;
-      nmvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//3
-      phi->vector_buffer += num_eig_vect;//3
-      nmvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//3
+      phi_pt += num_eig_vect;//3
+      nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
     } else {
 #endif
       // A* 
-      nmvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // -C*
-      phi->vector_buffer += num_eig_vect;
+      phi_pt += num_eig_vect;
       D += num_eig_vect2;
-      mvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // -B*
-      eta->vector_buffer += num_eig_vect;
-      phi->vector_buffer -= num_eig_vect;
+      eta_pt += num_eig_vect;
+      phi_pt -= num_eig_vect;
       D += num_eig_vect2;
-      mvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // D*
-      phi->vector_buffer += num_eig_vect;
+      phi_pt += num_eig_vect;
       D += num_eig_vect2;
-      nmvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
 #ifdef HAVE_TM1p1
     }
 #endif
@@ -492,6 +494,7 @@
   
     int num_eig_vect = l->num_parent_eig_vect,
         num_eig_vect2 = SQUARE(l->num_parent_eig_vect);
+    buffer_PRECISION phi_pt=phi->vector_buffer, eta_pt=eta->vector_buffer;
     // U_mu(x) = [ A B      , U_-mu(x+muhat) = [ A* -C*
     //             C D ]                        -B*  D* ]
     // storage order: A, C, B, D
@@ -500,51 +503,51 @@
 #ifdef HAVE_TM1p1
     if( g.n_flavours == 2 ) {
       // A  
-      mv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//1
-      phi->vector_buffer += num_eig_vect;//1
-      mv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//1
+      phi_pt += num_eig_vect;//1
+      mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // C
-      eta->vector_buffer += num_eig_vect;//2
-      phi->vector_buffer -= num_eig_vect;//0
+      eta_pt += num_eig_vect;//2
+      phi_pt -= num_eig_vect;//0
       D += num_eig_vect2;
-      mv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//3
-      phi->vector_buffer += num_eig_vect;//1
-      mv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//3
+      phi_pt += num_eig_vect;//1
+      mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // B
-      eta->vector_buffer -= 3*num_eig_vect;//0
-      phi->vector_buffer += num_eig_vect;//2
+      eta_pt -= 3*num_eig_vect;//0
+      phi_pt += num_eig_vect;//2
       D += num_eig_vect2;
-      mv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//1
-      phi->vector_buffer += num_eig_vect;//3
-      mv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//1
+      phi_pt += num_eig_vect;//3
+      mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // D
-      eta->vector_buffer += num_eig_vect;//2
-      phi->vector_buffer -= num_eig_vect;//2
+      eta_pt += num_eig_vect;//2
+      phi_pt -= num_eig_vect;//2
       D += num_eig_vect2;
-      mv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//3
-      phi->vector_buffer += num_eig_vect;//3
-      mv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//3
+      phi_pt += num_eig_vect;//3
+      mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
     } else {
 #endif
       // A  
-      mv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // C
-      eta->vector_buffer += num_eig_vect;
+      eta_pt += num_eig_vect;
       D += num_eig_vect2;
-      mv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // B
-      phi->vector_buffer += num_eig_vect;
-      eta->vector_buffer -= num_eig_vect;
+      phi_pt += num_eig_vect;
+      eta_pt -= num_eig_vect;
       D += num_eig_vect2;
-      mv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // D
-      eta->vector_buffer += num_eig_vect;
+      eta_pt += num_eig_vect;
       D += num_eig_vect2;
-      mv_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
 #ifdef HAVE_TM1p1
     }
 #endif
@@ -555,6 +558,7 @@
     
     int num_eig_vect = l->num_parent_eig_vect,
         num_eig_vect2 = SQUARE(l->num_parent_eig_vect);
+    buffer_PRECISION phi_pt=phi->vector_buffer, eta_pt=eta->vector_buffer;
     // U_mu(x) = [ A B      , U_-mu(x+muhat) = [ A* -C*
     //             C D ]                        -B*  D* ]
     // storage order: A, C, B, D
@@ -563,51 +567,51 @@
 #ifdef HAVE_TM1p1
     if( g.n_flavours == 2 ) {
       // A* 
-      mvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//1
-      phi->vector_buffer += num_eig_vect;//1
-      mvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//1
+      phi_pt += num_eig_vect;//1
+      mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // -C*
-      eta->vector_buffer -= num_eig_vect;//0
-      phi->vector_buffer += num_eig_vect;//2
+      eta_pt -= num_eig_vect;//0
+      phi_pt += num_eig_vect;//2
       D += num_eig_vect2;
-      nmvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//1
-      phi->vector_buffer += num_eig_vect;//3
-      nmvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//1
+      phi_pt += num_eig_vect;//3
+      nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // -B*
-      eta->vector_buffer += num_eig_vect;//2
-      phi->vector_buffer -= 3*num_eig_vect;//0
+      eta_pt += num_eig_vect;//2
+      phi_pt -= 3*num_eig_vect;//0
       D += num_eig_vect2;
-      nmvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//3
-      phi->vector_buffer += num_eig_vect;//1
-      nmvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//3
+      phi_pt += num_eig_vect;//1
+      nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // D*
-      eta->vector_buffer -= num_eig_vect;//2
-      phi->vector_buffer += num_eig_vect;//2
+      eta_pt -= num_eig_vect;//2
+      phi_pt += num_eig_vect;//2
       D += num_eig_vect2;
-      mvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
-      eta->vector_buffer += num_eig_vect;//3
-      phi->vector_buffer += num_eig_vect;//3
-      mvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
+      eta_pt += num_eig_vect;//3
+      phi_pt += num_eig_vect;//3
+      mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
     } else {
 #endif
       // A* 
-      mvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // -C*
-      phi->vector_buffer += num_eig_vect;
+      phi_pt += num_eig_vect;
       D += num_eig_vect2;
-      nmvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // -B*
-      eta->vector_buffer += num_eig_vect;
-      phi->vector_buffer -= num_eig_vect;
+      eta_pt += num_eig_vect;
+      phi_pt -= num_eig_vect;
       D += num_eig_vect2;
-      nmvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
       // D*
-      phi->vector_buffer += num_eig_vect;
+      phi_pt += num_eig_vect;
       D += num_eig_vect2;
-      mvh_PRECISION( eta->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+      mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
 #ifdef HAVE_TM1p1
     }
 #endif
@@ -618,25 +622,26 @@
     
     int num_eig_vect = l->num_parent_eig_vect,
         num_eig_vect2 = SQUARE(l->num_parent_eig_vect);
+    buffer_PRECISION phi_pt=phi->vector_buffer, eta1_pt=eta1->vector_buffer, eta2_pt=eta2->vector_buffer;
     // U_mu(x) = [ A B      , U_-mu(x+muhat) = [ A* -C*
     //             C D ]                        -B*  D* ]
     // storage order: A, C, B, D
     // note: minus sign of D = self_coupling - hopping_term is added here
 
     // A  
-    mv_PRECISION( eta1->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    mv_PRECISION( eta1_pt, D, phi_pt, num_eig_vect );
     // C
-    eta1->vector_buffer += num_eig_vect;
+    eta1_pt += num_eig_vect;
     D += num_eig_vect2;
-    mv_PRECISION( eta1->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    mv_PRECISION( eta1_pt, D, phi_pt, num_eig_vect );
     // B
-    phi->vector_buffer += num_eig_vect;
+    phi_pt += num_eig_vect;
     D += num_eig_vect2;
-    mv_PRECISION( eta2->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    mv_PRECISION( eta2_pt, D, phi_pt, num_eig_vect );
     // D
-    eta2->vector_buffer += num_eig_vect;
+    eta2_pt += num_eig_vect;
     D += num_eig_vect2;
-    mv_PRECISION( eta2->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    mv_PRECISION( eta2_pt, D, phi_pt, num_eig_vect );
   }
 
 
@@ -644,28 +649,29 @@
                                                               vector_PRECISION *phi, config_PRECISION D, level_struct *l ) {
     
     int num_eig_vect = l->num_parent_eig_vect,
-        num_eig_vect2 = SQUARE(l->num_parent_eig_vect);  
+        num_eig_vect2 = SQUARE(l->num_parent_eig_vect);
+    buffer_PRECISION phi_pt=phi->vector_buffer, eta1_pt=eta1->vector_buffer, eta2_pt=eta2->vector_buffer;  
     // U_mu(x) = [ A B      , U_-mu(x+muhat) = [ A* -C*
     //             C D ]                        -B*  D* ]
     // storage order: A, C, B, D
     // note: minus sign of D = self_coupling - hopping_term is added here
 
     // A* 
-    mvh_PRECISION( eta1->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    mvh_PRECISION( eta1_pt, D, phi_pt, num_eig_vect );
     // -C*
-    phi->vector_buffer += num_eig_vect;
+    phi_pt += num_eig_vect;
     D += num_eig_vect2;
-    nmvh_PRECISION( eta2->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    nmvh_PRECISION( eta2_pt, D, phi_pt, num_eig_vect );
     // -B*
-    eta1->vector_buffer += num_eig_vect;
-    phi->vector_buffer -= num_eig_vect;
+    eta1_pt += num_eig_vect;
+    phi_pt -= num_eig_vect;
     D += num_eig_vect2;
-    nmvh_PRECISION( eta1->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    nmvh_PRECISION( eta1_pt, D, phi_pt, num_eig_vect );
     // D*
-    eta2->vector_buffer += num_eig_vect;
-    phi->vector_buffer += num_eig_vect;
+    eta2_pt += num_eig_vect;
+    phi_pt += num_eig_vect;
     D += num_eig_vect2;
-    mvh_PRECISION( eta2->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    mvh_PRECISION( eta2_pt, D, phi_pt, num_eig_vect );
   }
 
   static inline void coarse_spinwise_n_hopp_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2,
@@ -673,25 +679,26 @@
     
     int num_eig_vect = l->num_parent_eig_vect,
         num_eig_vect2 = SQUARE(l->num_parent_eig_vect);
+    buffer_PRECISION phi_pt=phi->vector_buffer, eta1_pt=eta1->vector_buffer, eta2_pt=eta2->vector_buffer;
     // U_mu(x) = [ A B      , U_-mu(x+muhat) = [ A* -C*
     //             C D ]                        -B*  D* ]
     // storage order: A, C, B, D
     // note: minus sign of D = self_coupling - hopping_term is added here
 
     // A  
-    nmv_PRECISION( eta1->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    nmv_PRECISION( eta1_pt, D, phi_pt, num_eig_vect );
     // C
-    eta1->vector_buffer += num_eig_vect;
+    eta1_pt += num_eig_vect;
     D += num_eig_vect2;
-    nmv_PRECISION( eta1->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    nmv_PRECISION( eta1_pt, D, phi_pt, num_eig_vect );
     // B
-    phi->vector_buffer += num_eig_vect;
+    phi_pt += num_eig_vect;
     D += num_eig_vect2;
-    nmv_PRECISION( eta2->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    nmv_PRECISION( eta2_pt, D, phi_pt, num_eig_vect );
     // D
-    eta2->vector_buffer += num_eig_vect;
+    eta2_pt += num_eig_vect;
     D += num_eig_vect2;
-    nmv_PRECISION( eta2->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    nmv_PRECISION( eta2_pt, D, phi_pt, num_eig_vect );
   }
 
 
@@ -699,28 +706,29 @@
                                                                 vector_PRECISION *phi, config_PRECISION D, level_struct *l ) {
     
     int num_eig_vect = l->num_parent_eig_vect,
-        num_eig_vect2 = SQUARE(l->num_parent_eig_vect);  
+        num_eig_vect2 = SQUARE(l->num_parent_eig_vect);
+    buffer_PRECISION phi_pt=phi->vector_buffer, eta1_pt=eta1->vector_buffer, eta2_pt=eta2->vector_buffer;  
     // U_mu(x) = [ A B      , U_-mu(x+muhat) = [ A* -C*
     //             C D ]                        -B*  D* ]
     // storage order: A, C, B, D
     // note: minus sign of D = self_coupling - hopping_term is added here
 
     // A* 
-    nmvh_PRECISION( eta1->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    nmvh_PRECISION( eta1_pt, D, phi_pt, num_eig_vect );
     // -C*
-    phi->vector_buffer += num_eig_vect;
+    phi_pt += num_eig_vect;
     D += num_eig_vect2;
-    mvh_PRECISION( eta2->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    mvh_PRECISION( eta2_pt, D, phi_pt, num_eig_vect );
     // -B*
-    eta1->vector_buffer += num_eig_vect;
-    phi->vector_buffer -= num_eig_vect;
+    eta1_pt += num_eig_vect;
+    phi_pt -= num_eig_vect;
     D += num_eig_vect2;
-    mvh_PRECISION( eta1->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    mvh_PRECISION( eta1_pt, D, phi_pt, num_eig_vect );
     // D*
-    eta2->vector_buffer += num_eig_vect;
-    phi->vector_buffer += num_eig_vect;
+    eta2_pt += num_eig_vect;
+    phi_pt += num_eig_vect;
     D += num_eig_vect2;
-    nmvh_PRECISION( eta2->vector_buffer, D, phi->vector_buffer, num_eig_vect );
+    nmvh_PRECISION( eta2_pt, D, phi_pt, num_eig_vect );
   }
 
 #endif

@@ -309,6 +309,8 @@ void coarse_diag_ee_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operato
 void coarse_diag_oo_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
   
   int start, end;
+  vector_PRECISION x_pt, y_pt;
+
 #ifndef OPTIMIZED_COARSE_SELF_COUPLING_PRECISION 
   int num_site_var=l->num_lattice_site_var,
     oo_inv_size = SQUARE(num_site_var);
@@ -317,23 +319,23 @@ void coarse_diag_oo_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operato
 #else
   config_PRECISION sc = op->clover_oo_inv;
 #endif
-
+  
   compute_core_start_end_custom( 0, op->num_odd_sites, &start, &end, l, threading, 1 );
 
-  x->vector_buffer += num_site_var*(op->num_even_sites+start);
-  y->vector_buffer += num_site_var*(op->num_even_sites+start);  
+  x_pt.vector_buffer = x->vector_buffer + num_site_var*(op->num_even_sites+start);
+  y_pt.vector_buffer = y->vector_buffer + num_site_var*(op->num_even_sites+start);  
   sc += oo_inv_size*start;
 
   for ( int i=start; i<end; i++ ) {
     coarse_LU_multiply_PRECISION( y, x, sc, l );
-    x->vector_buffer += num_site_var;
-    y->vector_buffer += num_site_var;
+    x_pt.vector_buffer += num_site_var;
+    y_pt.vector_buffer += num_site_var;
     sc += oo_inv_size;
   }
   
 #else
   compute_core_start_end_custom( op->num_even_sites, l->num_inner_lattice_sites, &start, &end, l, threading, 1 );
-  coarse_self_couplings_PRECISION_vectorized( y, x, op, start, end, l );
+  coarse_self_couplings_PRECISION_vectorized( &y_pt, &x_pt, op, start, end, l );
 #endif
 }
 
@@ -347,6 +349,7 @@ void coarse_diag_oo_inv_PRECISION( vector_PRECISION *y, vector_PRECISION *x, ope
                                level_struct *l, struct Thread *threading ) {
   
   int start, end;
+  vector_PRECISION x_pt, y_pt;
   compute_core_start_end_custom( 0, op->num_odd_sites, &start, &end, l, threading, 1 );
   
   // odd sites
@@ -369,20 +372,20 @@ void coarse_diag_oo_inv_PRECISION( vector_PRECISION *y, vector_PRECISION *x, ope
 #endif
 #endif
 
-  x->vector_buffer += num_site_var*(op->num_even_sites+start);
-  y->vector_buffer += num_site_var*(op->num_even_sites+start);  
+  x_pt.vector_buffer = x->vector_buffer + num_site_var*(op->num_even_sites+start);
+  y_pt.vector_buffer = y->vector_buffer + num_site_var*(op->num_even_sites+start);  
   sc += oo_inv_size*start;
 
   for ( int i=start; i<end; i++ ) {
 #ifndef OPTIMIZED_COARSE_SELF_COUPLING_PRECISION
-    coarse_perform_fwd_bwd_subs_PRECISION( y, x, sc, l );
+    coarse_perform_fwd_bwd_subs_PRECISION( &y_pt, &x_pt, sc, l );
 #else
     for(int j=0; j<num_site_var; j++)
-      y->vector_buffer[j] = _COMPLEX_PRECISION_ZERO;
-    cgemv( num_site_var, sc, lda, (float *)x, (float *)y);
+      y_pt.vector_buffer[j] = _COMPLEX_PRECISION_ZERO;
+    cgemv( num_site_var, sc, lda, (float *)&x_pt, (float *)&y_pt);
 #endif
-    x->vector_buffer += num_site_var;
-    y->vector_buffer += num_site_var;
+    x_pt.vector_buffer += num_site_var;
+    y_pt.vector_buffer += num_site_var;
     sc += oo_inv_size;
   }
 }
