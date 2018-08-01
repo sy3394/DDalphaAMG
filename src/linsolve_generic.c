@@ -263,7 +263,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
           g.bicgstab_tol = (!g.mixed_precision)?p->tol:MAX( 1E-3, (p->tol/(gamma_jp1/norm_r0))*5E-1 );
           END_LOCKED_MASTER(threading)
         }
-        p->preconditioner( p->w, NULL, p->Z[0], _NO_RES, l, threading );
+        p->preconditioner( &(p->w), NULL, &(p->Z[0]), _NO_RES, l, threading );
       } else {
         apply_operator_PRECISION( &(p->w), &(p->x), p, l, threading ); // compute w = D*x
       }
@@ -287,7 +287,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
     vector_PRECISION_real_scale( &(p->V[0]), &(p->r), 1/p->gamma[0], start, end, l ); // v_0 = r / gamma_0
 #if defined(SINGLE_ALLREDUCE_ARNOLDI) && defined(PIPELINED_ARNOLDI)
     if ( l->level == 0 && l->depth > 0 ) {
-      arnoldi_step_PRECISION( p->V, p->Z, p->w, p->H, p->y, 0, p->preconditioner, p, l, threading );
+      arnoldi_step_PRECISION( p->V, p->Z, &(p->w), p->H, p->y, 0, p->preconditioner, p, l, threading );
     }
 #endif   
     
@@ -302,12 +302,12 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
       // one step of Arnoldi
 #if defined(SINGLE_ALLREDUCE_ARNOLDI) && defined(PIPELINED_ARNOLDI)
       if ( l->level == 0 && l->depth > 0 ) {
-        if ( !arnoldi_step_PRECISION( p->V, p->Z, p->w, p->H, p->y, j+1, p->preconditioner, p, l, threading ) ) {
+        if ( !arnoldi_step_PRECISION( p->V, p->Z, &(p->w), p->H, p->y, j+1, p->preconditioner, p, l, threading ) ) {
           printf0("| -------------- iteration %d, restart due to H(%d,%d) < 0 |\n", iter, j+2, j+1 );
           break;
         }
       } else {
-        if ( !arnoldi_step_PRECISION( p->V, p->Z, p->w, p->H, p->y, j, p->preconditioner, p, l, threading ) ) {
+        if ( !arnoldi_step_PRECISION( p->V, p->Z, &(p->w), p->H, p->y, j, p->preconditioner, p, l, threading ) ) {
           printf0("| -------------- iteration %d, restart due to H(%d,%d) < 0 |\n", iter, j+1, j );
           break;
         }
@@ -1066,7 +1066,7 @@ void fgcr_PRECISION( gmres_PRECISION_struct *p, level_struct *l ) {
       
       j = il; iter++;
       
-      p->preconditioner( p->V[j], p->r, _NO_RES, l, no_threading );
+      p->preconditioner( &(p->V[j]), &(p->r), _NO_RES, l, no_threading );
       apply_operator_PRECISION( &(p->Z[j]), &(p->V[j]), p, l, no_threading );
       
       for( i=0; i<j; i++ ) {
