@@ -24,13 +24,13 @@
 
 struct Thread;
 
-  void block_PRECISION_boundary_op( vector_PRECISION eta, vector_PRECISION phi, int k,
+  void block_PRECISION_boundary_op( vector_PRECISION *eta, vector_PRECISION *phi, int k,
                                     schwarz_PRECISION_struct *s, level_struct *l );
-  void n_block_PRECISION_boundary_op( vector_PRECISION eta, vector_PRECISION phi, int k,
+  void n_block_PRECISION_boundary_op( vector_PRECISION *eta, vector_PRECISION *phi, int k,
                                       schwarz_PRECISION_struct *s, level_struct *l );
-  void coarse_block_PRECISION_boundary_op( vector_PRECISION eta, vector_PRECISION phi,
+  void coarse_block_PRECISION_boundary_op( vector_PRECISION *eta, vector_PRECISION *phi,
                                            int k, schwarz_PRECISION_struct *s, level_struct *l );
-  void n_coarse_block_PRECISION_boundary_op( vector_PRECISION eta, vector_PRECISION phi,
+  void n_coarse_block_PRECISION_boundary_op( vector_PRECISION *eta, vector_PRECISION *phi,
                                              int k, schwarz_PRECISION_struct *s, level_struct *l );
   
   void smoother_PRECISION_def( level_struct *l );
@@ -46,17 +46,17 @@ struct Thread;
   void schwarz_PRECISION_def( schwarz_PRECISION_struct *s, operator_double_struct *op, level_struct *l );
   void schwarz_PRECISION_free( schwarz_PRECISION_struct *s, level_struct *l );
   
-  void additive_schwarz_PRECISION( vector_PRECISION phi, vector_PRECISION D_phi, vector_PRECISION eta, const int cycles, int res, 
+  void additive_schwarz_PRECISION( vector_PRECISION *phi, vector_PRECISION *D_phi, vector_PRECISION *eta, const int cycles, int res, 
                                    schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
-  void red_black_schwarz_PRECISION( vector_PRECISION phi, vector_PRECISION D_phi, vector_PRECISION eta, const int cycles, int res,
+  void red_black_schwarz_PRECISION( vector_PRECISION *phi, vector_PRECISION *D_phi, vector_PRECISION *eta, const int cycles, int res,
                                     schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
-  void schwarz_PRECISION( vector_PRECISION phi, vector_PRECISION D_phi, vector_PRECISION eta, const int cycles, int res, 
+  void schwarz_PRECISION( vector_PRECISION *phi, vector_PRECISION *D_phi, vector_PRECISION *eta, const int cycles, int res, 
                           schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
-  void sixteen_color_schwarz_PRECISION( vector_PRECISION phi, vector_PRECISION D_phi, vector_PRECISION eta, const int cycles, int res, 
+  void sixteen_color_schwarz_PRECISION( vector_PRECISION *phi, vector_PRECISION *D_phi, vector_PRECISION *eta, const int cycles, int res, 
                                         schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
   
-  void trans_PRECISION( vector_PRECISION out, vector_double in, int *tt, level_struct *l, struct Thread *threading );
-  void trans_back_PRECISION( vector_double out, vector_PRECISION in, int *tt, level_struct *l, struct Thread *threading );
+  void trans_PRECISION( vector_PRECISION *out, vector_double *in, int *tt, level_struct *l, struct Thread *threading );
+  void trans_back_PRECISION( vector_double *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading );
   
   void schwarz_PRECISION_mvm_testfun( schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
   

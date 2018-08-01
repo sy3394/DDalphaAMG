@@ -26,7 +26,7 @@
 #include "sse_linalg_PRECISION.h"
 
 #ifndef OPTIMIZED_LINALG_PRECISION
-complex_PRECISION global_inner_product_PRECISION( vector_PRECISION phi, vector_PRECISION psi, int start, int end, level_struct *l, struct Thread *threading ) {
+complex_PRECISION global_inner_product_PRECISION( vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l, struct Thread *threading ) {
   
   PROF_PRECISION_START( _GIP, threading );
   complex_PRECISION local_alpha = 0, global_alpha = 0;
@@ -37,7 +37,7 @@ complex_PRECISION global_inner_product_PRECISION( vector_PRECISION phi, vector_P
   
   SYNC_CORES(threading)
   
-  VECTOR_FOR( int i=thread_start, i<thread_end, local_alpha += conj_PRECISION(phi[i])*psi[i], i++, l );
+  VECTOR_FOR( int i=thread_start, i<thread_end, local_alpha += conj_PRECISION(phi->vector_buffer[i])*psi->vector_buffer[i], i++, l );
 
   // sum over cores
   START_NO_HYPERTHREADS(threading)
@@ -74,7 +74,7 @@ complex_PRECISION global_inner_product_PRECISION( vector_PRECISION phi, vector_P
 #endif
 
 
-complex_PRECISION process_inner_product_PRECISION( vector_PRECISION phi, vector_PRECISION psi, int start, int end, level_struct *l, struct Thread *threading ) {
+complex_PRECISION process_inner_product_PRECISION( vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l, struct Thread *threading ) {
   
   PROF_PRECISION_START( _PIP, threading );
   int i;
@@ -82,7 +82,7 @@ complex_PRECISION process_inner_product_PRECISION( vector_PRECISION phi, vector_
   
   SYNC_CORES(threading)
   
-  THREADED_VECTOR_FOR( i, start, end, local_alpha += conj_PRECISION(phi[i])*psi[i], i++, l, threading );
+  THREADED_VECTOR_FOR( i, start, end, local_alpha += conj_PRECISION(phi->vector_buffer[i])*psi->vector_buffer[i], i++, l, threading );
 
   START_NO_HYPERTHREADS(threading)
   ((complex_PRECISION *)threading->workspace)[threading->core] = local_alpha;
@@ -104,7 +104,7 @@ complex_PRECISION process_inner_product_PRECISION( vector_PRECISION phi, vector_
 
 
 #if !defined( OPTIMIZED_LINALG_PRECISION ) 
-void process_multi_inner_product_PRECISION( int count, complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION psi,
+void process_multi_inner_product_PRECISION( int count, complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi,
     int start, int end, level_struct *l, struct Thread *threading ) {
 
   PROF_PRECISION_START( _PIP, threading );
@@ -120,18 +120,18 @@ void process_multi_inner_product_PRECISION( int count, complex_PRECISION *result
     compute_core_start_end_custom(start, end, &thread_start, &thread_end, l, threading, 12);
     for(int c=0; c<count; c++)
       for ( i=thread_start; i<thread_end; )
-        FOR12( results[c] += conj_PRECISION(phi[c][i])*psi[i]; i++; )
+        FOR12( results[c] += conj_PRECISION(phi[c].vector_buffer[i])*psi->vector_buffer[i]; i++; )
   } else {
 #ifdef _M10TV
     compute_core_start_end_custom(start, end, &thread_start, &thread_end, l, threading, 20);
     for(int c=0; c<count; c++)
       for ( i=thread_start; i<thread_end; )
-        FOR20( results[c] += conj_PRECISION(phi[c][i])*psi[i]; i++; )
+        FOR20( results[c] += conj_PRECISION(phi[c].vector_buffer[i])*psi->vector_buffer[i]; i++; )
 #else
     compute_core_start_end_custom(start, end, &thread_start, &thread_end, l, threading, 2);
     for(int c=0; c<count; c++)
       for ( i=thread_start; i<thread_end; )
-        FOR2( results[c] += conj_PRECISION(phi[c][i])*psi[i]; i++; )
+        FOR2( results[c] += conj_PRECISION(phi[c].vector_buffer[i])*psi->vector_buffer[i]; i++; )
 #endif
   }
 
@@ -155,11 +155,11 @@ void process_multi_inner_product_PRECISION( int count, complex_PRECISION *result
 #endif
 
 
-complex_PRECISION local_xy_over_xx_PRECISION( vector_PRECISION phi, vector_PRECISION psi, int start, int end, level_struct *l  ) {
+complex_PRECISION local_xy_over_xx_PRECISION( vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l  ) {
   
   complex_PRECISION numerator = 0.0; PRECISION denominator = 0.0;
   
-  VECTOR_FOR( int i=start, i<end, numerator += conj_PRECISION(phi[i])*psi[i]; denominator += NORM_SQUARE_PRECISION(phi[i]), i++, l );
+  VECTOR_FOR( int i=start, i<end, numerator += conj_PRECISION(phi->vector_buffer[i])*psi->vector_buffer[i]; denominator += NORM_SQUARE_PRECISION(phi->vector_buffer[i]), i++, l );
   
   if ( abs_PRECISION(denominator) < EPS_PRECISION ) {
     return 0.0;
@@ -169,7 +169,7 @@ complex_PRECISION local_xy_over_xx_PRECISION( vector_PRECISION phi, vector_PRECI
 }
 
 #ifndef OPTIMIZED_LINALG_PRECISION
-PRECISION global_norm_PRECISION( vector_PRECISION x, int start, int end, level_struct *l, struct Thread *threading ) {
+PRECISION global_norm_PRECISION( vector_PRECISION *x, int start, int end, level_struct *l, struct Thread *threading ) {
   
   PROF_PRECISION_START( _GIP, threading );
   
@@ -181,7 +181,7 @@ PRECISION global_norm_PRECISION( vector_PRECISION x, int start, int end, level_s
   
   SYNC_CORES(threading)
   
-  VECTOR_FOR( int i=thread_start, i<thread_end, local_alpha += NORM_SQUARE_PRECISION(x[i]), i++, l );
+  VECTOR_FOR( int i=thread_start, i<thread_end, local_alpha += NORM_SQUARE_PRECISION(x->vector_buffer[i]), i++, l );
 
   // sum over cores
   START_NO_HYPERTHREADS(threading)
@@ -217,7 +217,7 @@ PRECISION global_norm_PRECISION( vector_PRECISION x, int start, int end, level_s
 }
 #endif
 
-PRECISION process_norm_PRECISION( vector_PRECISION x, int start, int end, level_struct *l, struct Thread *threading ) {
+PRECISION process_norm_PRECISION( vector_PRECISION *x, int start, int end, level_struct *l, struct Thread *threading ) {
      
   int i;
   PRECISION local_alpha = 0;
@@ -225,7 +225,7 @@ PRECISION process_norm_PRECISION( vector_PRECISION x, int start, int end, level_
   
   SYNC_CORES(threading)
   
-  THREADED_VECTOR_FOR( i, start, end, local_alpha += NORM_SQUARE_PRECISION(x[i]), i++, l, threading );
+  THREADED_VECTOR_FOR( i, start, end, local_alpha += NORM_SQUARE_PRECISION(x->vector_buffer[i]), i++, l, threading );
 
   START_NO_HYPERTHREADS(threading)
   ((PRECISION *)threading->workspace)[threading->core] = local_alpha;
@@ -246,39 +246,39 @@ PRECISION process_norm_PRECISION( vector_PRECISION x, int start, int end, level_
 }
 
 
-void vector_PRECISION_plus( vector_PRECISION z, vector_PRECISION x, vector_PRECISION y, int start, int end, level_struct *l ) {
+void vector_PRECISION_plus( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
   PROF_PRECISION_START( _LA2 );
   
-  VECTOR_FOR( int i=start, i<end, z[i] = x[i] + y[i], i++, l );
+  VECTOR_FOR( int i=start, i<end, z->vector_buffer[i] = x->vector_buffer[i] + y->vector_buffer[i], i++, l );
   
   if(thread == 0 && start != end)
   PROF_PRECISION_STOP( _LA2, (double)(end-start)/(double)l->inner_vector_size );
 }
 
 
-void vector_PRECISION_minus( vector_PRECISION z, vector_PRECISION x, vector_PRECISION y, int start, int end, level_struct *l ) {
+void vector_PRECISION_minus( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
   PROF_PRECISION_START( _LA2 );
 
-  VECTOR_FOR( int i=start, i<end, z[i] = x[i] - y[i], i++, l );
+  VECTOR_FOR( int i=start, i<end, z->vector_buffer[i] = x->vector_buffer[i] - y->vector_buffer[i], i++, l );
   
   if(thread == 0 && start != end)
   PROF_PRECISION_STOP( _LA2, (double)(end-start)/(double)l->inner_vector_size );
 }
 
 #ifndef OPTIMIZED_LINALG_PRECISION
-void vector_PRECISION_scale( vector_PRECISION z, vector_PRECISION x, complex_PRECISION alpha, int start, int end, level_struct *l ) {
+void vector_PRECISION_scale( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION alpha, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
   PROF_PRECISION_START( _LA6 );
   
-  VECTOR_FOR( int i=start, i<end, z[i] = alpha*x[i], i++, l );
+  VECTOR_FOR( int i=start, i<end, z->vector_buffer[i] = alpha*x->vector_buffer[i], i++, l );
   
   if(thread == 0 && start != end)
   PROF_PRECISION_STOP( _LA6, (double)(end-start)/(double)l->inner_vector_size );
@@ -286,24 +286,24 @@ void vector_PRECISION_scale( vector_PRECISION z, vector_PRECISION x, complex_PRE
 #endif
 
 
-void vector_PRECISION_real_scale( vector_PRECISION z, vector_PRECISION x, complex_PRECISION alpha,
+void buffer_PRECISION_real_scale( complex_PRECISION *z, complex_PRECISION *x, complex_PRECISION alpha,
                                   int start, int end, level_struct *l ) {
-  
+
   PRECISION *r_z = (PRECISION*)z, *r_x = (PRECISION*)x, r_alpha = creal_PRECISION(alpha);
   int r_start = 2*start, r_end = 2*end;
-  
+
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
   PROF_PRECISION_START( _LA2 );
-  
+
   REAL_VECTOR_FOR( int i=r_start, i<r_end, r_z[i] = r_alpha*r_x[i], i++, l );
-  
+
   if(thread == 0 && start != end)
   PROF_PRECISION_STOP( _LA2, (double)(end-start)/(double)l->inner_vector_size );
 }
 
 
-void vector_PRECISION_copy( vector_PRECISION z, vector_PRECISION x, int start, int end, level_struct *l ) {
+void buffer_PRECISION_copy( complex_PRECISION *z, complex_PRECISION *x, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
@@ -316,13 +316,13 @@ void vector_PRECISION_copy( vector_PRECISION z, vector_PRECISION x, int start, i
 }
 
 #ifndef OPTIMIZED_LINALG_PRECISION
-void vector_PRECISION_saxpy( vector_PRECISION z, vector_PRECISION x, vector_PRECISION y, complex_PRECISION alpha, int start, int end, level_struct *l ) {
+void vector_PRECISION_saxpy( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, complex_PRECISION alpha, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
   if (thread == 0 && start != end )
   PROF_PRECISION_START( _LA8 );
   
-  VECTOR_FOR( int i=start, i<end, z[i] = x[i] + alpha*y[i], i++, l );
+  VECTOR_FOR( int i=start, i<end, z->vector_buffer[i] = x->vector_buffer[i] + alpha*y->vector_buffer[i], i++, l );
   
   if( thread == 0 && start != end )
   PROF_PRECISION_STOP( _LA8, (double)(end-start)/(double)l->inner_vector_size );
@@ -330,7 +330,7 @@ void vector_PRECISION_saxpy( vector_PRECISION z, vector_PRECISION x, vector_PREC
 #endif
 
 #ifndef OPTIMIZED_LINALG_PRECISION
-void vector_PRECISION_multi_saxpy( vector_PRECISION z, vector_PRECISION *V, complex_PRECISION *alpha,
+void vector_PRECISION_multi_saxpy( vector_PRECISION *z, vector_PRECISION *V, complex_PRECISION *alpha,
                                int sign, int count, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
@@ -344,7 +344,7 @@ void vector_PRECISION_multi_saxpy( vector_PRECISION z, vector_PRECISION *V, comp
   
   for ( int c=0; c<count; c++ ) {
     for ( int i=start; i<end; ) {
-      FOR12( z[i] += V[c][i]*alpha_signed[c]; i++; )
+      FOR12( z->vector_buffer[i] += V[c].vector_buffer[i]*alpha_signed[c]; i++; )
     }
   }
   
@@ -353,27 +353,29 @@ void vector_PRECISION_multi_saxpy( vector_PRECISION z, vector_PRECISION *V, comp
 }
 #endif
 
-void vector_PRECISION_projection( vector_PRECISION z, vector_PRECISION v, int k, vector_PRECISION *W, complex_PRECISION *diag, 
+void vector_PRECISION_projection( vector_PRECISION *z, vector_PRECISION *v, int k, vector_PRECISION **W, complex_PRECISION *diag, 
                                   int orthogonal, level_struct *l, Thread *threading ) {
   
   int j, start, end;
   
   compute_core_start_end( 0, l->inner_vector_size, &start, &end, l, threading );
                     
-  vector_PRECISION v_tmp = NULL, *W_tmp = NULL;
+  vector_PRECISION v_tmp, *W_tmp = NULL;
   complex_PRECISION ip[k], ip_buffer[2*k];      
   
-  MALLOC( v_tmp, complex_PRECISION, l->inner_vector_size );
-  vector_PRECISION_define(v_tmp, 0, 0, l->inner_vector_size, l );
+  vector_PRECISION_init(&v_tmp);
+
+  MALLOC( v_tmp.vector_buffer, complex_PRECISION, l->inner_vector_size );
+  vector_PRECISION_define(&v_tmp, 0, 0, l->inner_vector_size, l );
   
-  MALLOC( W_tmp, complex_PRECISION*, k );
-  W_tmp[0] = NULL; 
-  MALLOC( W_tmp[0], complex_PRECISION, k*l->inner_vector_size );
+  MALLOC( W_tmp, vector_PRECISION, k );
+  vector_PRECISION_init(&W_tmp[0]); 
+  MALLOC( W_tmp[0].vector_buffer, complex_PRECISION, k*l->inner_vector_size );
   for ( j = 1; j<k; j++ )
-    W_tmp[j] = W_tmp[0]+j*l->inner_vector_size;
+    W_tmp[j].vector_buffer = W_tmp[0].vector_buffer+j*l->inner_vector_size;
   
   for ( j=0; j<k; j++ ) {
-   vector_PRECISION_scale( W_tmp[j], W[j], diag[j], 0, l->inner_vector_size, l );
+   vector_PRECISION_scale( &W_tmp[j], W[j], diag[j], 0, l->inner_vector_size, l );
   }
   process_multi_inner_product_PRECISION( k, ip, W_tmp, v, 0, l->inner_vector_size, l, threading );
   
@@ -385,16 +387,16 @@ void vector_PRECISION_projection( vector_PRECISION z, vector_PRECISION v, int k,
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)  
   
-  vector_PRECISION_multi_saxpy( v_tmp, W_tmp, ip_buffer+k, 1, k, 0, l->inner_vector_size, l );
+  vector_PRECISION_multi_saxpy( &v_tmp, W_tmp, ip_buffer+k, 1, k, 0, l->inner_vector_size, l );
    
   if (orthogonal) 
-    vector_PRECISION_minus( z, v, v_tmp, 0, l->inner_vector_size, l );
+    vector_PRECISION_minus( z, v, &v_tmp, 0, l->inner_vector_size, l );
   else
-    vector_PRECISION_copy( z, v_tmp, 0, l->inner_vector_size, l );
+    vector_PRECISION_copy( z, &v_tmp, 0, l->inner_vector_size, l );
   
-  FREE( v_tmp, complex_PRECISION, l->inner_vector_size );
-  FREE( W_tmp[0], complex_PRECISION, k*l->inner_vector_size );
-  FREE( W_tmp, complex_PRECISION*, k );
+  FREE( v_tmp.vector_buffer, complex_PRECISION, l->inner_vector_size );
+  FREE( W_tmp[0].vector_buffer, complex_PRECISION, k*l->inner_vector_size );
+  FREE( W_tmp, vector_PRECISION, k );
 }
 
 void gram_schmidt_on_aggregates_PRECISION( vector_PRECISION *V, const int num_vect, level_struct *l, struct Thread *threading ) {
@@ -411,23 +413,23 @@ void gram_schmidt_on_aggregates_PRECISION( vector_PRECISION *V, const int num_ve
       
   for ( j=threading->n_thread*threading->core+threading->thread; j<num_aggregates; j+=threading->n_thread*threading->n_core ) {
     for ( k1=0; k1<num_vect; k1++ ) {
-      v_pt1 = V[k1] + j*aggregate_size;
+      v_pt1.vector_buffer = V[k1].vector_buffer + j*aggregate_size;
       
       for ( k2=0; k2<k1; k2++ ) {
-        v_pt2 = V[k2] + j*aggregate_size;
+        v_pt2.vector_buffer = V[k2].vector_buffer + j*aggregate_size;
         alpha1 = 0; alpha2 = 0;
         // V[k1] -= <V[k2],V[k1]> V[k2] | 2*j-th and 2*j+1-st aggregate
         for ( i=0; i<aggregate_size; ) {
           for ( k=0; k<offset; k++, i++ )
-            alpha1 += conj_PRECISION(v_pt2[i]) * v_pt1[i];
+            alpha1 += conj_PRECISION(v_pt2.vector_buffer[i]) * v_pt1.vector_buffer[i];
           for ( k=0; k<offset; k++, i++ )
-            alpha2 += conj_PRECISION(v_pt2[i]) * v_pt1[i];
+            alpha2 += conj_PRECISION(v_pt2.vector_buffer[i]) * v_pt1.vector_buffer[i];
         }
         for ( i=0; i<aggregate_size; ) {
           for ( k=0; k<offset; k++, i++ )
-            v_pt1[i] -=  alpha1 * v_pt2[i];
+            v_pt1.vector_buffer[i] -=  alpha1 * v_pt2.vector_buffer[i];
           for ( k=0; k<offset; k++, i++ )
-            v_pt1[i] -=  alpha2 * v_pt2[i];
+            v_pt1.vector_buffer[i] -=  alpha2 * v_pt2.vector_buffer[i];
         }
       }
       
@@ -435,16 +437,16 @@ void gram_schmidt_on_aggregates_PRECISION( vector_PRECISION *V, const int num_ve
       // V[k1] = V[k1]/norm(V[k1]) | 2*j-th and 2*j+1-st aggregate    
       for ( i=0; i<aggregate_size; ) {
         for ( k=0; k<offset; k++, i++ )
-          norm1 += NORM_SQUARE_PRECISION(v_pt1[i]);
+          norm1 += NORM_SQUARE_PRECISION(v_pt1.vector_buffer[i]);
         for ( k=0; k<offset; k++, i++ )
-          norm2 += NORM_SQUARE_PRECISION(v_pt1[i]);
+          norm2 += NORM_SQUARE_PRECISION(v_pt1.vector_buffer[i]);
       }
       norm1 = 1/sqrt(norm1); norm2 = 1/sqrt(norm2);
       for ( i=0; i<aggregate_size; ) {
         for ( k=0; k<offset; k++, i++ )
-          v_pt1[i] =  norm1 * creal_PRECISION(v_pt1[i]) + I*norm1* cimag_PRECISION(v_pt1[i]);
+          v_pt1.vector_buffer[i] =  norm1 * creal_PRECISION(v_pt1.vector_buffer[i]) + I*norm1* cimag_PRECISION(v_pt1.vector_buffer[i]);
         for ( k=0; k<offset; k++, i++ )
-          v_pt1[i] =  norm2 * creal_PRECISION(v_pt1[i]) + I*norm2* cimag_PRECISION(v_pt1[i]);
+          v_pt1.vector_buffer[i] =  norm2 * creal_PRECISION(v_pt1.vector_buffer[i]) + I*norm2* cimag_PRECISION(v_pt1.vector_buffer[i]);
       }
     }
   }
@@ -454,26 +456,26 @@ void gram_schmidt_on_aggregates_PRECISION( vector_PRECISION *V, const int num_ve
 }
 
 
-void spinwise_PRECISION_skalarmultiply( vector_PRECISION eta1, vector_PRECISION eta2, vector_PRECISION phi, complex_PRECISION alpha,
+void spinwise_PRECISION_skalarmultiply( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, complex_PRECISION alpha,
                                         int start, int end, level_struct *l ) {
   
   PROF_PRECISION_START( _LA6 );  
   for ( int i=start; i<end; ) {
-    FOR6( eta1[i] = alpha*phi[i]; eta2[i] = _COMPLEX_PRECISION_ZERO; i++; )
-    FOR6( eta2[i] = alpha*phi[i]; eta1[i] = _COMPLEX_PRECISION_ZERO; i++; )
+    FOR6( eta1->vector_buffer[i] = alpha*phi->vector_buffer[i]; eta2->vector_buffer[i] = _COMPLEX_PRECISION_ZERO; i++; )
+    FOR6( eta2->vector_buffer[i] = alpha*phi->vector_buffer[i]; eta1->vector_buffer[i] = _COMPLEX_PRECISION_ZERO; i++; )
   }
   PROF_PRECISION_STOP( _LA6, 1 );
 }
 
 
-void set_boundary_PRECISION( vector_PRECISION phi, complex_PRECISION alpha, level_struct *l, struct Thread *threading ) {
+void set_boundary_PRECISION( vector_PRECISION *phi, complex_PRECISION alpha, level_struct *l, struct Thread *threading ) {
   
   PROF_PRECISION_START( _SET, threading );
   int i;
   
   SYNC_CORES(threading)
   
-  THREADED_VECTOR_FOR( i, l->inner_vector_size, l->vector_size, phi[i] = alpha, i++, l, threading );
+  THREADED_VECTOR_FOR( i, l->inner_vector_size, l->vector_size, phi->vector_buffer[i] = alpha, i++, l, threading );
   
   SYNC_CORES(threading)
   PROF_PRECISION_STOP( _SET, (double)(l->vector_size-l->inner_vector_size)/(double)l->inner_vector_size, threading );
@@ -496,7 +498,7 @@ void gram_schmidt_PRECISION( vector_PRECISION *V, complex_PRECISION *buffer, con
   for ( i=begin; i<n; i++ ) {
     
     complex_PRECISION tmp[i];
-    process_multi_inner_product_PRECISION( i, tmp, V, V[i], 0, l->inner_vector_size, l, threading );
+    process_multi_inner_product_PRECISION( i, tmp, V, &V[i], 0, l->inner_vector_size, l, threading );
     SYNC_CORES(threading)
     START_MASTER(threading)
     for ( j=0; j<i; j++ ) {
@@ -515,15 +517,15 @@ void gram_schmidt_PRECISION( vector_PRECISION *V, complex_PRECISION *buffer, con
     }
     
     for( j=0; j<i; j++ ) {
-      vector_PRECISION_saxpy( V[i], V[i], V[j], -(buffer+n)[j], start, end, l );
+      vector_PRECISION_saxpy( &V[i], &V[i], &V[j], -(buffer+n)[j], start, end, l );
       SYNC_CORES(threading)
     }
     
     SYNC_CORES(threading)
       
-    beta = global_norm_PRECISION( V[i], 0, l->inner_vector_size, l, threading );
+    beta = global_norm_PRECISION( &V[i], 0, l->inner_vector_size, l, threading );
     SYNC_MASTER_TO_ALL(threading)
-    vector_PRECISION_real_scale( V[i], V[i], creal(1.0/beta), start, end, l );
+    vector_PRECISION_real_scale( &V[i], &V[i], creal(1.0/beta), start, end, l );
     SYNC_CORES(threading)
   }
   
@@ -543,6 +545,8 @@ void setup_gram_schmidt_PRECISION_compute_dots(
   int thread_end;
   int cache_block_size = 12*64;
   complex_PRECISION tmp[cache_block_size];
+  vector_PRECISION tmp_vect;
+  tmp_vect.vector_buffer = tmp;
 
   for(int i=0; i<2*offset; i++)
     thread_buffer[i] = 0.0;
@@ -551,11 +555,11 @@ void setup_gram_schmidt_PRECISION_compute_dots(
   compute_core_start_end_custom(start, end, &thread_start, &thread_end, l, threading, cache_block_size);
   
   for ( int i=thread_start; i<thread_end; i+=cache_block_size) {
-    coarse_gamma5_PRECISION( tmp, V[count]+i, 0, cache_block_size, l );
+    coarse_gamma5_PRECISION( &tmp_vect, &V[count]+i, 0, cache_block_size, l );
     for ( int j=0; j<count; j++ ) {
       for ( int k=0; k<cache_block_size; k++) {
-        thread_buffer[j]   += conj_PRECISION(V[j][i+k])*V[count][i+k];
-        thread_buffer[j+offset] += conj_PRECISION(V[j][i+k])*tmp[k];
+        thread_buffer[j]   += conj_PRECISION(V[j].vector_buffer[i+k])*V[count].vector_buffer[i+k];
+        thread_buffer[j+offset] += conj_PRECISION(V[j].vector_buffer[i+k])*tmp[k];
       }
     }
   }
@@ -587,15 +591,17 @@ void setup_gram_schmidt_PRECISION_axpys(
   int thread_end;
   int cache_block_size = 12*64;
   complex_PRECISION tmp[cache_block_size];
+  vector_PRECISION tmp_vect;
+  tmp_vect.vector_buffer = tmp;
 
   compute_core_start_end_custom(start, end, &thread_start, &thread_end, l, threading, cache_block_size);
 
   for ( int i=thread_start; i<thread_end; i+=cache_block_size) {
     for ( int j=0; j<count; j++ ) {
-      coarse_gamma5_PRECISION( tmp, V[j]+i, 0, cache_block_size, l );
+      coarse_gamma5_PRECISION( &tmp_vect, &V[j]+i, 0, cache_block_size, l );
       for ( int k=0; k<cache_block_size; k++) {
-        V[count][i+k] -= thread_buffer[2*offset+j]*V[j][i+k];
-        V[count][i+k] -= thread_buffer[3*offset+j]*tmp[k];
+        V[count].vector_buffer[i+k] -= thread_buffer[2*offset+j]*V[j].vector_buffer[i+k];
+        V[count].vector_buffer[i+k] -= thread_buffer[3*offset+j]*tmp[k];
       }
     }
   }
@@ -603,7 +609,7 @@ void setup_gram_schmidt_PRECISION_axpys(
 #endif
 
 
-void setup_gram_schmidt_PRECISION( vector_PRECISION *V, vector_PRECISION g5v,
+void setup_gram_schmidt_PRECISION( vector_PRECISION *V, vector_PRECISION *g5v,
                                    complex_PRECISION *buffer, const int n, level_struct *l,
                                    struct Thread *threading ) {
   
@@ -623,10 +629,10 @@ void setup_gram_schmidt_PRECISION( vector_PRECISION *V, vector_PRECISION g5v,
   for ( i=0; i<n; i++ ) {
     
     if ( l->depth > 0 ) {
-      coarse_gamma5_PRECISION( g5v, V[i], thread_start, thread_end, l );
+      coarse_gamma5_PRECISION( g5v, &V[i], thread_start, thread_end, l );
       for ( j=0; j<i; j++ ) {
-        thread_buffer[j] = process_inner_product_PRECISION( V[j], V[i], start, end, l, threading );
-        thread_buffer[j+n] = process_inner_product_PRECISION( V[j], g5v, start, end, l, threading );
+        thread_buffer[j] = process_inner_product_PRECISION( &V[j], &V[i], start, end, l, threading );
+        thread_buffer[j+n] = process_inner_product_PRECISION( &V[j], g5v, start, end, l, threading );
       }
     }
     else
@@ -648,16 +654,16 @@ void setup_gram_schmidt_PRECISION( vector_PRECISION *V, vector_PRECISION g5v,
     
     if ( l->depth > 0 ) {
       for( j=0; j<i; j++ ) {
-        vector_PRECISION_saxpy( V[i], V[i], V[j], -(thread_buffer+2*n)[j], thread_start, thread_end, l );
-        coarse_gamma5_PRECISION( g5v, V[j], thread_start, thread_end, l );
-        vector_PRECISION_saxpy( V[i], V[i], g5v, -(thread_buffer+3*n)[j], thread_start, thread_end, l );
+        vector_PRECISION_saxpy( &V[i], &V[i], &V[j], -(thread_buffer+2*n)[j], thread_start, thread_end, l );
+        coarse_gamma5_PRECISION( g5v, &V[j], thread_start, thread_end, l );
+        vector_PRECISION_saxpy( &V[i], &V[i], g5v, -(thread_buffer+3*n)[j], thread_start, thread_end, l );
       }
     } else {
       setup_gram_schmidt_PRECISION_axpys( thread_buffer, V, i, n, start, end, l, threading);
     }
     
-    beta = global_norm_PRECISION( V[i], start, end, l, threading );
-    vector_PRECISION_real_scale( V[i], V[i], 1.0/beta, thread_start, thread_end, l );
+    beta = global_norm_PRECISION( &V[i], start, end, l, threading );
+    vector_PRECISION_real_scale( &V[i], &V[i], 1.0/beta, thread_start, thread_end, l );
   }
   PROF_PRECISION_STOP( _GRAM_SCHMIDT, (double)(end-start)/(double)l->inner_vector_size, threading );
 }

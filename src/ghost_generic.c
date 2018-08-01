@@ -21,7 +21,7 @@
 
 #include "main.h"
 
-void negative_sendrecv_PRECISION( vector_PRECISION phi, const int mu, comm_PRECISION_struct *c, level_struct *l ) {
+void negative_sendrecv_PRECISION( vector_PRECISION *phi, const int mu, comm_PRECISION_struct *c, level_struct *l ) {
   // send dir = -1
   if( l->global_splitting[mu] > 1 ) {    
     
@@ -34,18 +34,18 @@ void negative_sendrecv_PRECISION( vector_PRECISION phi, const int mu, comm_PRECI
     for ( i=0; i<mu; i++ )
       boundary_start += c->num_boundary_sites[2*i];
 
-    buffer = l->vbuf_PRECISION[8]+n*(boundary_start-l->num_inner_lattice_sites);
-    buffer_pt = buffer;
+    buffer.vector_buffer  = l->vbuf_PRECISION[8].vector_buffer+n*(boundary_start-l->num_inner_lattice_sites);
+    buffer_pt.vector_buffer = buffer.vector_buffer;
     
     for ( i=0; i<num_boundary_sites; i++ ) {
-      tmp_pt = phi + n*boundary_table[i];
-      for ( j=0; j<n; j++, buffer_pt++, tmp_pt++ )
-        *buffer_pt = *tmp_pt;
+      tmp_pt.vector_buffer = phi->vector_buffer + n*boundary_table[i];
+      for ( j=0; j<n; j++, buffer_pt.vector_buffer++, tmp_pt.vector_buffer++ )
+        *buffer_pt.vector_buffer = *tmp_pt.vector_buffer;
     }
     
-    MPI_Irecv( phi+n*boundary_start, n*num_boundary_sites, MPI_COMPLEX_PRECISION,
+    MPI_Irecv( phi->vector_buffer+n*boundary_start, n*num_boundary_sites, MPI_COMPLEX_PRECISION,
                l->neighbor_rank[2*mu], 2*mu+1, g.comm_cart, &(c->rreqs[2*mu+1]) );
-    MPI_Isend( buffer, n*num_boundary_sites, MPI_COMPLEX_PRECISION,
+    MPI_Isend( buffer.vector_buffer, n*num_boundary_sites, MPI_COMPLEX_PRECISION,
                l->neighbor_rank[2*mu+1], 2*mu+1, g.comm_cart, &(c->sreqs[2*mu+1]) );
   }
 }
@@ -124,8 +124,8 @@ void ghost_alloc_PRECISION( int buffer_size, comm_PRECISION_struct *c, level_str
       c->length[2*mu] = buffer_size;
       c->length[2*mu+1] = buffer_size;
       c->max_length[mu] = factor*buffer_size;
-      MALLOC( c->buffer[2*mu], complex_PRECISION, factor*buffer_size );
-      MALLOC( c->buffer[2*mu+1], complex_PRECISION, factor*buffer_size );
+      MALLOC( c->buffer[2*mu].vector_buffer, complex_PRECISION, factor*buffer_size );
+      MALLOC( c->buffer[2*mu+1].vector_buffer, complex_PRECISION, factor*buffer_size );
       c->in_use[2*mu] = 0;
       c->in_use[2*mu+1] = 0;
     }
@@ -133,20 +133,20 @@ void ghost_alloc_PRECISION( int buffer_size, comm_PRECISION_struct *c, level_str
     for ( mu=0; mu<4; mu++ ) {
       c->max_length[mu] = buffer_size;
 #ifdef HAVE_TM1p1
-      MALLOC( c->buffer[2*mu], complex_PRECISION, 2*buffer_size );
-      MALLOC( c->buffer[2*mu+1], complex_PRECISION, 2*buffer_size );
+      MALLOC( c->buffer[2*mu].vector_buffer, complex_PRECISION, 2*buffer_size );
+      MALLOC( c->buffer[2*mu+1].vector_buffer, complex_PRECISION, 2*buffer_size );
 #else
-      MALLOC( c->buffer[2*mu], complex_PRECISION, buffer_size );
-      MALLOC( c->buffer[2*mu+1], complex_PRECISION, buffer_size );
+      MALLOC( c->buffer[2*mu].vector_buffer, complex_PRECISION, buffer_size );
+      MALLOC( c->buffer[2*mu+1].vector_buffer, complex_PRECISION, buffer_size );
 #endif
     }
   }
   
-  if ( l->vbuf_PRECISION[8] == NULL ) {
+  if ( l->vbuf_PRECISION[8].vector_buffer == NULL ) {
 #ifdef HAVE_TM1p1
-    MALLOC( l->vbuf_PRECISION[8], complex_PRECISION, 2*l->vector_size );
+    MALLOC( l->vbuf_PRECISION[8].vector_buffer, complex_PRECISION, 2*l->vector_size );
 #else
-    MALLOC( l->vbuf_PRECISION[8], complex_PRECISION, l->vector_size );
+    MALLOC( l->vbuf_PRECISION[8]->vector_buffer, complex_PRECISION, l->vector_size );
 #endif
   }
 }
@@ -157,15 +157,15 @@ void ghost_free_PRECISION( comm_PRECISION_struct *c, level_struct *l ) {
   int mu;
   
   for ( mu=0; mu<4; mu++ ) {    
-    FREE( c->buffer[2*mu], complex_PRECISION, c->max_length[mu] );
-    FREE( c->buffer[2*mu+1], complex_PRECISION, c->max_length[mu] );
+    FREE( c->buffer[2*mu].vector_buffer, complex_PRECISION, c->max_length[mu] );
+    FREE( c->buffer[2*mu+1].vector_buffer, complex_PRECISION, c->max_length[mu] );
   }
   
-  if ( l->vbuf_PRECISION[8] != NULL ) {
+  if ( l->vbuf_PRECISION[8].vector_buffer != NULL ) {
 #ifdef HAVE_TM1p1
-    FREE( l->vbuf_PRECISION[8], complex_PRECISION, 2*l->vector_size );
+    FREE( l->vbuf_PRECISION[8].vector_buffer, complex_PRECISION, 2*l->vector_size );
 #else
-    FREE( l->vbuf_PRECISION[8], complex_PRECISION, l->vector_size );
+    FREE( l->vbuf_PRECISION[8].vector_buffer, complex_PRECISION, l->vector_size );
 #endif
   }
 }
@@ -185,7 +185,7 @@ void ghost_sendrecv_init_PRECISION( const int type, comm_PRECISION_struct *c, le
 }
 
 
-void ghost_sendrecv_PRECISION( vector_PRECISION phi, const int mu, const int dir,
+void ghost_sendrecv_PRECISION( buffer_PRECISION phi, const int mu, const int dir,
                                comm_PRECISION_struct *c, const int amount, level_struct *l ) {
   // does not allow sending in both directions at the same time
   if( l->global_splitting[mu] > 1 ) {
@@ -229,7 +229,7 @@ void ghost_sendrecv_PRECISION( vector_PRECISION phi, const int mu, const int dir
       ghost_alloc_PRECISION( MAX(length[0],length[1]), c, l );
     }
     
-    buffer = (vector_PRECISION)c->buffer[mu_dir];
+    buffer = c->buffer[mu_dir];
     
     // dir = senddir
     if ( dir == 1 ) {
@@ -238,16 +238,16 @@ void ghost_sendrecv_PRECISION( vector_PRECISION phi, const int mu, const int dir
       // afterwards (in ghost_wait) the data has to be distributed onto the correct sites
       // touching the respective boundary in -mu direction
       
-      phi_pt = phi + comm_start;
+      phi_pt.vector_buffer = phi + comm_start;
       if ( length[1] > 0 ) {
         PROF_PRECISION_START( _OP_COMM );
-        MPI_Irecv( buffer, length[1], MPI_COMPLEX_PRECISION,
+        MPI_Irecv( buffer.vector_buffer, length[1], MPI_COMPLEX_PRECISION,
                    l->neighbor_rank[2*mu+1], 2*mu, g.comm_cart, &(c->rreqs[2*mu]) );
         PROF_PRECISION_STOP( _OP_COMM, 1 );
       }
       if ( length[0] > 0 ) {
         PROF_PRECISION_START( _OP_COMM );
-        MPI_Isend( phi_pt, length[0], MPI_COMPLEX_PRECISION,
+        MPI_Isend( phi_pt.vector_buffer, length[0], MPI_COMPLEX_PRECISION,
                    l->neighbor_rank[2*mu], 2*mu, g.comm_cart, &(c->sreqs[2*mu]) );
         PROF_PRECISION_STOP( _OP_COMM, 0 );
       }
@@ -261,25 +261,25 @@ void ghost_sendrecv_PRECISION( vector_PRECISION phi, const int mu, const int dir
       
       table = c->boundary_table[2*mu+1]+table_start;
       for ( j=0; j<num_boundary_sites; j++ ) {
-        phi_pt = phi + table[j]*offset;
+        phi_pt.vector_buffer = phi + table[j]*offset;
         for ( i=0; i<offset; i++ ) {
-          buffer[i] = phi_pt[i];
+          buffer.vector_buffer[i] = phi_pt.vector_buffer[i];
         }
-        buffer += offset;
+        buffer.vector_buffer += offset;
       }
       
-      buffer = (vector_PRECISION)c->buffer[mu_dir];      
-      phi_pt = phi + comm_start;
+      buffer = c->buffer[mu_dir];      
+      phi_pt.vector_buffer = phi + comm_start;
       
       if ( length[0] > 0 ) {
         PROF_PRECISION_START( _OP_COMM );
-        MPI_Irecv( phi_pt, length[0], MPI_COMPLEX_PRECISION,
+        MPI_Irecv( phi_pt.vector_buffer, length[0], MPI_COMPLEX_PRECISION,
                    l->neighbor_rank[2*mu], 2*mu+1, g.comm_cart, &(c->rreqs[2*mu+1]) );
         PROF_PRECISION_STOP( _OP_COMM, 1 );
       }
       if ( length[1] > 0 ) {
         PROF_PRECISION_START( _OP_COMM );
-        MPI_Isend( buffer, length[1], MPI_COMPLEX_PRECISION,
+        MPI_Isend( buffer.vector_buffer, length[1], MPI_COMPLEX_PRECISION,
                    l->neighbor_rank[2*mu+1], 2*mu+1, g.comm_cart, &(c->sreqs[2*mu+1]) );
         PROF_PRECISION_STOP( _OP_COMM, 0 );
       }
@@ -289,7 +289,7 @@ void ghost_sendrecv_PRECISION( vector_PRECISION phi, const int mu, const int dir
 }
 
 
-void ghost_wait_PRECISION( vector_PRECISION phi, const int mu, const int dir,
+void ghost_wait_PRECISION( buffer_PRECISION phi, const int mu, const int dir,
                            comm_PRECISION_struct *c, const int amount, level_struct *l ) {
   
   if( l->global_splitting[mu] > 1 ) {    
@@ -322,7 +322,7 @@ void ghost_wait_PRECISION( vector_PRECISION phi, const int mu, const int dir,
       
       int num_boundary_sites = length[0]/offset;
       
-      buffer = (vector_PRECISION)c->buffer[mu_dir];      
+      buffer = c->buffer[mu_dir];      
       table = c->boundary_table[2*mu+1] + table_start;
       
       if ( length[0] > 0 ) {
@@ -338,21 +338,21 @@ void ghost_wait_PRECISION( vector_PRECISION phi, const int mu, const int dir,
       
       if ( l->depth == 0 ) {
         for ( j=0; j<num_boundary_sites; j++ ) {
-          phi_pt = phi + table[j]*offset;
+          phi_pt.vector_buffer = phi + table[j]*offset;
           
           for ( i=0; i<offset; i++ )
-            phi_pt[i] = buffer[i];
+            phi_pt.vector_buffer[i] = buffer.vector_buffer[i];
           
-          buffer += offset;
+          buffer.vector_buffer += offset;
         }
       } else {
         for ( j=0; j<num_boundary_sites; j++ ) {
-          phi_pt = phi + table[j]*offset;
+          phi_pt.vector_buffer = phi + table[j]*offset;
           
           for ( i=0; i<offset; i++ )
-            phi_pt[i] += buffer[i];
+            phi_pt.vector_buffer[i] += buffer.vector_buffer[i];
           
-          buffer += offset;
+          buffer.vector_buffer += offset;
         }
       }
     } else if ( dir == -1 ) {
@@ -375,9 +375,10 @@ void ghost_wait_PRECISION( vector_PRECISION phi, const int mu, const int dir,
 }
 
 
-void ghost_update_PRECISION( vector_PRECISION phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l ) {
+void ghost_update_PRECISION( vector_PRECISION *phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l ) {
   
   if( l->global_splitting[mu] > 1 ) {
+    printf0("hello");
     int i, j, mu_dir = 2*mu-MIN(dir,0), nu, inv_mu_dir = 2*mu+1+MIN(dir,0), length, *table=NULL,
         comm_start, num_boundary_sites, site_var;
     vector_PRECISION buffer, recv_pt, phi_pt;
@@ -385,7 +386,7 @@ void ghost_update_PRECISION( vector_PRECISION phi, const int mu, const int dir, 
     site_var = l->num_lattice_site_var;
     length = c->num_boundary_sites[mu_dir]*l->num_lattice_site_var;
     num_boundary_sites = c->num_boundary_sites[mu_dir];
-    buffer = (vector_PRECISION)c->buffer[mu_dir];
+    buffer = c->buffer[mu_dir];
     
     if ( dir == -1 )
       comm_start = l->vector_size;
@@ -398,28 +399,28 @@ void ghost_update_PRECISION( vector_PRECISION phi, const int mu, const int dir, 
     ASSERT( c->in_use[mu_dir] == 0 );
     c->in_use[mu_dir] = 1;
     
-    recv_pt = phi + comm_start;
+    recv_pt.vector_buffer = phi->vector_buffer + comm_start;
     if ( length > 0 ) {
       PROF_PRECISION_START( _OP_COMM );
-      MPI_Irecv( recv_pt, length, MPI_COMPLEX_PRECISION,
+      MPI_Irecv( recv_pt.vector_buffer, length, MPI_COMPLEX_PRECISION,
                  l->neighbor_rank[mu_dir], mu_dir, g.comm_cart, &(c->rreqs[mu_dir]) );
       PROF_PRECISION_STOP( _OP_COMM, 1 );
     }
     
     table = c->boundary_table[inv_mu_dir];
     for ( j=0; j<num_boundary_sites; j++ ) {
-      phi_pt = phi + table[j]*site_var;
+      phi_pt.vector_buffer = phi->vector_buffer + table[j]*site_var;
       
       for ( i=0; i<site_var; i++ ) {
-        buffer[i] = phi_pt[i];
+        buffer.vector_buffer[i] = phi_pt.vector_buffer[i];
       }
-      buffer += site_var;
+      buffer.vector_buffer += site_var;
     }
-    buffer = (vector_PRECISION)c->buffer[mu_dir];
+    buffer = c->buffer[mu_dir];
     
     if ( length > 0 ) {
       PROF_PRECISION_START( _OP_COMM );
-      MPI_Isend( buffer, length, MPI_COMPLEX_PRECISION,
+      MPI_Isend( buffer.vector_buffer, length, MPI_COMPLEX_PRECISION,
                  l->neighbor_rank[inv_mu_dir], mu_dir, g.comm_cart, &(c->sreqs[mu_dir]) );
       PROF_PRECISION_STOP( _OP_COMM, 0 );
     }
@@ -427,9 +428,10 @@ void ghost_update_PRECISION( vector_PRECISION phi, const int mu, const int dir, 
 }
 
 
-void ghost_update_wait_PRECISION( vector_PRECISION phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l ) {
+void ghost_update_wait_PRECISION( vector_PRECISION *phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l ) {
   
   if( l->global_splitting[mu] > 1 ) {
+    printf0("hello");
     int mu_dir = 2*mu-MIN(dir,0), length = c->num_boundary_sites[mu_dir]*l->num_lattice_site_var;
     
     ASSERT( c->in_use[mu_dir] == 1 );

@@ -24,7 +24,11 @@
   
   typedef PRECISION complex complex_PRECISION;
   typedef PRECISION complex *config_PRECISION;
-  typedef PRECISION complex *vector_PRECISION;
+  typedef PRECISION complex *buffer_PRECISION;
+
+  typedef struct {
+    buffer_PRECISION vector_buffer;
+  } vector_PRECISION;
 
   typedef struct {
     int length[8], *boundary_table[8], max_length[4],
@@ -52,7 +56,8 @@
         *index_table, *neighbor_table, *translation_table, table_dim[4],
         *backward_neighbor_table,
         table_mod_dim[4], *config_boundary_table[4];
-    vector_PRECISION *buffer, prnT, prnZ, prnY, prnX, prpT, prpZ, prpY, prpX;
+    vector_PRECISION *buffer;
+    buffer_PRECISION prnT, prnZ, prnY, prnX, prpT, prpZ, prpY, prpX;
     comm_PRECISION_struct c;
     OPERATOR_TYPE_PRECISION *D_vectorized;
     OPERATOR_TYPE_PRECISION *D_transformed_vectorized;
@@ -87,7 +92,7 @@
     operator_PRECISION_struct op;
     vector_PRECISION buf1, buf2, buf3, buf4, buf5;
     vector_PRECISION oe_buf[4];
-    vector_PRECISION local_minres_buffer[3];
+    buffer_PRECISION local_minres_buffer[3];
     int block_oe_offset, *index[4], dir_length[4], num_blocks, num_colors,
         dir_length_even[4], dir_length_odd[4], *oe_index[4],
         num_block_even_sites, num_block_odd_sites, num_aggregates,

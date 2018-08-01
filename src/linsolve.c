@@ -90,11 +90,11 @@ void fgmres_MP_struct_alloc( int m, int n, long int vl, double tol, const int pr
   // s
   p->dp.s = p->dp.H[0] + total; total += m+1;
   // x
-  p->dp.x = p->dp.H[0] + total; total += vl;
+  p->dp.x.vector_buffer = p->dp.H[0] + total; total += vl;
   // r
-  p->dp.r = p->dp.H[0] + total; total += vl;
+  p->dp.r.vector_buffer = p->dp.H[0] + total; total += vl;
   // b
-  p->dp.b = p->dp.H[0] + total; total += vl;  
+  p->dp.b.vector_buffer = p->dp.H[0] + total; total += vl;  
   
   ASSERT( p->dp.total_storage == total );
   
@@ -102,7 +102,7 @@ void fgmres_MP_struct_alloc( int m, int n, long int vl, double tol, const int pr
   // single precision part
   total = 0;
   total += (2+m)*vl; // w, V
-  MALLOC( p->sp.V, complex_float*, m+1 );
+  MALLOC( p->sp.V, vector_float, m+1 );
   if ( precond != NULL ) {
     if ( prec_kind == _RIGHT ) {
       total += (m+1)*vl; // Z
@@ -111,26 +111,26 @@ void fgmres_MP_struct_alloc( int m, int n, long int vl, double tol, const int pr
       total += vl;
       k = 1;
     }
-    MALLOC( p->sp.Z, complex_float*, k );
+    MALLOC( p->sp.Z, vector_float, k );
   }
   p->sp.total_storage = total;
   // precomputed storage amount
   
-  p->sp.w = NULL;
-  MALLOC( p->sp.w, complex_float, total );
+  vector_float_init(&(p->sp.w));
+  MALLOC( p->sp.w.vector_buffer, complex_float, total );
   
   // reserve storage
   total = 0;
   // w
-  p->sp.w = p->sp.w + total; total += vl;
+  p->sp.w.vector_buffer = p->sp.w.vector_buffer + total; total += vl;
   // V 
   for ( i=0; i<m+1; i++ ) {
-    p->sp.V[i] = p->sp.w + total; total += vl;
+    p->sp.V[i].vector_buffer = p->sp.w.vector_buffer + total; total += vl;
   }
   // Z
   if ( precond != NULL ) {
     for ( i=0; i<k; i++ ) {
-      p->sp.Z[i] = p->sp.w + total; total += vl;
+      p->sp.Z[i].vector_buffer = p->sp.w.vector_buffer + total; total += vl;
     }
   }
   
@@ -141,10 +141,10 @@ void fgmres_MP_struct_alloc( int m, int n, long int vl, double tol, const int pr
 void fgmres_MP_struct_free( gmres_MP_struct *p ) {
    
   // single precision
-  FREE( p->sp.w, complex_float, p->sp.total_storage );
-  FREE( p->sp.V, complex_float*, p->sp.restart_length+1 );
+  FREE( p->sp.w.vector_buffer, complex_float, p->sp.total_storage );
+  FREE( p->sp.V, vector_float, p->sp.restart_length+1 );
   if ( p->sp.Z != NULL )
-    FREE( p->sp.Z, complex_float*, p->sp.kind==_RIGHT?p->sp.restart_length+1:1 );
+    FREE( p->sp.Z, vector_float, p->sp.kind==_RIGHT?p->sp.restart_length+1:1 );
   
   // double precision
   FREE( p->dp.H[0], complex_double, p->dp.total_storage );
@@ -191,12 +191,12 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   for( ol=0; ol<p->dp.num_restart && finish==0; ol++ )  {
   
     if( ol == 0 && p->dp.initial_guess_zero ) {
-      vector_double_copy( p->dp.r, p->dp.b, start, end, l );
+      vector_double_copy( &(p->dp.r), &(p->dp.b), start, end, l );
     } else {
-      apply_operator_double( p->dp.r, p->dp.x, &(p->dp), l, threading ); // compute r <- D*x
-      vector_double_minus( p->dp.r, p->dp.b, p->dp.r, start, end, l ); // compute r <- b - r
+      apply_operator_double( &(p->dp.r), &(p->dp.x), &(p->dp), l, threading ); // compute r <- D*x
+      vector_double_minus( &(p->dp.r), &(p->dp.b), &(p->dp.r), start, end, l ); // compute r <- b - r
     }
-    gamma0 = (complex_double) global_norm_double( p->dp.r, p->dp.v_start, p->dp.v_end, l, threading ); // gamma_0 = norm(r)
+    gamma0 = (complex_double) global_norm_double( &(p->dp.r), p->dp.v_start, p->dp.v_end, l, threading ); // gamma_0 = norm(r)
     START_MASTER(threading)
     p->dp.gamma[0] = gamma0;
     END_MASTER(threading)
@@ -204,7 +204,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
     
     if( ol == 0) {
      if (l->depth == 0 && !p->dp.initial_guess_zero) {
-       norm_r0 = global_norm_double( p->dp.b, start, end, l, threading );
+       norm_r0 = global_norm_double( &(p->dp.b), start, end, l, threading );
        printf0("| initial guess relative residual:            %le |\n", creal(gamma0)/norm_r0);
      } else {
        norm_r0 = creal(gamma0);
@@ -222,13 +222,13 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
     }
 #endif
     
-    trans_float( p->sp.V[0], p->dp.r, l->s_float.op.translation_table, l, threading );
-    vector_float_real_scale( p->sp.V[0], p->sp.V[0], (float)(1/p->dp.gamma[0]), start, end, l ); // V[0] <- r / gamma_0
+    trans_float( &(p->sp.V[0]), &(p->dp.r), l->s_float.op.translation_table, l, threading );
+    vector_float_real_scale( &(p->sp.V[0]), &(p->sp.V[0]), (float)(1/p->dp.gamma[0]), start, end, l ); // V[0] <- r / gamma_0
     
     // inner loop in single precision
     for( il=0; il<p->dp.restart_length && finish==0; il++) {
       j = il; iter++;
-      arnoldi_step_MP( p->sp.V, p->sp.Z, p->sp.w, p->dp.H, p->dp.y, j, p->sp.preconditioner, &(p->sp), l, threading );
+      arnoldi_step_MP( p->sp.V, p->sp.Z, &(p->sp.w), p->dp.H, p->dp.y, j, p->sp.preconditioner, &(p->sp), l, threading );
       
       if ( cabs( p->dp.H[j][j+1] ) > 1E-15 ) {
         qr_update_double( p->dp.H, p->dp.s, p->dp.c, p->dp.gamma, j, l, threading );
@@ -254,14 +254,14 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
         finish = 1;
       }
     } // end of a single restart
-    compute_solution_MP( p->sp.w, (p->sp.preconditioner&&p->sp.kind==_RIGHT)?p->sp.Z:p->sp.V,
+    compute_solution_MP( &(p->sp.w), (p->sp.preconditioner&&p->sp.kind==_RIGHT)?p->sp.Z:p->sp.V,
                          p->dp.y, p->dp.gamma, p->dp.H, j, &(p->sp), l, threading );
                                 
-    trans_back_float( p->dp.r, p->sp.w, l->s_float.op.translation_table, l, threading );
+    trans_back_float( &(p->dp.r), &(p->sp.w), l->s_float.op.translation_table, l, threading );
     if ( ol == 0 ) {
-      vector_double_copy( p->dp.x, p->dp.r, start, end, l );
+      vector_double_copy( &(p->dp.x), &(p->dp.r), start, end, l );
     } else {
-      vector_double_plus( p->dp.x, p->dp.x, p->dp.r, start, end, l );
+      vector_double_plus( &(p->dp.x), &(p->dp.x), &(p->dp.r), start, end, l );
     }
   } // end of fgmres
   
@@ -271,9 +271,9 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   
   if ( p->dp.print ) {
 #ifdef FGMRES_RESTEST
-    apply_operator_double( p->dp.r, p->dp.x, &(p->dp), l, threading );
-    vector_double_minus( p->dp.r, p->dp.b, p->dp.r, start, end, l );
-    beta = global_norm_double( p->dp.r, p->dp.v_start, p->dp.v_end, l, threading );
+    apply_operator_double( &(p->dp.r), &(p->dp.x), &(p->dp), l, threading );
+    vector_double_minus( &(p->dp.r), &(p->dp.b), &(p->dp.r), start, end, l );
+    beta = global_norm_double( &(p->dp.r), p->dp.v_start, p->dp.v_end, l, threading );
 #else
     beta = gamma_jp1;
 #endif
@@ -321,7 +321,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
 }
 
 
-void arnoldi_step_MP( vector_float *V, vector_float *Z, vector_float w,
+void arnoldi_step_MP( vector_float *V, vector_float *Z, vector_float *w,
                       complex_double **H, complex_double* buffer, int j, void (*prec)(),
                       gmres_float_struct *p, level_struct *l, struct Thread *threading ) {
   
@@ -337,19 +337,19 @@ void arnoldi_step_MP( vector_float *V, vector_float *Z, vector_float w,
   
   if ( prec != NULL ) {
     if ( p->kind == _LEFT ) {
-      apply_operator_float( Z[0], V[j], p, l, threading );
-      prec( w, NULL, Z[0], _NO_RES, l, threading );
+      apply_operator_float( &Z[0], &V[j], p, l, threading );
+      prec( w, NULL, &Z[0], _NO_RES, l, threading );
     } else {
       if ( g.mixed_precision == 2 && (g.method >= 1 && g.method <= 2 ) ) {
-        prec( Z[j], w, V[j], _NO_RES, l, threading );
+        prec( &Z[j], w, &V[j], _NO_RES, l, threading );
         // obtains w = D * Z[j] from Schwarz
       } else {
-        prec( Z[j], NULL, V[j], _NO_RES, l, threading );
-        apply_operator_float( w, Z[j], p, l, threading ); // w = D*Z[j]
+        prec( &Z[j], NULL, &V[j], _NO_RES, l, threading );
+        apply_operator_float( w, &Z[j], p, l, threading ); // w = D*Z[j]
       }
     }
   } else {
-    apply_operator_float( w, V[j], p, l, threading ); // w = D*V[j]
+    apply_operator_float( w, &V[j], p, l, threading ); // w = D*V[j]
   }
 
   complex_double tmp[j+1];
@@ -383,11 +383,11 @@ void arnoldi_step_MP( vector_float *V, vector_float *Z, vector_float w,
   
   // V_j+1 = w / H_j+1,j
   if ( cabs_double( H[j][j+1] ) > 1e-15 )
-    vector_float_real_scale( V[j+1], w, (float)(1/H[j][j+1]), start, end, l );
+    vector_float_real_scale( &V[j+1], w, (float)(1/H[j][j+1]), start, end, l );
 }
 
 
-void compute_solution_MP( vector_float x, vector_float *V, complex_double *y,
+void compute_solution_MP( vector_float *x, vector_float *V, complex_double *y,
                           complex_double *gamma, complex_double **H, int j,
                           gmres_float_struct *p, level_struct *l, struct Thread *threading ) {
   
@@ -418,12 +418,12 @@ void compute_solution_MP( vector_float x, vector_float *V, complex_double *y,
   SYNC_MASTER_TO_ALL(threading)
   
   // x = V*y
-  vector_float_scale( x, V[0], (complex_float) y[0], start, end, l );
+  vector_float_scale( x, &V[0], (complex_float) y[0], start, end, l );
 
   complex_float alpha[j];
   for ( i=1; i<=j; i++ )
     alpha[i-1] = (complex_float) y[i];
-  vector_float_multi_saxpy( x, &(V[1]), alpha, 1, j, start, end, l );
+  vector_float_multi_saxpy( x, &V[1], alpha, 1, j, start, end, l );
 }
 
 

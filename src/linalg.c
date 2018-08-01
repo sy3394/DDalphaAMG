@@ -23,7 +23,7 @@
 
 #ifndef OPTIMIZED_LINALG_float
 void process_multi_inner_product_MP( int count, complex_double *results, vector_float *phi,
-                                     vector_float psi, int start, int end, level_struct *l,
+                                     vector_float *psi, int start, int end, level_struct *l,
                                      struct Thread *threading ) {
 
   PROF_float_START( _PIP, threading );
@@ -39,7 +39,7 @@ void process_multi_inner_product_MP( int count, complex_double *results, vector_
   compute_core_start_end_custom(start, end, &thread_start, &thread_end, l, threading, 12);
   for(int c=0; c<count; c++) {
     for ( i=thread_start; i<thread_end; ) {
-      FOR12( results[c] += (complex_double) conj_float(phi[c][i])*psi[i]; i++; )
+      FOR12( results[c] += (complex_double) conj_float(phi[c].vector_buffer[i])*psi->vector_buffer[i]; i++; )
     }
   }
 
@@ -62,7 +62,7 @@ void process_multi_inner_product_MP( int count, complex_double *results, vector_
 }
 #endif
 
-double global_norm_MP( vector_float x, int start, int end, level_struct *l, struct Thread *threading ) {
+double global_norm_MP( vector_float *x, int start, int end, level_struct *l, struct Thread *threading ) {
   
   PROF_float_START( _GIP, threading );
   
@@ -75,7 +75,7 @@ double global_norm_MP( vector_float x, int start, int end, level_struct *l, stru
   
   SYNC_CORES(threading)
   for ( i=thread_start; i<thread_end; )
-    FOR12( local_alpha += (complex_double) NORM_SQUARE_float(x[i]); i++; )
+    FOR12( local_alpha += (complex_double) NORM_SQUARE_float(x->vector_buffer[i]); i++; )
 
   // sum over cores
   START_NO_HYPERTHREADS(threading)

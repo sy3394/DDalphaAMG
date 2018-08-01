@@ -73,7 +73,7 @@
       int site);  
   
   
-  static inline void coarse_hopp_PRECISION_vectorized( vector_PRECISION eta, vector_PRECISION phi,
+  static inline void coarse_hopp_PRECISION_vectorized( vector_PRECISION *eta, vector_PRECISION *phi,
       OPERATOR_TYPE_PRECISION *D, level_struct *l ) {
 #ifdef OPTIMIZED_COARSE_NEIGHBOR_COUPLING_PRECISION
     int nv = l->num_parent_eig_vect;
@@ -81,7 +81,7 @@
     cgenmv_padded( 2*nv, D, lda, nv, (float *)phi, (float *)eta);
 #endif
   }
-  static inline void coarse_n_hopp_PRECISION_vectorized( vector_PRECISION eta, vector_PRECISION phi,
+  static inline void coarse_n_hopp_PRECISION_vectorized( vector_PRECISION *eta, vector_PRECISION *phi,
       OPERATOR_TYPE_PRECISION *D, level_struct *l ) {
 #ifdef OPTIMIZED_COARSE_NEIGHBOR_COUPLING_PRECISION
     int nv = l->num_parent_eig_vect;
@@ -90,7 +90,7 @@
 #endif
   }
 
-  static inline void coarse_self_couplings_PRECISION_vectorized( vector_PRECISION eta, vector_PRECISION phi, 
+  static inline void coarse_self_couplings_PRECISION_vectorized( vector_PRECISION *eta, vector_PRECISION *phi, 
                                                                  operator_PRECISION_struct *op, int start, int end, level_struct *l ) {
 #ifdef OPTIMIZED_COARSE_SELF_COUPLING_PRECISION
     int site_size = l->num_lattice_site_var;
@@ -102,7 +102,7 @@
 #endif
     for(int i=start; i<end; i++) {
       for(int j=0; j<site_size; j++)
-        eta[i*site_size+j] = 0.0;
+        eta->vector_buffer[i*site_size+j] = 0.0;
       cgemv(site_size, clover+i*2*site_size*lda, lda, (float *)(phi+i*site_size), (float *)(eta+i*site_size));
     }
 #endif

@@ -19,21 +19,19 @@
  * 
  */
 
-#ifndef LINALG_HEADER
-  #define LINALG_HEADER
+#ifndef VECTOR_PRECISION_HEADER
+  #define VECTOR_PRECISION_HEADER
 
   struct Thread;
   
-  void vector_double_multi_saxpy( vector_double *z, vector_double *V, complex_double *alpha,
-                               int sign, int count, int start, int end, level_struct *l );
+  void vector_PRECISION_init( vector_PRECISION *vec );
+ // void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect, level_struct *l );
+ void vector_PRECISION_define( vector_PRECISION *phi, complex_PRECISION value, int start, int end, level_struct *l );
+ void vector_PRECISION_real_scale( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION alpha,
+                                    int start, int end, level_struct *l );
+ void vector_PRECISION_copy( vector_PRECISION *z, vector_PRECISION *x, int start, int end, level_struct *l ); // z := x
+ // void vector_PRECISION_free( vector_PRECISION *vec, const int type, int num_vect, level_struct *l );
   
-  void vector_float_multi_saxpy( vector_float *z, vector_float *V, complex_float *alpha,
-                                 int sign, int count, int start, int end, level_struct *l );
-  
-  void process_multi_inner_product_MP( int count, complex_double *results, vector_float *phi,
-                                       vector_float *psi, int start, int end, level_struct *l,
-                                       struct Thread *threading );
-                                       
-  double global_norm_MP( vector_float *x, int start, int end, level_struct *l, struct Thread *threading );
+ // void vector_PRECISION_test_routine( vector_PRECISION *vec, level_struct *l, struct Thread *threading );
   
 #endif

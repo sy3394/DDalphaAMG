@@ -543,6 +543,8 @@
 #include "var_table.h"
 #include "main_post_def_float.h"
 #include "main_post_def_double.h"
+#include "vector_float.h"
+#include "vector_double.h"
 #ifdef HAVE_LIME
 #include <lime.h>
 #include <lime_config.h>

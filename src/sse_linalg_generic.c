@@ -148,8 +148,8 @@ void setup_gram_schmidt_PRECISION_compute_dots(
 
         for(int m=0; m<3; m++) {
           
-          sse_complex_deinterleaved_load( (float*)(V[j]+i+k+4*m), &vj_re, &vj_im  );
-          sse_complex_deinterleaved_load( (float*)(V[count]+i+k+4*m), &v_re, &v_im  );
+          sse_complex_deinterleaved_load( (float*)(V[j].vector_buffer+i+k+4*m), &vj_re, &vj_im  );
+          sse_complex_deinterleaved_load( (float*)(V[count].vector_buffer+i+k+4*m), &v_re, &v_im  );
 
           gamma5_v_re = _mm_mul_ps(gamma5[m], v_re);
           gamma5_v_im = _mm_mul_ps(gamma5[m], v_im);
@@ -225,8 +225,8 @@ void setup_gram_schmidt_PRECISION_axpys(
 
         for(int m=0; m<3; m++) {
           
-          sse_complex_deinterleaved_load( (float*)(V[j]+i+k+4*m), &vj_re, &vj_im  );
-          sse_complex_deinterleaved_load( (float*)(V[count]+i+k+4*m), &v_re, &v_im  );
+          sse_complex_deinterleaved_load( (float*)(V[j].vector_buffer+i+k+4*m), &vj_re, &vj_im  );
+          sse_complex_deinterleaved_load( (float*)(V[count].vector_buffer+i+k+4*m), &v_re, &v_im  );
 
           gamma5_vj_re = _mm_mul_ps(gamma5[m], vj_re);
           gamma5_vj_im = _mm_mul_ps(gamma5[m], vj_im);
@@ -234,7 +234,7 @@ void setup_gram_schmidt_PRECISION_axpys(
           cfnmadd(vj_re, vj_im, dot_re[j], dot_im[j], &v_re, &v_im);
           cfnmadd(gamma5_vj_re, gamma5_vj_im, dot_gamma5_re[j], dot_gamma5_im[j], &v_re, &v_im);
 
-          sse_complex_interleaved_store(v_re, v_im, (float*)(V[count]+i+k+4*m) ); 
+          sse_complex_interleaved_store(v_re, v_im, (float*)(V[count].vector_buffer+i+k+4*m) ); 
         }
       }
     }

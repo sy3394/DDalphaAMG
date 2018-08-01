@@ -941,8 +941,8 @@ void coarse_aggregate_neighbor_couplings_PRECISION_vectorized( complex_PRECISION
   int D_site_offset = 4*n*n;
   int D_link_offset = n*n;
 
-  vector_PRECISION_define( eta1, 0, 0, n*offset, l );
-  vector_PRECISION_define( eta2, 0, 0, n*offset, l );
+  buffer_PRECISION_define( eta1, 0, 0, n*offset, l );
+  buffer_PRECISION_define( eta2, 0, 0, n*offset, l );
 
   // requires the positive boundaries of phi to be communicated before
   index_fw  = neighbor[5*site+1 + mu];

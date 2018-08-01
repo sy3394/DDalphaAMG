@@ -44,14 +44,14 @@ void compute_clover_term ( SU3_storage U, level_struct *l ) {
   
 #ifdef HAVE_TM
   if ( g.mu + g.mu_even_shift == 0 && g.mu + g.mu_odd_shift == 0 )
-    vector_double_define( op->tm_term, _COMPLEX_double_ZERO, 0, l->inner_vector_size, l );
+    buffer_double_define( op->tm_term, _COMPLEX_double_ZERO, 0, l->inner_vector_size, l );
   else
     tm_term_double_setup( g.mu, g.mu_even_shift, g.mu_odd_shift, op, l, no_threading );  
 #endif
 
 #ifdef HAVE_TM1p1
   if ( g.epsbar == 0 && g.epsbar_ig5_even_shift == 0 && g.epsbar_ig5_odd_shift == 0 ) 
-    vector_double_define( op->epsbar_term, _COMPLEX_double_ZERO, 0, l->inner_vector_size, l );
+    buffer_double_define( op->epsbar_term, _COMPLEX_double_ZERO, 0, l->inner_vector_size, l );
   else
     epsbar_term_double_setup( g.epsbar, g.epsbar_ig5_even_shift, g.epsbar_ig5_odd_shift, op, l, no_threading );  
 #endif
@@ -86,7 +86,7 @@ void compute_clover_term ( SU3_storage U, level_struct *l ) {
     mat_free( &Qstore, 3 );
     spin_free( 4, 4 );
   } else {
-    vector_double_define( op->clover, 4+op->m0, 0, l->inner_vector_size, l );
+    buffer_double_define( op->clover, 4+op->m0, 0, l->inner_vector_size, l );
   }
 }
 
@@ -436,7 +436,12 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
   
   int t, z, y, x, mu, nu, *ll = l->local_lattice, ls[4], le[4];
   long int i, j, send_size, max_size;
-  vector_double buffer1 = NULL, buffer2 = NULL, buffer3 = NULL, buffer4 = NULL;
+  vector_double buffer1, buffer2, buffer3, buffer4;
+  
+  vector_double_init(&buffer1);
+  vector_double_init(&buffer2);
+  vector_double_init(&buffer3);
+  vector_double_init(&buffer4);
 
   max_size = 0;
   for ( mu=0; mu<4; mu++ ) {
@@ -448,10 +453,10 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
     if (send_size > max_size) max_size = send_size;
   }
   
-  MALLOC( buffer1, complex_double, max_size );
-  MALLOC( buffer2, complex_double, max_size );
-  MALLOC( buffer3, complex_double, max_size );
-  MALLOC( buffer4, complex_double, max_size );
+  MALLOC( buffer1.vector_buffer, complex_double, max_size );
+  MALLOC( buffer2.vector_buffer, complex_double, max_size );
+  MALLOC( buffer3.vector_buffer, complex_double, max_size );
+  MALLOC( buffer4.vector_buffer, complex_double, max_size );
   
   for ( mu=0; mu<4; mu++ ) {
     ls[mu] = 1;
@@ -467,13 +472,13 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
         for ( y=ls[Y]; y<le[Y]; y++ )
           for ( x=ls[X]; x<le[X]; x++ ) {
             j = 0;
-            FOR36( buffer1[i] = *((*U)[t][z][y][x][0]+j); i++; j++; )
+            FOR36( buffer1.vector_buffer[i] = *((*U)[t][z][y][x][0]+j); i++; j++; )
           }
     le[mu] = ll[mu]+1;
     send_size = i;
     ASSERT(send_size<=max_size);
-    MPI_Irecv( buffer3, send_size, MPI_COMPLEX_double, l->neighbor_rank[2*mu], 2*mu, g.comm_cart, &(g.rreqs[2*mu]) );
-    MPI_Isend( buffer1, send_size, MPI_COMPLEX_double, l->neighbor_rank[2*mu+1], 2*mu, g.comm_cart, &(g.sreqs[2*mu]) );
+    MPI_Irecv( buffer3.vector_buffer, send_size, MPI_COMPLEX_double, l->neighbor_rank[2*mu], 2*mu, g.comm_cart, &(g.rreqs[2*mu]) );
+    MPI_Isend( buffer1.vector_buffer, send_size, MPI_COMPLEX_double, l->neighbor_rank[2*mu+1], 2*mu, g.comm_cart, &(g.sreqs[2*mu]) );
     
     // send own positive inner boundary
     ls[mu] = ll[mu];
@@ -483,13 +488,13 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
         for ( y=ls[Y]; y<le[Y]; y++ )
           for ( x=ls[X]; x<le[X]; x++ ) {
             j = 0;
-            FOR36( buffer2[i] = *((*U)[t][z][y][x][0]+j); i++; j++; )
+            FOR36( buffer2.vector_buffer[i] = *((*U)[t][z][y][x][0]+j); i++; j++; )
           }
     ls[mu] = 1;
     send_size = i;
     ASSERT(send_size<=max_size);
-    MPI_Irecv( buffer4, send_size, MPI_COMPLEX_double, l->neighbor_rank[2*mu+1], 2*mu+1, g.comm_cart, &(g.rreqs[2*mu+1]) );
-    MPI_Isend( buffer2, send_size, MPI_COMPLEX_double, l->neighbor_rank[2*mu], 2*mu+1, g.comm_cart, &(g.sreqs[2*mu+1]) );
+    MPI_Irecv( buffer4.vector_buffer, send_size, MPI_COMPLEX_double, l->neighbor_rank[2*mu+1], 2*mu+1, g.comm_cart, &(g.rreqs[2*mu+1]) );
+    MPI_Isend( buffer2.vector_buffer, send_size, MPI_COMPLEX_double, l->neighbor_rank[2*mu], 2*mu+1, g.comm_cart, &(g.sreqs[2*mu+1]) );
     
     //recv own positive boundary
     MPI_Wait( &(g.sreqs[2*mu]), MPI_STATUS_IGNORE );
@@ -502,7 +507,7 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
         for ( y=ls[Y]; y<le[Y]; y++ )
           for ( x=ls[X]; x<le[X]; x++ ) {
             j = 0;
-            FOR36( *((*U)[t][z][y][x][0]+j) = buffer3[i]; i++; j++; )
+            FOR36( *((*U)[t][z][y][x][0]+j) = buffer3.vector_buffer[i]; i++; j++; )
           }
     le[mu] = ll[mu]+1;
     ls[mu] = 1;
@@ -520,7 +525,7 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
         for ( y=ls[Y]; y<le[Y]; y++ )
           for ( x=ls[X]; x<le[X]; x++ ) {
             j = 0;
-            FOR36( *((*U)[t][z][y][x][0]+j) = buffer4[i]; i++; j++; )
+            FOR36( *((*U)[t][z][y][x][0]+j) = buffer4.vector_buffer[i]; i++; j++; )
           }
     // extending, we send also the corners
     le[mu] = ll[mu]+2;
@@ -529,10 +534,10 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
     ASSERT(send_size<=max_size);
   }
   
-  FREE( buffer1, complex_double, max_size );
-  FREE( buffer2, complex_double, max_size );
-  FREE( buffer3, complex_double, max_size );
-  FREE( buffer4, complex_double, max_size );
+  FREE( buffer1.vector_buffer, complex_double, max_size );
+  FREE( buffer2.vector_buffer, complex_double, max_size );
+  FREE( buffer3.vector_buffer, complex_double, max_size );
+  FREE( buffer4.vector_buffer, complex_double, max_size );
 }
 
 

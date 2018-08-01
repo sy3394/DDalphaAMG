@@ -24,7 +24,7 @@
 #ifdef SSE
 
 #ifdef OPTIMIZED_LINALG_double
-void vector_double_scale( vector_double z, vector_double x, complex_double alpha, int start, int end, level_struct *l ) {
+void vector_double_scale( vector_double *z, vector_double *x, complex_double alpha, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
@@ -32,8 +32,8 @@ void vector_double_scale( vector_double z, vector_double x, complex_double alpha
   
   __m128d alpha_re = _mm_set1_pd( creal_double(alpha) );
   __m128d alpha_im = _mm_set1_pd( cimag_double(alpha) );
-  double *zd = (double*)(z+start);
-  double *xd = (double*)(x+start);
+  double *zd = (double*)(z->vector_buffer+start);
+  double *xd = (double*)(x->vector_buffer+start);
   
   for( int i=start; i<end; ) {
     FOR6(
@@ -58,7 +58,7 @@ void vector_double_scale( vector_double z, vector_double x, complex_double alpha
 #endif
 
 #ifdef OPTIMIZED_LINALG_float
-void vector_float_scale( vector_float z, vector_float x, complex_float alpha, int start, int end, level_struct *l ) {
+void vector_float_scale( vector_float *z, vector_float *x, complex_float alpha, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
@@ -107,7 +107,7 @@ void vector_float_scale( vector_float z, vector_float x, complex_float alpha, in
 #endif
 
 #ifdef OPTIMIZED_LINALG_float
-void vector_float_saxpy( vector_float z, vector_float x, vector_float y, complex_float alpha, int start, int end, level_struct *l ) {
+void vector_float_saxpy( vector_float *z, vector_float *x, vector_float *y, complex_float alpha, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
   if (thread == 0 && start != end )
@@ -146,7 +146,7 @@ void vector_float_saxpy( vector_float z, vector_float x, vector_float y, complex
 #endif
 
 #ifdef OPTIMIZED_LINALG_double
-void vector_double_saxpy( vector_double z, vector_double x, vector_double y, complex_double alpha, int start, int end, level_struct *l ) {
+void vector_double_saxpy( vector_double *z, vector_double *x, vector_double *y, complex_double alpha, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
   if (thread == 0 && start != end )
@@ -174,7 +174,7 @@ void vector_double_saxpy( vector_double z, vector_double x, vector_double y, com
 #endif
 
 #ifdef OPTIMIZED_LINALG_double
-complex_double global_inner_product_double( vector_double phi, vector_double psi, int start, int end, level_struct *l, struct Thread *threading ) {
+complex_double global_inner_product_double( vector_double *phi, vector_double *psi, int start, int end, level_struct *l, struct Thread *threading ) {
   
   PROF_double_START( _GIP, threading );
   complex_double local_alpha = 0, global_alpha = 0;
@@ -249,7 +249,7 @@ complex_double global_inner_product_double( vector_double phi, vector_double psi
 #endif
 
 #ifdef OPTIMIZED_LINALG_float
-complex_float global_inner_product_float( vector_float phi, vector_float psi, int start, int end, level_struct *l, struct Thread *threading ) {
+complex_float global_inner_product_float( vector_float *phi, vector_float *psi, int start, int end, level_struct *l, struct Thread *threading ) {
   
   PROF_float_START( _GIP, threading );
   complex_float local_alpha = 0, global_alpha = 0;
@@ -331,7 +331,7 @@ complex_float global_inner_product_float( vector_float phi, vector_float psi, in
 #endif
 
 #ifdef OPTIMIZED_LINALG_double
-double global_norm_double( vector_double x, int start, int end, level_struct *l, struct Thread *threading ) {
+double global_norm_double( vector_double *x, int start, int end, level_struct *l, struct Thread *threading ) {
   
   PROF_double_START( _GIP, threading );
   
@@ -343,7 +343,7 @@ double global_norm_double( vector_double x, int start, int end, level_struct *l,
   
   SYNC_CORES(threading)
   
-  VECTOR_FOR( int i=thread_start, i<thread_end, local_alpha += NORM_SQUARE_double(x[i]), i++, l );
+  VECTOR_FOR( int i=thread_start, i<thread_end, local_alpha += NORM_SQUARE_double(x->vector_buffer[i]), i++, l );
 
   // sum over cores
   START_NO_HYPERTHREADS(threading)
@@ -380,7 +380,7 @@ double global_norm_double( vector_double x, int start, int end, level_struct *l,
 #endif
 
 #ifdef OPTIMIZED_LINALG_float
-float global_norm_float( vector_float x, int start, int end, level_struct *l, struct Thread *threading ) {
+float global_norm_float( vector_float *x, int start, int end, level_struct *l, struct Thread *threading ) {
   
   PROF_float_START( _GIP, threading );
   
@@ -449,7 +449,7 @@ float global_norm_float( vector_float x, int start, int end, level_struct *l, st
 #endif
 
 #ifdef OPTIMIZED_LINALG_double
-void vector_double_multi_saxpy( vector_double z, vector_double *V, complex_double *alpha,
+void vector_double_multi_saxpy( vector_double *z, vector_double *V, complex_double *alpha,
                                 int sign, int count, int start, int end, level_struct *l ) {
 
   int thread = omp_get_thread_num();
@@ -471,7 +471,7 @@ void vector_double_multi_saxpy( vector_double z, vector_double *V, complex_doubl
         FOR12(
           {
             __m128d z_re = _mm_loadu_pd( (double*)(z+i) );
-            __m128d V_re = _mm_loadu_pd( (double*)(V[c]+i) );
+            __m128d V_re = _mm_loadu_pd( (double*)(V[c].vector_buffer+i) );
             z_re = sse_fmadd_pd( alpha_re[c], V_re, z_re );
             _mm_storeu_pd( (double*)(z+i), z_re );
             i++;
@@ -486,7 +486,7 @@ void vector_double_multi_saxpy( vector_double z, vector_double *V, complex_doubl
           {
             __m128d z_re; __m128d z_im; __m128d V_re; __m128d V_im; 
             sse_complex_deinterleaved_load_pd( (double*)(z+i), &z_re, &z_im );
-            sse_complex_deinterleaved_load_pd( (double*)(V[c]+i), &V_re, &V_im );
+            sse_complex_deinterleaved_load_pd( (double*)(V[c].vector_buffer+i), &V_re, &V_im );
             cfmadd_pd(alpha_re[c], alpha_im[c], V_re, V_im, &z_re, &z_im);
             sse_complex_interleaved_store_pd( z_re, z_im, (double*)(z+i) );
             i += SIMD_LENGTH_double;
@@ -502,7 +502,7 @@ void vector_double_multi_saxpy( vector_double z, vector_double *V, complex_doubl
 #endif
 
 #ifdef OPTIMIZED_LINALG_float
-void vector_float_multi_saxpy( vector_float z, vector_float *V, complex_float *alpha,
+void vector_float_multi_saxpy( vector_float *z, vector_float *V, complex_float *alpha,
                                int sign, int count, int start, int end, level_struct *l ) {
 
   __m128 V_re; __m128 V_im;
@@ -528,7 +528,7 @@ void vector_float_multi_saxpy( vector_float z, vector_float *V, complex_float *a
           FOR6(
             {
               z_re = _mm_loadu_ps( (float*)(z+i) );
-              V_re = _mm_loadu_ps( (float*)(V[c]+i) );
+              V_re = _mm_loadu_ps( (float*)(V[c].vector_buffer+i) );
               z_re = sse_fmadd( alpha_re[c], V_re, z_re );
               _mm_storeu_ps( (float*)(z+i), z_re );
               i+=2;
@@ -542,7 +542,7 @@ void vector_float_multi_saxpy( vector_float z, vector_float *V, complex_float *a
           FOR3(
             {
               sse_complex_deinterleaved_load( (float*)(z+i), &z_re, &z_im );
-              sse_complex_deinterleaved_load( (float*)(V[c]+i), &V_re, &V_im );
+              sse_complex_deinterleaved_load( (float*)(V[c].vector_buffer+i), &V_re, &V_im );
               cfmadd(alpha_re[c], alpha_im[c], V_re, V_im, &z_re, &z_im);
               sse_complex_interleaved_store( z_re, z_im, (float*)(z+i) );
               i+=SIMD_LENGTH_float;
@@ -556,7 +556,7 @@ void vector_float_multi_saxpy( vector_float z, vector_float *V, complex_float *a
       for ( int c=0; c<count; c++ ) {
         for ( int i=start; i<end; ) {
           z_re = _mm_loadu_ps( (float*)(z+i) );
-          V_re = _mm_loadu_ps( (float*)(V[c]+i) );
+          V_re = _mm_loadu_ps( (float*)(V[c].vector_buffer+i) );
           z_re = sse_fmadd( alpha_re[c], V_re, z_re );
           _mm_storeu_ps( (float*)(z+i), z_re );
           i+=2;
@@ -566,7 +566,7 @@ void vector_float_multi_saxpy( vector_float z, vector_float *V, complex_float *a
       for ( int c=0; c<count; c++ ) {
         for ( int i=start; i<end; ) {
           sse_complex_deinterleaved_load( (float*)(z+i), &z_re, &z_im );
-          sse_complex_deinterleaved_load( (float*)(V[c]+i), &V_re, &V_im );
+          sse_complex_deinterleaved_load( (float*)(V[c].vector_buffer+i), &V_re, &V_im );
           cfmadd(alpha_re[c], alpha_im[c], V_re, V_im, &z_re, &z_im);
           sse_complex_interleaved_store( z_re, z_im, (float*)(z+i) );
           i+=SIMD_LENGTH_float;
@@ -582,7 +582,7 @@ void vector_float_multi_saxpy( vector_float z, vector_float *V, complex_float *a
 
 #ifdef OPTIMIZED_LINALG_float
 void process_multi_inner_product_MP( int count, complex_double *results, vector_float *phi,
-                                     vector_float psi, int start, int end, level_struct *l,
+                                     vector_float *psi, int start, int end, level_struct *l,
                                      struct Thread *threading ) {
 
   PROF_float_START( _PIP, threading );
@@ -606,17 +606,17 @@ void process_multi_inner_product_MP( int count, complex_double *results, vector_
       __m128 phi_re; __m128 phi_im;
       // deinterleave complex numbers into 4 real parts and 4 imag parts
       sse_complex_deinterleaved_load( (float*)(psi+i), &psi_re, &psi_im );
-      sse_complex_deinterleaved_load( (float*)(phi[c]+i), &phi_re, &phi_im );
+      sse_complex_deinterleaved_load( (float*)(phi[c].vector_buffer+i), &phi_re, &phi_im );
       
       cmul_conj(phi_re, phi_im, psi_re, psi_im, &result_re, &result_im);
       
       sse_complex_deinterleaved_load( (float*)(psi+i+4), &psi_re, &psi_im );
-      sse_complex_deinterleaved_load( (float*)(phi[c]+i+4), &phi_re, &phi_im );
+      sse_complex_deinterleaved_load( (float*)(phi[c].vector_buffer+i+4), &phi_re, &phi_im );
       
       cfmadd_conj(phi_re, phi_im, psi_re, psi_im, &result_re, &result_im);
       
       sse_complex_deinterleaved_load( (float*)(psi+i+8), &psi_re, &psi_im );
-      sse_complex_deinterleaved_load( (float*)(phi[c]+i+8), &phi_re, &phi_im );
+      sse_complex_deinterleaved_load( (float*)(phi[c].vector_buffer+i+8), &phi_re, &phi_im );
       
       cfmadd_conj(phi_re, phi_im, psi_re, psi_im, &result_re, &result_im);
       
@@ -644,7 +644,7 @@ void process_multi_inner_product_MP( int count, complex_double *results, vector_
 #endif
 
 #ifdef OPTIMIZED_LINALG_float
-void process_multi_inner_product_float( int count, complex_float *results, vector_float *phi, vector_float psi,
+void process_multi_inner_product_float( int count, complex_float *results, vector_float *phi, vector_float *psi,
     int start, int end, level_struct *l, struct Thread *threading ) {
 
   PROF_float_START( _PIP, threading );
@@ -669,7 +669,7 @@ void process_multi_inner_product_float( int count, complex_float *results, vecto
             __m128 psi_re; __m128 psi_im;
             
             // deinterleave complex numbers into 4 real parts and 4 imag parts        
-            sse_complex_deinterleaved_load( (float*)(phi[c]+i), &phi_re, &phi_im );
+            sse_complex_deinterleaved_load( (float*)(phi[c].vector_buffer+i), &phi_re, &phi_im );
             sse_complex_deinterleaved_load( (float*)(psi+i), &psi_re, &psi_im );
 
             cfmadd_conj(phi_re, phi_im, psi_re, psi_im, &result_re, &result_im);
@@ -689,7 +689,7 @@ void process_multi_inner_product_float( int count, complex_float *results, vecto
         __m128 psi_re; __m128 psi_im;
         
         // deinterleave complex numbers into 4 real parts and 4 imag parts        
-        sse_complex_deinterleaved_load( (float*)(phi[c]+i), &phi_re, &phi_im );
+        sse_complex_deinterleaved_load( (float*)(phi[c].vector_buffer+i), &phi_re, &phi_im );
         sse_complex_deinterleaved_load( (float*)(psi+i), &psi_re, &psi_im );
 
         cfmadd_conj(phi_re, phi_im, psi_re, psi_im, &result_re, &result_im);
@@ -718,7 +718,7 @@ void process_multi_inner_product_float( int count, complex_float *results, vecto
 #endif
 
 #ifdef OPTIMIZED_LINALG_double
-void process_multi_inner_product_double( int count, complex_double *results, vector_double *phi, vector_double psi,
+void process_multi_inner_product_double( int count, complex_double *results, vector_double *phi, vector_double *psi,
     int start, int end, level_struct *l, struct Thread *threading ) {
 
   PROF_double_START( _PIP, threading );
@@ -743,7 +743,7 @@ void process_multi_inner_product_double( int count, complex_double *results, vec
             __m128d pdi_re; __m128d pdi_im;
             
             // deinterleave complex numbers into 4 real parts and 4 imag parts        
-            sse_complex_deinterleaved_load_pd( (double*)(phi[c]+i), &phi_re, &phi_im );
+            sse_complex_deinterleaved_load_pd( (double*)(phi[c].vector_buffer+i), &phi_re, &phi_im );
             sse_complex_deinterleaved_load_pd( (double*)(psi+i), &pdi_re, &pdi_im );
 
             cfmadd_conj_pd(phi_re, phi_im, pdi_re, pdi_im, &result_re, &result_im);
@@ -763,7 +763,7 @@ void process_multi_inner_product_double( int count, complex_double *results, vec
         __m128d pdi_re; __m128d pdi_im;
         
         // deinterleave complex numbers into 4 real parts and 4 imag parts        
-        sse_complex_deinterleaved_load_pd( (double*)(phi[c]+i), &phi_re, &phi_im );
+        sse_complex_deinterleaved_load_pd( (double*)(phi[c].vector_buffer+i), &phi_re, &phi_im );
         sse_complex_deinterleaved_load_pd( (double*)(psi+i), &pdi_re, &pdi_im );
 
         cfmadd_conj_pd(phi_re, phi_im, pdi_re, pdi_im, &result_re, &result_im);

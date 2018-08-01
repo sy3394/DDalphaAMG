@@ -58,7 +58,7 @@ void operator_PRECISION_init( operator_PRECISION_struct *op ) {
   
   for ( int i=0; i<8; i++ ) {
     op->c.boundary_table[i] = NULL;
-    op->c.buffer[i] = NULL;
+    vector_PRECISION_init(&(op->c.buffer[i]));
     op->c.in_use[i] = 0;
   }
   op->c.comm = 1;
@@ -393,41 +393,45 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
   int ivs = l->inner_vector_size;
   double diff;
   
-  vector_double vd1=NULL, vd2, vd3, vd4;
-  vector_PRECISION vp1=NULL, vp2;
+  vector_double vd1, vd2, vd3, vd4;
+  vector_PRECISION vp1, vp2;
 
-  PUBLIC_MALLOC( vd1, complex_double, 4*ivs );
-  PUBLIC_MALLOC( vp1, complex_PRECISION, 2*ivs );
+  vector_double_init(&vd1);
+  vector_PRECISION_init(&vp1);
 
-  vd2 = vd1 + ivs; vd3 = vd2 + ivs; vd4 = vd3 + ivs; vp2 = vp1 + ivs;
+  PUBLIC_MALLOC( vd1.vector_buffer, complex_double, 4*ivs );
+  PUBLIC_MALLOC( vp1.vector_buffer, complex_PRECISION, 2*ivs );
+
+  vd2.vector_buffer = vd1.vector_buffer + ivs; vd3.vector_buffer = vd2.vector_buffer + ivs;
+  vd4.vector_buffer = vd3.vector_buffer + ivs; vp2.vector_buffer = vp1.vector_buffer + ivs;
 
   START_LOCKED_MASTER(threading)
   
-  vector_double_define_random( vd1, 0, l->inner_vector_size, l );
-  apply_operator_double( vd2, vd1, &(g.p), l, no_threading );
+  vector_double_define_random( &vd1, 0, l->inner_vector_size, l );
+  apply_operator_double( &vd2, &vd1, &(g.p), l, no_threading );
   
-  trans_PRECISION( vp1, vd1, op->translation_table, l, no_threading );
-  apply_operator_PRECISION( vp2, vp1, &(l->p_PRECISION), l, no_threading );
-  trans_back_PRECISION( vd3, vp2, op->translation_table, l, no_threading );
+  trans_PRECISION( &vp1, &vd1, op->translation_table, l, no_threading );
+  apply_operator_PRECISION( &vp2, &vp1, &(l->p_PRECISION), l, no_threading );
+  trans_back_PRECISION( &vd3, &vp2, op->translation_table, l, no_threading );
   
-  vector_double_minus( vd4, vd3, vd2, 0, l->inner_vector_size, l );
-  diff = global_norm_double( vd4, 0, ivs, l, no_threading )/
-    global_norm_double( vd3, 0, ivs, l, no_threading );
+  vector_double_minus( &vd4, &vd3, &vd2, 0, l->inner_vector_size, l );
+  diff = global_norm_double( &vd4, 0, ivs, l, no_threading )/
+    global_norm_double( &vd3, 0, ivs, l, no_threading );
 
   test0_PRECISION("depth: %d, correctness of schwarz PRECISION Dirac operator: %le\n", l->depth, diff );
   END_LOCKED_MASTER(threading)
 
   if(threading->n_core > 1) {
-    apply_operator_PRECISION( vp2, vp1, &(l->p_PRECISION), l, threading );
+    apply_operator_PRECISION( &vp2, &vp1, &(l->p_PRECISION), l, threading );
 
     SYNC_MASTER_TO_ALL(threading)
     SYNC_CORES(threading)
 
     START_LOCKED_MASTER(threading)
-    trans_back_PRECISION( vd3, vp2, op->translation_table, l, no_threading );
-    vector_double_minus( vd4, vd3, vd2, 0, l->inner_vector_size, l );
-    diff = global_norm_double( vd4, 0, ivs, l, no_threading ) /
-      global_norm_double( vd3, 0, ivs, l, no_threading );
+    trans_back_PRECISION( &vd3, &vp2, op->translation_table, l, no_threading );
+    vector_double_minus( &vd4, &vd3, &vd2, 0, l->inner_vector_size, l );
+    diff = global_norm_double( &vd4, 0, ivs, l, no_threading ) /
+      global_norm_double( &vd3, 0, ivs, l, no_threading );
 
     if ( diff > EPS_PRECISION )
       printf0("\x1b[31m");
@@ -439,8 +443,8 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
     END_LOCKED_MASTER(threading) 
   }    
   
-  PUBLIC_FREE( vd1, complex_double, 4*ivs );
-  PUBLIC_FREE( vp1, complex_PRECISION, 2*ivs );
+  PUBLIC_FREE( vd1.vector_buffer, complex_double, 4*ivs );
+  PUBLIC_FREE( vp1.vector_buffer, complex_PRECISION, 2*ivs );
 
   START_LOCKED_MASTER(threading)
   if ( g.method >=4 && g.odd_even )
