@@ -470,7 +470,7 @@ void vector_double_multi_saxpy( vector_double *z, vector_double *V, complex_doub
       for ( int i=start; i<end; ) {
         FOR12(
           {
-            __m128d z_re = _mm_loadu_pd( (double*)(z+i) );
+            __m128d z_re = _mm_loadu_pd( (double*)(z->vector_buffer+i) );
             __m128d V_re = _mm_loadu_pd( (double*)(V[c].vector_buffer+i) );
             z_re = sse_fmadd_pd( alpha_re[c], V_re, z_re );
             _mm_storeu_pd( (double*)(z+i), z_re );
@@ -485,10 +485,10 @@ void vector_double_multi_saxpy( vector_double *z, vector_double *V, complex_doub
         FOR6(
           {
             __m128d z_re; __m128d z_im; __m128d V_re; __m128d V_im; 
-            sse_complex_deinterleaved_load_pd( (double*)(z+i), &z_re, &z_im );
+            sse_complex_deinterleaved_load_pd( (double*)(z->vector_buffer+i), &z_re, &z_im );
             sse_complex_deinterleaved_load_pd( (double*)(V[c].vector_buffer+i), &V_re, &V_im );
             cfmadd_pd(alpha_re[c], alpha_im[c], V_re, V_im, &z_re, &z_im);
-            sse_complex_interleaved_store_pd( z_re, z_im, (double*)(z+i) );
+            sse_complex_interleaved_store_pd( z_re, z_im, (double*)(z->vector_buffer+i) );
             i += SIMD_LENGTH_double;
           }
         )
@@ -527,10 +527,10 @@ void vector_float_multi_saxpy( vector_float *z, vector_float *V, complex_float *
         for ( int i=start; i<end; ) {
           FOR6(
             {
-              z_re = _mm_loadu_ps( (float*)(z+i) );
+              z_re = _mm_loadu_ps( (float*)(z->vector_buffer+i) );
               V_re = _mm_loadu_ps( (float*)(V[c].vector_buffer+i) );
               z_re = sse_fmadd( alpha_re[c], V_re, z_re );
-              _mm_storeu_ps( (float*)(z+i), z_re );
+              _mm_storeu_ps( (float*)(z->vector_buffer+i), z_re );
               i+=2;
             }
           )
@@ -541,10 +541,10 @@ void vector_float_multi_saxpy( vector_float *z, vector_float *V, complex_float *
         for ( int i=start; i<end; ) {
           FOR3(
             {
-              sse_complex_deinterleaved_load( (float*)(z+i), &z_re, &z_im );
+              sse_complex_deinterleaved_load( (float*)(z->vector_buffer+i), &z_re, &z_im );
               sse_complex_deinterleaved_load( (float*)(V[c].vector_buffer+i), &V_re, &V_im );
               cfmadd(alpha_re[c], alpha_im[c], V_re, V_im, &z_re, &z_im);
-              sse_complex_interleaved_store( z_re, z_im, (float*)(z+i) );
+              sse_complex_interleaved_store( z_re, z_im, (float*)(z->vector_buffer+i) );
               i+=SIMD_LENGTH_float;
             }
           )
@@ -555,20 +555,20 @@ void vector_float_multi_saxpy( vector_float *z, vector_float *V, complex_float *
     if ( flag == 0 ) {
       for ( int c=0; c<count; c++ ) {
         for ( int i=start; i<end; ) {
-          z_re = _mm_loadu_ps( (float*)(z+i) );
+          z_re = _mm_loadu_ps( (float*)(z->vector_buffer+i) );
           V_re = _mm_loadu_ps( (float*)(V[c].vector_buffer+i) );
           z_re = sse_fmadd( alpha_re[c], V_re, z_re );
-          _mm_storeu_ps( (float*)(z+i), z_re );
+          _mm_storeu_ps( (float*)(z->vector_buffer+i), z_re );
           i+=2;
         }
       }
     } else {
       for ( int c=0; c<count; c++ ) {
         for ( int i=start; i<end; ) {
-          sse_complex_deinterleaved_load( (float*)(z+i), &z_re, &z_im );
+          sse_complex_deinterleaved_load( (float*)(z->vector_buffer+i), &z_re, &z_im );
           sse_complex_deinterleaved_load( (float*)(V[c].vector_buffer+i), &V_re, &V_im );
           cfmadd(alpha_re[c], alpha_im[c], V_re, V_im, &z_re, &z_im);
-          sse_complex_interleaved_store( z_re, z_im, (float*)(z+i) );
+          sse_complex_interleaved_store( z_re, z_im, (float*)(z->vector_buffer+i) );
           i+=SIMD_LENGTH_float;
         }
       }
@@ -605,17 +605,17 @@ void process_multi_inner_product_MP( int count, complex_double *results, vector_
       __m128 psi_re; __m128 psi_im;
       __m128 phi_re; __m128 phi_im;
       // deinterleave complex numbers into 4 real parts and 4 imag parts
-      sse_complex_deinterleaved_load( (float*)(psi+i), &psi_re, &psi_im );
+      sse_complex_deinterleaved_load( (float*)(psi->vector_buffer+i), &psi_re, &psi_im );
       sse_complex_deinterleaved_load( (float*)(phi[c].vector_buffer+i), &phi_re, &phi_im );
       
       cmul_conj(phi_re, phi_im, psi_re, psi_im, &result_re, &result_im);
       
-      sse_complex_deinterleaved_load( (float*)(psi+i+4), &psi_re, &psi_im );
+      sse_complex_deinterleaved_load( (float*)(psi->vector_buffer+i+4), &psi_re, &psi_im );
       sse_complex_deinterleaved_load( (float*)(phi[c].vector_buffer+i+4), &phi_re, &phi_im );
       
       cfmadd_conj(phi_re, phi_im, psi_re, psi_im, &result_re, &result_im);
       
-      sse_complex_deinterleaved_load( (float*)(psi+i+8), &psi_re, &psi_im );
+      sse_complex_deinterleaved_load( (float*)(psi->vector_buffer+i+8), &psi_re, &psi_im );
       sse_complex_deinterleaved_load( (float*)(phi[c].vector_buffer+i+8), &phi_re, &phi_im );
       
       cfmadd_conj(phi_re, phi_im, psi_re, psi_im, &result_re, &result_im);
@@ -670,7 +670,7 @@ void process_multi_inner_product_float( int count, complex_float *results, vecto
             
             // deinterleave complex numbers into 4 real parts and 4 imag parts        
             sse_complex_deinterleaved_load( (float*)(phi[c].vector_buffer+i), &phi_re, &phi_im );
-            sse_complex_deinterleaved_load( (float*)(psi+i), &psi_re, &psi_im );
+            sse_complex_deinterleaved_load( (float*)(psi->vector_buffer+i), &psi_re, &psi_im );
 
             cfmadd_conj(phi_re, phi_im, psi_re, psi_im, &result_re, &result_im);
             i+=SIMD_LENGTH_float;
@@ -690,7 +690,7 @@ void process_multi_inner_product_float( int count, complex_float *results, vecto
         
         // deinterleave complex numbers into 4 real parts and 4 imag parts        
         sse_complex_deinterleaved_load( (float*)(phi[c].vector_buffer+i), &phi_re, &phi_im );
-        sse_complex_deinterleaved_load( (float*)(psi+i), &psi_re, &psi_im );
+        sse_complex_deinterleaved_load( (float*)(psi->vector_buffer+i), &psi_re, &psi_im );
 
         cfmadd_conj(phi_re, phi_im, psi_re, psi_im, &result_re, &result_im);
       }
@@ -744,7 +744,7 @@ void process_multi_inner_product_double( int count, complex_double *results, vec
             
             // deinterleave complex numbers into 4 real parts and 4 imag parts        
             sse_complex_deinterleaved_load_pd( (double*)(phi[c].vector_buffer+i), &phi_re, &phi_im );
-            sse_complex_deinterleaved_load_pd( (double*)(psi+i), &pdi_re, &pdi_im );
+            sse_complex_deinterleaved_load_pd( (double*)(psi->vector_buffer+i), &pdi_re, &pdi_im );
 
             cfmadd_conj_pd(phi_re, phi_im, pdi_re, pdi_im, &result_re, &result_im);
             i+=SIMD_LENGTH_double;
@@ -764,7 +764,7 @@ void process_multi_inner_product_double( int count, complex_double *results, vec
         
         // deinterleave complex numbers into 4 real parts and 4 imag parts        
         sse_complex_deinterleaved_load_pd( (double*)(phi[c].vector_buffer+i), &phi_re, &phi_im );
-        sse_complex_deinterleaved_load_pd( (double*)(psi+i), &pdi_re, &pdi_im );
+        sse_complex_deinterleaved_load_pd( (double*)(psi->vector_buffer+i), &pdi_re, &pdi_im );
 
         cfmadd_conj_pd(phi_re, phi_im, pdi_re, pdi_im, &result_re, &result_im);
       }
