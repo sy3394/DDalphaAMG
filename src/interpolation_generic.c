@@ -71,7 +71,7 @@ void interpolation_PRECISION_free( level_struct *l ) {
 }
 
 
-void define_interpolation_PRECISION_operator( complex_PRECISION **interpolation, level_struct *l, struct Thread *threading ) {
+void define_interpolation_PRECISION_operator( vector_PRECISION *interpolation, level_struct *l, struct Thread *threading ) {
   
   int j, num_eig_vect = l->num_eig_vect;
   complex_PRECISION *operator = l->is_PRECISION.operator;
@@ -83,7 +83,7 @@ void define_interpolation_PRECISION_operator( complex_PRECISION **interpolation,
   operator += start*num_eig_vect;
   for ( int i=start; i<end; i++ )
     for ( j=0; j<num_eig_vect; j++ ) {
-      *operator = interpolation[j][i];
+      *operator = interpolation[j].vector_buffer[i];
       operator++;
     }
   SYNC_CORES(threading)

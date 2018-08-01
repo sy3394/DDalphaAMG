@@ -353,7 +353,7 @@ void vector_PRECISION_multi_saxpy( vector_PRECISION *z, vector_PRECISION *V, com
 }
 #endif
 
-void vector_PRECISION_projection( vector_PRECISION *z, vector_PRECISION *v, int k, vector_PRECISION **W, complex_PRECISION *diag, 
+void vector_PRECISION_projection( vector_PRECISION *z, vector_PRECISION *v, int k, vector_PRECISION *W, complex_PRECISION *diag, 
                                   int orthogonal, level_struct *l, Thread *threading ) {
   
   int j, start, end;
@@ -375,7 +375,7 @@ void vector_PRECISION_projection( vector_PRECISION *z, vector_PRECISION *v, int 
     W_tmp[j].vector_buffer = W_tmp[0].vector_buffer+j*l->inner_vector_size;
   
   for ( j=0; j<k; j++ ) {
-   vector_PRECISION_scale( &W_tmp[j], W[j], diag[j], 0, l->inner_vector_size, l );
+   vector_PRECISION_scale( &W_tmp[j], W+j, diag[j], 0, l->inner_vector_size, l );
   }
   process_multi_inner_product_PRECISION( k, ip, W_tmp, v, 0, l->inner_vector_size, l, threading );
   

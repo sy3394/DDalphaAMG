@@ -116,7 +116,7 @@
                                     int start, int end, level_struct *l );
   void vector_PRECISION_saxpy( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, complex_PRECISION alpha, int start, int end, level_struct *l ); // z := x + alpha*y
   void buffer_PRECISION_copy( complex_PRECISION *z, complex_PRECISION *x, int start, int end, level_struct *l ); // z := x
-  void vector_PRECISION_projection( vector_PRECISION *z, vector_PRECISION *v, int k, vector_PRECISION **W, complex_PRECISION *diag, 
+  void vector_PRECISION_projection( vector_PRECISION *z, vector_PRECISION *v, int k, vector_PRECISION *W, complex_PRECISION *diag, 
                                   int orthogonal, level_struct *l, Thread *threading );
   
   void gram_schmidt_on_aggregates_PRECISION( vector_PRECISION *V, const int num_vec, level_struct *l, struct Thread *threading );

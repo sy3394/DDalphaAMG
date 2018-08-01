@@ -78,7 +78,7 @@
 #ifdef OPTIMIZED_COARSE_NEIGHBOR_COUPLING_PRECISION
     int nv = l->num_parent_eig_vect;
     int lda = 2*SIMD_LENGTH_PRECISION*((nv+SIMD_LENGTH_PRECISION-1)/SIMD_LENGTH_PRECISION);
-    cgenmv_padded( 2*nv, D, lda, nv, (float *)phi, (float *)eta);
+    cgenmv_padded( 2*nv, D, lda, nv, (float *)phi->vector_buffer, (float *)eta->vector_buffer);
 #endif
   }
   static inline void coarse_n_hopp_PRECISION_vectorized( vector_PRECISION *eta, vector_PRECISION *phi,
@@ -86,7 +86,7 @@
 #ifdef OPTIMIZED_COARSE_NEIGHBOR_COUPLING_PRECISION
     int nv = l->num_parent_eig_vect;
     int lda = 2*SIMD_LENGTH_PRECISION*((nv+SIMD_LENGTH_PRECISION-1)/SIMD_LENGTH_PRECISION);
-    cgemv_padded( 2*nv, D, lda, nv, (float *)phi, (float *)eta);
+    cgemv_padded( 2*nv, D, lda, nv, (float *)phi->vector_buffer, (float *)eta->vector_buffer);
 #endif
   }
 
@@ -103,7 +103,7 @@
     for(int i=start; i<end; i++) {
       for(int j=0; j<site_size; j++)
         eta->vector_buffer[i*site_size+j] = 0.0;
-      cgemv(site_size, clover+i*2*site_size*lda, lda, (float *)(phi+i*site_size), (float *)(eta+i*site_size));
+      cgemv(site_size, clover+i*2*site_size*lda, lda, (float *)(phi->vector_buffer+i*site_size), (float *)(eta->vector_buffer+i*site_size));
     }
 #endif
   }

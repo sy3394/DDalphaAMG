@@ -31,11 +31,11 @@ void interpolation_PRECISION_alloc( level_struct *l ) {
   MALLOC( l->is_PRECISION.test_vector, vector_PRECISION, n );
   
 #ifndef INTERPOLATION_SETUP_LAYOUT_OPTIMIZED_PRECISION  
-  MALLOC( l->is_PRECISION.interpolation, complex_PRECISION*, n );
-  l->is_PRECISION.interpolation[0] = NULL;
-  MALLOC_HUGEPAGES( l->is_PRECISION.interpolation[0]->vector_buffer, complex_PRECISION, n*l->vector_size, 128 );
+  MALLOC( l->is_PRECISION.interpolation, vector_PRECISION, n );
+  l->is_PRECISION.interpolation[0].vector_buffer = NULL;
+  MALLOC_HUGEPAGES( l->is_PRECISION.interpolation[0].vector_buffer, complex_PRECISION, n*l->vector_size, 128 );
   for ( k=1; k<n; k++ )
-    l->is_PRECISION.interpolation[k]->vector_buffer = l->is_PRECISION.interpolation[0]->vector_buffer + k*l->vector_size;
+    l->is_PRECISION.interpolation[k].vector_buffer = l->is_PRECISION.interpolation[0].vector_buffer + k*l->vector_size;
 #endif
   // ghost shell is communicated in coarse_operator_setup, so we need size=vector_size, not inner_vector_size
   MALLOC_HUGEPAGES( l->is_PRECISION.operator, complex_PRECISION,
@@ -71,7 +71,7 @@ void interpolation_PRECISION_free( level_struct *l ) {
   FREE( l->is_PRECISION.eigenvalues, complex_PRECISION, n );
   FREE( l->is_PRECISION.test_vector, vector_PRECISION, n );
 #ifndef INTERPOLATION_SETUP_LAYOUT_OPTIMIZED_PRECISION  
-  FREE_HUGEPAGES( l->is_PRECISION.interpolation[0]->vector_buffer, complex_PRECISION, n*l->vector_size );
+  FREE_HUGEPAGES( l->is_PRECISION.interpolation[0].vector_buffer, complex_PRECISION, n*l->vector_size );
   FREE( l->is_PRECISION.interpolation, vector_PRECISION, n );
 #endif
   FREE_HUGEPAGES( l->is_PRECISION.operator, complex_PRECISION, OPERATOR_COMPONENT_OFFSET_PRECISION*l->vector_size );
@@ -94,7 +94,7 @@ void swap8_PRECISION( PRECISION* data ) {
 }
 
 
-void define_interpolation_PRECISION_operator( complex_PRECISION **interpolation, level_struct *l, struct Thread *threading ) {
+void define_interpolation_PRECISION_operator( vector_PRECISION *interpolation, level_struct *l, struct Thread *threading ) {
   
   int j, num_eig_vect = l->num_eig_vect;
   complex_PRECISION *operator = l->is_PRECISION.operator;
@@ -114,7 +114,7 @@ void define_interpolation_PRECISION_operator( complex_PRECISION **interpolation,
     for ( int i=start; i<end; i+=offset/2 ) {
       __m128 data[offset];
       for ( int j2=j; j2<j_end; j2++ )
-        data[j2-j] = _mm_load_ps((float *)(interpolation[j2]+i));
+        data[j2-j] = _mm_load_ps((float *)(interpolation[j2].vector_buffer+i));
       for ( int j2=j_end; j2<j+offset; j2++ )
         data[j2-j] = _mm_setzero_ps();
       

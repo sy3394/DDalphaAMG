@@ -66,8 +66,8 @@ void vector_float_scale( vector_float *z, vector_float *x, complex_float alpha, 
   
   __m128 alpha_re = _mm_set1_ps( creal_float(alpha) );
   __m128 alpha_im = _mm_set1_ps( cimag_float(alpha) );
-  float *zf = (float*)(z+start);
-  float *xf = (float*)(x+start);
+  float *zf = (float*)(z->vector_buffer+start);
+  float *xf = (float*)(x->vector_buffer+start);
   
   if ( l->depth == 0 ) {
     for( int i=start; i<end; ) {
@@ -121,10 +121,10 @@ void vector_float_saxpy( vector_float *z, vector_float *x, vector_float *y, comp
       FOR3(
         {
           __m128 x_re; __m128 x_im; __m128 y_re; __m128 y_im;
-          sse_complex_deinterleaved_load( (float*)(x+i), &x_re, &x_im );
-          sse_complex_deinterleaved_load( (float*)(y+i), &y_re, &y_im );
+          sse_complex_deinterleaved_load( (float*)(x->vector_buffer+i), &x_re, &x_im );
+          sse_complex_deinterleaved_load( (float*)(y->vector_buffer+i), &y_re, &y_im );
           cfmadd(alpha_re, alpha_im, y_re, y_im, &x_re, &x_im);
-          sse_complex_interleaved_store( x_re, x_im, (float*)(z+i) );
+          sse_complex_interleaved_store( x_re, x_im, (float*)(z->vector_buffer+i) );
           i+=SIMD_LENGTH_float;
         }
       )
@@ -132,10 +132,10 @@ void vector_float_saxpy( vector_float *z, vector_float *x, vector_float *y, comp
   } else {
     for ( int i=start; i<end; ) {
       __m128 x_re; __m128 x_im; __m128 y_re; __m128 y_im;
-      sse_complex_deinterleaved_load( (float*)(x+i), &x_re, &x_im );
-      sse_complex_deinterleaved_load( (float*)(y+i), &y_re, &y_im );
+      sse_complex_deinterleaved_load( (float*)(x->vector_buffer+i), &x_re, &x_im );
+      sse_complex_deinterleaved_load( (float*)(y->vector_buffer+i), &y_re, &y_im );
       cfmadd(alpha_re, alpha_im, y_re, y_im, &x_re, &x_im);
-      sse_complex_interleaved_store( x_re, x_im, (float*)(z+i) );
+      sse_complex_interleaved_store( x_re, x_im, (float*)(z->vector_buffer+i) );
       i+=SIMD_LENGTH_float;
     }
   }
@@ -159,10 +159,10 @@ void vector_double_saxpy( vector_double *z, vector_double *x, vector_double *y, 
     FOR6(
       {
         __m128d x_re; __m128d x_im; __m128d y_re; __m128d y_im;
-        sse_complex_deinterleaved_load_pd( (double*)(x+i), &x_re, &x_im );
-        sse_complex_deinterleaved_load_pd( (double*)(y+i), &y_re, &y_im );
+        sse_complex_deinterleaved_load_pd( (double*)(x->vector_buffer+i), &x_re, &x_im );
+        sse_complex_deinterleaved_load_pd( (double*)(y->vector_buffer+i), &y_re, &y_im );
         cfmadd_pd(alpha_re, alpha_im, y_re, y_im, &x_re, &x_im);
-        sse_complex_interleaved_store_pd( x_re, x_im, (double*)(z+i) );
+        sse_complex_interleaved_store_pd( x_re, x_im, (double*)(z->vector_buffer+i) );
         i+=SIMD_LENGTH_double;
       }
     )
@@ -194,8 +194,8 @@ complex_double global_inner_product_double( vector_double *phi, vector_double *p
         {
           __m128d phi_re; __m128d phi_im;
           __m128d psi_re; __m128d psi_im;
-          sse_complex_deinterleaved_load_pd( (double*)(phi+i), &phi_re, &phi_im );
-          sse_complex_deinterleaved_load_pd( (double*)(psi+i), &psi_re, &psi_im );
+          sse_complex_deinterleaved_load_pd( (double*)(phi->vector_buffer+i), &phi_re, &phi_im );
+          sse_complex_deinterleaved_load_pd( (double*)(psi->vector_buffer+i), &psi_re, &psi_im );
           cfmadd_conj_pd( phi_re, phi_im, psi_re, psi_im, &alpha_re, &alpha_im );
           i+=SIMD_LENGTH_double;
         }
@@ -205,8 +205,8 @@ complex_double global_inner_product_double( vector_double *phi, vector_double *p
     for( int i=thread_start; i<thread_end; ) {
       __m128d phi_re; __m128d phi_im;
       __m128d psi_re; __m128d psi_im;
-      sse_complex_deinterleaved_load_pd( (double*)(phi+i), &phi_re, &phi_im );
-      sse_complex_deinterleaved_load_pd( (double*)(psi+i), &psi_re, &psi_im );
+      sse_complex_deinterleaved_load_pd( (double*)(phi->vector_buffer+i), &phi_re, &phi_im );
+      sse_complex_deinterleaved_load_pd( (double*)(psi->vector_buffer+i), &psi_re, &psi_im );
       cfmadd_conj_pd( phi_re, phi_im, psi_re, psi_im, &alpha_re, &alpha_im );
       i+=SIMD_LENGTH_double;
     }
@@ -263,8 +263,8 @@ complex_float global_inner_product_float( vector_float *phi, vector_float *psi, 
   __m128 alpha_re = _mm_setzero_ps();
   __m128 alpha_im = _mm_setzero_ps();
   
-  float *phif = (float*)(phi+thread_start);
-  float *psif = (float*)(psi+thread_start);
+  float *phif = (float*)(phi->vector_buffer+thread_start);
+  float *psif = (float*)(psi->vector_buffer+thread_start);
   
   if ( l->depth == 0 ) {
     for( int i=thread_start; i<thread_end; ) {
@@ -398,7 +398,7 @@ float global_norm_float( vector_float *x, int start, int end, level_struct *l, s
     for( int i=thread_start; i<thread_end; ) {
       FOR6(
         {
-          __m128 phi = _mm_loadu_ps((float*)(x+i));
+          __m128 phi = _mm_loadu_ps((float*)(x->vector_buffer+i));
           alpha = sse_fmadd( phi, phi, alpha );
           i += 2;
         }
@@ -406,7 +406,7 @@ float global_norm_float( vector_float *x, int start, int end, level_struct *l, s
     }
   } else {
     for( int i=thread_start; i<thread_end; ) {
-      __m128 phi = _mm_loadu_ps((float*)(x+i));
+      __m128 phi = _mm_loadu_ps((float*)(x->vector_buffer+i));
       alpha = sse_fmadd( phi, phi, alpha );
       i += 2;
     }
@@ -473,7 +473,7 @@ void vector_double_multi_saxpy( vector_double *z, vector_double *V, complex_doub
             __m128d z_re = _mm_loadu_pd( (double*)(z->vector_buffer+i) );
             __m128d V_re = _mm_loadu_pd( (double*)(V[c].vector_buffer+i) );
             z_re = sse_fmadd_pd( alpha_re[c], V_re, z_re );
-            _mm_storeu_pd( (double*)(z+i), z_re );
+            _mm_storeu_pd( (double*)(z->vector_buffer+i), z_re );
             i++;
           }
         )
