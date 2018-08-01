@@ -348,6 +348,8 @@ void coarse_block_operator_PRECISION( vector_PRECISION *eta, vector_PRECISION *p
       lphi1.vector_buffer = lphi.vector_buffer+m*j;
       coarse_hopp_PRECISION_vectorized( &leta1, &lphi1, Dplus + 4*vectorized_link_offset*k, l );
       // daggered hopp
+      leta2.vector_buffer = leta.vector_buffer+m*j;
+      lphi2.vector_buffer = lphi.vector_buffer+m*k;
       coarse_hopp_PRECISION_vectorized( &leta2, &lphi2, Dminus + 4*vectorized_link_offset*k, l );
     }
   }
