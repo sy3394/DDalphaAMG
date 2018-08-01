@@ -1649,23 +1649,18 @@ void red_black_schwarz_PRECISION( vector_PRECISION *phi, vector_PRECISION *D_phi
   // perform the Schwarz iteration, solve the block systems
   for ( k=0; k<cycles; k++ ) {
     for ( step=0; step<8; step++ ) {
-      printf0(" starting step %d\n", step);
       for ( i=block_thread_start[step]; i<block_thread_end[step]; i++ ) {
-	printf0(" starting index %d\n", i);
         int index = s->block_list[step][i];
-	printf0("index: %d\n", index);
         START_MASTER(threading)
         PROF_PRECISION_START( _SM3 );
         END_MASTER(threading)
         if ( res == _RES ) {
           if ( k==0 && init_res == _RES ) {
-	    printf0("calling block_op\n");
             block_op( Dphi, x, s->block[index].start*l->num_lattice_site_var, s, l, no_threading );
             boundary_op( Dphi, x, index, s, l, no_threading );
             vector_PRECISION_minus( r, eta, Dphi, s->block[index].start*l->num_lattice_site_var,
                                     s->block[index].start*l->num_lattice_site_var+s->block_vector_size, l );
           } else {
-	    printf0("calling n_boundary\n");
             n_boundary_op( r, latest_iter, index, s, l );
           }
         }
@@ -1678,11 +1673,9 @@ void red_black_schwarz_PRECISION( vector_PRECISION *phi, vector_PRECISION *D_phi
 	START_MASTER(threading)
         PROF_PRECISION_STOP( _SM4, 1 );
         END_MASTER(threading)
-	printf0(" fin index %d\n", i);
       }
       
       if ( res_comm == _RES && !(k==cycles-1 && (step==6||step==7) && D_phi==NULL) ) {
-	printf0("calling comms\n");
         START_LOCKED_MASTER(threading)
         for ( mu=0; mu<4; mu++ ) {
           communicate[(step%4)/2]( (k==0 && step < 6 && init_res == _RES)?x:latest_iter, mu, commdir[step], &(s->op.c), l );
