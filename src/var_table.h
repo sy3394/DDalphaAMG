@@ -88,7 +88,7 @@
         else fgmres_double( &(g.p), l, no_threading ); \
         if ( i == g.vt.average_over-1 ) prof_print( l ); \
         if ( g.vt.track_error ) { \
-          vector_double_minus( &x, &x, v, 0, l->inner_vector_size, l ); \
+          vector_double_minus( &x, &x, &v, 0, l->inner_vector_size, l ); \
           g.vt.p_end->values[_SLV_ERR] += ( global_norm_double( &x, 0, l->inner_vector_size, l, no_threading ) / norm_v ) / ((double)g.vt.average_over); \
         } \
       } \
