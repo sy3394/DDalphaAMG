@@ -29,22 +29,21 @@ void interpolation_PRECISION_alloc( level_struct *l ) {
   
   MALLOC( l->is_PRECISION.eigenvalues, complex_PRECISION, n );
   MALLOC( l->is_PRECISION.test_vector, vector_PRECISION, n );
-  
+ 
 #ifndef INTERPOLATION_SETUP_LAYOUT_OPTIMIZED_PRECISION  
   MALLOC( l->is_PRECISION.interpolation, vector_PRECISION, n );
-  l->is_PRECISION.interpolation[0].vector_buffer = NULL;
-  MALLOC_HUGEPAGES( l->is_PRECISION.interpolation[0].vector_buffer, complex_PRECISION, n*l->vector_size, 128 );
-  for ( k=1; k<n; k++ )
-    l->is_PRECISION.interpolation[k].vector_buffer = l->is_PRECISION.interpolation[0].vector_buffer + k*l->vector_size;
+  for ( k=0; k<n; k++ ){
+    vector_PRECISION_init( &(l->is_PRECISION.interpolation[k]) );
+    vector_PRECISION_alloc( &(l->is_PRECISION.interpolation[k]), _ORDINARY, 1, l, no_threading );
+  }
 #endif
   // ghost shell is communicated in coarse_operator_setup, so we need size=vector_size, not inner_vector_size
   MALLOC_HUGEPAGES( l->is_PRECISION.operator, complex_PRECISION,
                     ((size_t)OPERATOR_COMPONENT_OFFSET_PRECISION)*((size_t)l->vector_size), 128 );
 
-  vector_PRECISION_init(&(l->is_PRECISION.test_vector[0]));
-  MALLOC_HUGEPAGES( l->is_PRECISION.test_vector[0].vector_buffer, complex_PRECISION, n*l->inner_vector_size, 128 );
-  for ( k=1; k<n; k++ ) {
-    l->is_PRECISION.test_vector[k].vector_buffer = l->is_PRECISION.test_vector[0].vector_buffer + k*l->inner_vector_size;
+  for ( k=0; k<n; k++ ) {
+    vector_PRECISION_init( &(l->is_PRECISION.test_vector[k]) );
+    vector_PRECISION_alloc( &(l->is_PRECISION.test_vector[k]), _INNER, 1, l, no_threading );
   }    
 }
 
@@ -66,12 +65,16 @@ void interpolation_PRECISION_dummy_free( level_struct *l ) {
 void interpolation_PRECISION_free( level_struct *l ) {
   
   int n = l->num_eig_vect;
-  
-  FREE_HUGEPAGES( l->is_PRECISION.test_vector[0].vector_buffer, complex_PRECISION, n*l->inner_vector_size );
+ 
+  for (int k=0; k<n; k++ ){
+    vector_PRECISION_free(&(l->is_PRECISION.test_vector[k]), l, no_threading );
+  } 
   FREE( l->is_PRECISION.eigenvalues, complex_PRECISION, n );
   FREE( l->is_PRECISION.test_vector, vector_PRECISION, n );
 #ifndef INTERPOLATION_SETUP_LAYOUT_OPTIMIZED_PRECISION  
-  FREE_HUGEPAGES( l->is_PRECISION.interpolation[0].vector_buffer, complex_PRECISION, n*l->vector_size );
+  for (int k=0; k<n; k++ ){
+    vector_PRECISION_free(&(l->is_PRECISION.interpolation[k]), l, no_threading );
+  }
   FREE( l->is_PRECISION.interpolation, vector_PRECISION, n );
 #endif
   FREE_HUGEPAGES( l->is_PRECISION.operator, complex_PRECISION, OPERATOR_COMPONENT_OFFSET_PRECISION*l->vector_size );

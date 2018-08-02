@@ -26,16 +26,36 @@ void vector_PRECISION_init( vector_PRECISION *vec ) {
   vec->vector_buffer = NULL;
 }
 
-/*void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect, level_struct *l ) {
-  
-  MALLOC( vec->vector_buffer, complex_PRECISION, num_vect );
+
+void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect, level_struct *l, Thread *threading ) {
+
+  switch (type){
+  case _ORDINARY : PUBLIC_MALLOC( vec->vector_buffer, complex_PRECISION, l->vector_size*num_vect );
+    break;
+  case _SCHWARZ : PUBLIC_MALLOC( vec->vector_buffer, complex_PRECISION, l->schwarz_vector_size*num_vect );
+    break;
+  case _INNER: PUBLIC_MALLOC( vec->vector_buffer, complex_PRECISION, l->inner_vector_size*num_vect );
+    break;
+  }
+
+  vec->type = type;
+  vec->num_vect = num_vect;
+  vec->layout =  _STANDARD; 
 }
 
-void vector_PRECISION_free( vector_PRECISION *vec, const int type, int num_vect, level_struct *l ) {
+
+void vector_PRECISION_free( vector_PRECISION *vec, level_struct *l, Thread *threading ) {
   
-  FREE( vec->vector_buffer, complex_PRECISION, num_vect );
+  switch (vec->type){
+  case _ORDINARY : PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->vector_size*vec->num_vect );
+    break;
+  case _SCHWARZ : PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->schwarz_vector_size*vec->num_vect );
+    break;
+  case _INNER: PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->inner_vector_size*vec->num_vect );
+    break;
+  }
 }
-*/
+
 
 // vector storage for PRECISION precision
 void vector_PRECISION_define( vector_PRECISION *phi, complex_PRECISION value, int start, int end, level_struct *l ) {

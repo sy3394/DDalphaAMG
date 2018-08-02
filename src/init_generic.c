@@ -94,23 +94,23 @@ double prof_PRECISION_print( level_struct *l ) {
   return flop;
 }
 
-
 void fine_level_PRECISION_alloc( level_struct *l ) {
   
   int n = 8;
-  vector_PRECISION_init(&(l->vbuf_PRECISION[0]));
 #ifdef HAVE_TM1p1
-  MALLOC( l->vbuf_PRECISION[0].vector_buffer, complex_PRECISION, 2*n*l->vector_size );  
-  for ( int i=1; i<n; i++ )
-    l->vbuf_PRECISION[i].vector_buffer = l->vbuf_PRECISION[0].vector_buffer + 2*i*l->vector_size;
-  MALLOC( l->p_PRECISION.b.vector_buffer, complex_PRECISION, 2*2*l->inner_vector_size );
-  l->p_PRECISION.x.vector_buffer = l->p_PRECISION.b.vector_buffer + 2*l->inner_vector_size;
+  for ( int i=0; i<n; i++ ){
+    vector_PRECISION_init( &(l->vbuf_PRECISION[i]) );
+    vector_PRECISION_alloc( &(l->vbuf_PRECISION[i]), _ORDINARY, 2, l, no_threading );
+  }
+  vector_PRECISION_alloc( &(l->p_PRECISION.b), _INNER, 2, l, no_threading );
+  vector_PRECISION_alloc( &(l->p_PRECISION.x), _INNER, 2, l, no_threading ); 
 #else
-  MALLOC( l->vbuf_PRECISION[0].vector_buffer, complex_PRECISION, n*l->vector_size );  
-  for ( int i=1; i<n; i++ )
-    l->vbuf_PRECISION[i].vector_buffer = l->vbuf_PRECISION[0].vector_buffer + i*l->vector_size;
-  MALLOC( l->p_PRECISION.b.vector_buffer, complex_PRECISION, 2*l->inner_vector_size );
-  l->p_PRECISION.x.vector_buffer = l->p_PRECISION.b.vector_buffer + l->inner_vector_size;
+  for ( int i=0; i<n; i++ ){
+    vector_PRECISION_init( &(l->vbuf_PRECISION[i]) );
+    vector_PRECISION_alloc( &(l->vbuf_PRECISION[i]), _ORDINARY, 1, l, no_threading );
+  }
+  vector_PRECISION_alloc( &(l->p_PRECISION.b), _INNER, 1, l, no_threading );
+  vector_PRECISION_alloc( &(l->p_PRECISION.x), _INNER, 1, l, no_threading ); 
 #endif
 }
 
@@ -118,19 +118,10 @@ void fine_level_PRECISION_alloc( level_struct *l ) {
 void fine_level_PRECISION_free( level_struct *l ) {
   
   int n = 8;
-#ifdef HAVE_TM1p1
-  FREE( l->vbuf_PRECISION[0].vector_buffer, complex_PRECISION, 2*n*l->vector_size );  
-  for ( int i=1; i<n; i++ )
-    vector_PRECISION_init(&(l->vbuf_PRECISION[i]));
-  FREE( l->p_PRECISION.b.vector_buffer, complex_PRECISION, 2*2*l->inner_vector_size );
-  vector_PRECISION_init(&(l->p_PRECISION.x));
-#else
-  FREE( l->vbuf_PRECISION[0].vector_buffer, complex_PRECISION, n*l->vector_size );  
-  for ( int i=1; i<n; i++ )
-    vector_PRECISION_init(&(l->vbuf_PRECISION[i]));
-  FREE( l->p_PRECISION.b.vector_buffer, complex_PRECISION, 2*l->inner_vector_size );
-  vector_PRECISION_init(&(l->p_PRECISION.x));
-#endif
+  for ( int i=0; i<n; i++ )
+    vector_PRECISION_free( &(l->vbuf_PRECISION[i]), l, no_threading );
+  vector_PRECISION_free( &(l->p_PRECISION.b), l, no_threading );
+  vector_PRECISION_free( &(l->p_PRECISION.x), l, no_threading );
 }
 
 
@@ -159,12 +150,13 @@ void next_level_PRECISION_setup( level_struct *l ) {
                                        &(l->next_level->p_PRECISION), l->next_level );
       } else {
         vector_PRECISION_init(&(l->next_level->p_PRECISION.b));
+        vector_PRECISION_init(&(l->next_level->p_PRECISION.x));
 #ifdef HAVE_TM1p1
-        MALLOC( l->next_level->p_PRECISION.b.vector_buffer, complex_PRECISION, 2*2*l->next_level->vector_size );
-        l->next_level->p_PRECISION.x.vector_buffer = l->next_level->p_PRECISION.b.vector_buffer + 2*l->next_level->vector_size;
+        vector_PRECISION_alloc( &(l->next_level->p_PRECISION.b), _ORDINARY, 2, l->next_level, no_threading );
+        vector_PRECISION_alloc( &(l->next_level->p_PRECISION.x), _ORDINARY, 2, l->next_level, no_threading );
 #else
-        MALLOC( l->next_level->p_PRECISION.b.vector_buffer, complex_PRECISION, 2*l->next_level->vector_size );
-        l->next_level->p_PRECISION.x.vector_buffer = l->next_level->p_PRECISION.b.vector_buffer + l->next_level->vector_size;
+        vector_PRECISION_alloc( &(l->next_level->p_PRECISION.b), _ORDINARY, 1, l->next_level, no_threading );
+        vector_PRECISION_alloc( &(l->next_level->p_PRECISION.x), _ORDINARY, 1, l->next_level, no_threading );
 #endif
         l->next_level->p_PRECISION.v_start = 0;
         l->next_level->p_PRECISION.v_end = l->next_level->inner_vector_size;
@@ -172,16 +164,14 @@ void next_level_PRECISION_setup( level_struct *l ) {
     }
 
     int i, n = (l->next_level->level>0)?6:4;
-    vector_PRECISION_init(&(l->next_level->vbuf_PRECISION[0]));
+    for ( i=0; i<n; i++ ){
+      vector_PRECISION_init( &(l->next_level->vbuf_PRECISION[i]) );
 #ifdef HAVE_TM1p1
-    MALLOC( l->next_level->vbuf_PRECISION[0].vector_buffer, complex_PRECISION, 2*n*l->next_level->vector_size );
-    for ( i=1; i<n; i++ )
-      l->next_level->vbuf_PRECISION[i].vector_buffer = l->next_level->vbuf_PRECISION[0].vector_buffer + 2*i*l->next_level->vector_size;
+      vector_PRECISION_alloc( &(l->next_level->vbuf_PRECISION[i]), _ORDINARY, 2, l->next_level, no_threading );
 #else
-    MALLOC( l->next_level->vbuf_PRECISION[0].vector_buffer, complex_PRECISION, n*l->next_level->vector_size );
-    for ( i=1; i<n; i++ )
-      l->next_level->vbuf_PRECISION[i].vector_buffer = l->next_level->vbuf_PRECISION[0].vector_buffer + i*l->next_level->vector_size;
+      vector_PRECISION_alloc( &(l->next_level->vbuf_PRECISION[i]), _ORDINARY, 1, l->next_level, no_threading );
 #endif
+    }
   }
 }
 
@@ -194,21 +184,13 @@ void next_level_PRECISION_free( level_struct *l ) {
     if ( ( l->level == 1 && !l->next_level->idle ) || g.kcycle ) {
       fgmres_PRECISION_struct_free( &(l->next_level->p_PRECISION), l->next_level );
     } else {
-#ifdef HAVE_TM1p1
-      FREE( l->next_level->p_PRECISION.b.vector_buffer, complex_PRECISION, 2*2*l->next_level->vector_size );
-#else
-      FREE( l->next_level->p_PRECISION.b.vector_buffer, complex_PRECISION, 2*l->next_level->vector_size );
-#endif
+      vector_PRECISION_free( &(l->next_level->p_PRECISION.b), l->next_level, no_threading );
+      vector_PRECISION_free( &(l->next_level->p_PRECISION.x), l->next_level, no_threading );
     }
   
     int i, n = (l->next_level->level>0)?6:4;  
-    for ( i=1; i<n; i++)
-      vector_PRECISION_init(&(l->next_level->vbuf_PRECISION[i]));
-#ifdef HAVE_TM1p1
-    FREE( l->next_level->vbuf_PRECISION[0].vector_buffer, complex_PRECISION, 2*n*l->next_level->vector_size );
-#else
-    FREE( l->next_level->vbuf_PRECISION[0].vector_buffer, complex_PRECISION, n*l->next_level->vector_size );
-#endif
+    for ( i=0; i<n; i++)
+      vector_PRECISION_free( &(l->next_level->vbuf_PRECISION[i]), l->next_level, no_threading );
     coarsening_index_table_PRECISION_free( &(l->is_PRECISION), l );
   }
 
@@ -219,7 +201,7 @@ void next_level_PRECISION_free( level_struct *l ) {
 void level_PRECISION_init( level_struct *l ) {
 
   for ( int i=0; i<9; i++ )
-    vector_PRECISION_init(&(l->vbuf_PRECISION[i]));
+    vector_PRECISION_init( &(l->vbuf_PRECISION[i]) );
   
   operator_PRECISION_init( &(l->op_PRECISION) );
   operator_PRECISION_init( &(l->oe_op_PRECISION) );
@@ -238,8 +220,8 @@ void vcycle_timing_PRECISION( int n, level_struct *l, struct Thread *threading )
   vector_PRECISION_init(&v2);
   
   double t0=0, t1=0;
-  PUBLIC_MALLOC( v1.vector_buffer, complex_PRECISION, l->inner_vector_size );
-  PUBLIC_MALLOC( v2.vector_buffer, complex_PRECISION, l->inner_vector_size );
+  vector_PRECISION_alloc(&v1, _INNER, 1, l, threading);
+  vector_PRECISION_alloc(&v2, _INNER, 1, l, threading);
 
   START_LOCKED_MASTER(threading)
   vector_PRECISION_define_random( &v2, 0, l->inner_vector_size, l );
@@ -257,7 +239,7 @@ void vcycle_timing_PRECISION( int n, level_struct *l, struct Thread *threading )
   END_MASTER(threading)
 
   START_LOCKED_MASTER(threading)
-  PUBLIC_FREE( v1.vector_buffer, complex_PRECISION, l->inner_vector_size );
-  PUBLIC_FREE( v2.vector_buffer, complex_PRECISION, l->inner_vector_size );
+  vector_PRECISION_free(&v1, l, threading);
+  vector_PRECISION_free(&v2, l, threading);
   END_LOCKED_MASTER(threading)
 }

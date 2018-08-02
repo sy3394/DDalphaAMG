@@ -363,16 +363,16 @@ void vector_PRECISION_projection( vector_PRECISION *z, vector_PRECISION *v, int 
   vector_PRECISION v_tmp, *W_tmp = NULL;
   complex_PRECISION ip[k], ip_buffer[2*k];      
   
-  vector_PRECISION_init(&v_tmp);
+  vector_PRECISION_init( &v_tmp );
 
-  MALLOC( v_tmp.vector_buffer, complex_PRECISION, l->inner_vector_size );
-  vector_PRECISION_define(&v_tmp, 0, 0, l->inner_vector_size, l );
+  vector_PRECISION_alloc( &v_tmp, _INNER, 1, l, no_threading );
+  vector_PRECISION_define( &v_tmp, 0, 0, l->inner_vector_size, l );
   
   MALLOC( W_tmp, vector_PRECISION, k );
-  vector_PRECISION_init(&W_tmp[0]); 
-  MALLOC( W_tmp[0].vector_buffer, complex_PRECISION, k*l->inner_vector_size );
-  for ( j = 1; j<k; j++ )
-    W_tmp[j].vector_buffer = W_tmp[0].vector_buffer+j*l->inner_vector_size;
+  for ( j = 0; j<k; j++ ){
+    vector_PRECISION_init( &W_tmp[j] );
+    vector_PRECISION_alloc( &W_tmp[j], _INNER, 1, l, no_threading );
+  }
   
   for ( j=0; j<k; j++ ) {
    vector_PRECISION_scale( &W_tmp[j], W+j, diag[j], 0, l->inner_vector_size, l );
@@ -394,8 +394,10 @@ void vector_PRECISION_projection( vector_PRECISION *z, vector_PRECISION *v, int 
   else
     vector_PRECISION_copy( z, &v_tmp, 0, l->inner_vector_size, l );
   
-  FREE( v_tmp.vector_buffer, complex_PRECISION, l->inner_vector_size );
-  FREE( W_tmp[0].vector_buffer, complex_PRECISION, k*l->inner_vector_size );
+  vector_PRECISION_free( &v_tmp, l, no_threading );
+  for ( j = 0; j<k; j++ ){ 
+    vector_PRECISION_free( &W_tmp[j], l, no_threading);
+  }
   FREE( W_tmp, vector_PRECISION, k );
 }
 

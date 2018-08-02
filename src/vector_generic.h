@@ -25,12 +25,12 @@
   struct Thread;
   
   void vector_PRECISION_init( vector_PRECISION *vec );
- // void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect, level_struct *l );
- void vector_PRECISION_define( vector_PRECISION *phi, complex_PRECISION value, int start, int end, level_struct *l );
- void vector_PRECISION_real_scale( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION alpha,
+  void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect, level_struct *l, Thread *threading );
+  void vector_PRECISION_free( vector_PRECISION *vec, level_struct *l, Thread *threading);
+  void vector_PRECISION_define( vector_PRECISION *phi, complex_PRECISION value, int start, int end, level_struct *l );
+  void vector_PRECISION_real_scale( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION alpha,
                                     int start, int end, level_struct *l );
- void vector_PRECISION_copy( vector_PRECISION *z, vector_PRECISION *x, int start, int end, level_struct *l ); // z := x
- // void vector_PRECISION_free( vector_PRECISION *vec, const int type, int num_vect, level_struct *l );
+  void vector_PRECISION_copy( vector_PRECISION *z, vector_PRECISION *x, int start, int end, level_struct *l ); // z := x
   
  // void vector_PRECISION_test_routine( vector_PRECISION *vec, level_struct *l, struct Thread *threading );
   

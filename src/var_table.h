@@ -41,7 +41,7 @@
     tt0 = MPI_Wtime(); \
     \
     if ( g.vt.track_error ) { \
-      MALLOC( v.vector_buffer, complex_double, l->inner_vector_size ); \
+      vector_double_alloc( &v, _INNER, 1, l, no_threading ); \
       if (g.mixed_precision==2) fgmres_MP( &(g.p_MP), l, no_threading ); \
       else fgmres_double( &(g.p), l, no_threading ); \
       vector_double_copy( &v, &x, 0, l->inner_vector_size, l ); \
@@ -94,7 +94,7 @@
       } \
     } \
     if ( g.vt.track_error ) { \
-      FREE( v.vector_buffer, complex_double, l->inner_vector_size ); \
+      vector_double_free( &v, l, no_threading ); \
     } \
     tt1 = MPI_Wtime(); \
     printf0("\n\ntotal time for parameter scan: %d minutes and %d seconds\n", \

@@ -908,14 +908,14 @@ void oddeven_setup_PRECISION( operator_double_struct *in, level_struct *l ) {
   op->prnZ = op->prnT + j; op->prnY = op->prnZ + j; op->prnX = op->prnY + j;
   op->prpT = op->prnX + j; op->prpZ = op->prpT + j; op->prpY = op->prpZ + j; op->prpX = op->prpY + j;  
   MALLOC( op->buffer, vector_PRECISION, 2 );
-  vector_PRECISION_init(&(op->buffer[0]));
+  for(int i=0; i<2; i++ ){
+    vector_PRECISION_init( &(op->buffer[i]) );
 #ifdef HAVE_TM1p1
-  MALLOC( op->buffer[0].vector_buffer, complex_PRECISION, 4*l->vector_size );
-  op->buffer[1].vector_buffer = op->buffer[0].vector_buffer + 2*l->vector_size;  
+    vector_PRECISION_alloc( &(op->buffer[i]), _ORDINARY, 2, l, no_threading );
 #else
-  MALLOC( op->buffer[0].vector_buffer, complex_PRECISION, 2*l->vector_size );
-  op->buffer[1].vector_buffer = op->buffer[0].vector_buffer + l->vector_size;  
+    vector_PRECISION_alloc( &(op->buffer[i]), _ORDINARY, 1, l, no_threading );
 #endif
+  }
   ghost_alloc_PRECISION( 0, &(op->c), l );
   ghost_sendrecv_init_PRECISION( _COARSE_GLOBAL, &(op->c), l ) ;
   l->sp_PRECISION.v_end = op->num_even_sites*l->num_lattice_site_var;
@@ -962,12 +962,14 @@ void oddeven_free_PRECISION( level_struct *l ) {
     FREE( l->oe_op_PRECISION.c.boundary_table[2*mu], int, bs );
     l->oe_op_PRECISION.c.boundary_table[2*mu+1] = NULL;
   }
-  
+
+  for(int i=0; i<2; i++ ){
 #ifdef HAVE_TM1p1
-  FREE( l->oe_op_PRECISION.buffer[0].vector_buffer, complex_PRECISION, 4*l->vector_size );
+    vector_PRECISION_free( &(l->oe_op_PRECISION.buffer[i]), l, no_threading );
 #else
-  FREE( l->oe_op_PRECISION.buffer[0].vector_buffer, complex_PRECISION, 2*l->vector_size );
+    vector_PRECISION_free( &(l->oe_op_PRECISION.buffer[i]), l, no_threading );
 #endif
+  }
   FREE( l->oe_op_PRECISION.buffer, vector_PRECISION, 2 );
 #ifdef HAVE_TM1p1
   FREE( l->oe_op_PRECISION.prnT, complex_PRECISION, 2*(l->num_lattice_site_var/2)*l->num_lattice_sites*8 );
@@ -2571,84 +2573,72 @@ void oddeven_PRECISION_test( level_struct *l ) {
 * - Compare solutions ( Difference should be close to 0 ).
 *********************************************************************************/  
   
-  vector_double d1, d2, d3;
-  vector_PRECISION f1, f2, f3, f4, f5;
+  vector_double d[3];
+  vector_PRECISION f[5];
   double diff;
   
-  vector_double_init(&d1);
-  vector_double_init(&d2);
-  vector_double_init(&d3);
+  for(int i=0; i<3; i++){
+    vector_double_init( &d[i] );
+    vector_double_alloc( &d[i], _INNER, 1, l, no_threading );
+  }
 
-  vector_PRECISION_init(&f1);
-  vector_PRECISION_init(&f2);
-  vector_PRECISION_init(&f3);
-  vector_PRECISION_init(&f4);
-  vector_PRECISION_init(&f5);
+  for(int i=0; i<5; i++){                                                                 
+    vector_PRECISION_init( &f[i] );                                                          
+    vector_PRECISION_alloc( &f[i], _INNER, 1, l, no_threading );                             
+  } 
 
-  MALLOC( d1.vector_buffer, complex_double, l->inner_vector_size );
-  MALLOC( d2.vector_buffer, complex_double, l->inner_vector_size );
-  MALLOC( d3.vector_buffer, complex_double, l->inner_vector_size );
-  MALLOC( f1.vector_buffer, complex_PRECISION, l->inner_vector_size );
-  MALLOC( f2.vector_buffer, complex_PRECISION, l->inner_vector_size );
-  MALLOC( f3.vector_buffer, complex_PRECISION, l->inner_vector_size );
-  MALLOC( f4.vector_buffer, complex_PRECISION, l->inner_vector_size );
-  MALLOC( f5.vector_buffer, complex_PRECISION, l->inner_vector_size );
-  
-  vector_double_define_random( &d1, 0, l->inner_vector_size, l ); 
-  serial_to_oddeven_PRECISION( &f1, &d1, l, no_threading );
+  vector_double_define_random( &d[0], 0, l->inner_vector_size, l ); 
+  serial_to_oddeven_PRECISION( &f[0], &d[0], l, no_threading );
    
-  diag_ee_PRECISION( &f2, &f1, &(l->oe_op_PRECISION), l, 0, l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var );
-  diag_oo_PRECISION( &f2, &f1, &(l->oe_op_PRECISION), l, no_threading );
+  diag_ee_PRECISION( &f[1], &f[0], &(l->oe_op_PRECISION), l, 0, l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var );
+  diag_oo_PRECISION( &f[1], &f[0], &(l->oe_op_PRECISION), l, no_threading );
   
-  hopping_term_PRECISION( &f2, &f1, &(l->oe_op_PRECISION), _FULL_SYSTEM, l, no_threading );
+  hopping_term_PRECISION( &f[1], &f[0], &(l->oe_op_PRECISION), _FULL_SYSTEM, l, no_threading );
   
-  d_plus_clover_double( &d2, &d1, &(g.op_double), l, no_threading );
-  oddeven_to_serial_PRECISION( &d1, &f2, l, no_threading );
+  d_plus_clover_double( &d[1], &d[0], &(g.op_double), l, no_threading );
+  oddeven_to_serial_PRECISION( &d[0], &f[1], l, no_threading );
   
-  vector_double_minus( &d3, &d1, &d2, 0, l->num_inner_lattice_sites, l );
-  diff = global_norm_double( &d3, 0, l->num_inner_lattice_sites, l, no_threading )/global_norm_double( &d1, 0, l->num_inner_lattice_sites, l, no_threading );
+  vector_double_minus( &d[2], &d[0], &d[1], 0, l->num_inner_lattice_sites, l );
+  diff = global_norm_double( &d[2], 0, l->num_inner_lattice_sites, l, no_threading )/global_norm_double( &d[0], 0, l->num_inner_lattice_sites, l, no_threading );
   
   test0_PRECISION("depth: %d, correctness of odd even layout: %le\n", l->depth, diff );
     
   // --------------
   
-  vector_PRECISION_copy( &f4, &f1, 0, l->inner_vector_size, l );
-  diag_oo_PRECISION( &f3, &f4, &(l->oe_op_PRECISION), l, no_threading );
-  diag_oo_inv_PRECISION( &f4, &f3, &(l->oe_op_PRECISION), l, l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var, l->inner_vector_size );
-  vector_PRECISION_minus( &f4, &f4, &f1, 0, l->inner_vector_size, l );
+  vector_PRECISION_copy( &f[3], &f[0], 0, l->inner_vector_size, l );
+  diag_oo_PRECISION( &f[2], &f[3], &(l->oe_op_PRECISION), l, no_threading );
+  diag_oo_inv_PRECISION( &f[3], &f[2], &(l->oe_op_PRECISION), l, l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var, l->inner_vector_size );
+  vector_PRECISION_minus( &f[3], &f[3], &f[0], 0, l->inner_vector_size, l );
 
-  diff = (PRECISION) (global_norm_PRECISION( &f4, 0, l->inner_vector_size, l, no_threading )/global_norm_PRECISION( &f1, 0, l->inner_vector_size, l, no_threading ));
+  diff = (PRECISION) (global_norm_PRECISION( &f[3], 0, l->inner_vector_size, l, no_threading )/global_norm_PRECISION( &f[0], 0, l->inner_vector_size, l, no_threading ));
   
   test0_PRECISION("depth: %d, correctness of odd even diagonal term: %le\n", l->depth, diff );
     
   // transformation part
-  vector_PRECISION_copy( &f4, &f1, 0, l->inner_vector_size, l );
+  vector_PRECISION_copy( &f[3], &f[0], 0, l->inner_vector_size, l );
   // even to odd
   // set odd part of f3 to 0. 
-  vector_PRECISION_define( &f3, 0, l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var, l->inner_vector_size, l );
+  vector_PRECISION_define( &f[2], 0, l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var, l->inner_vector_size, l );
   
-  hopping_term_PRECISION( &f3, &f4, &(l->oe_op_PRECISION), _ODD_SITES, l, no_threading );
-  diag_oo_inv_PRECISION( &f5, &f3, &(l->oe_op_PRECISION), l, l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var, l->inner_vector_size );
-  vector_PRECISION_plus( &f4, &f4, &f5, l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var, l->inner_vector_size, l );
+  hopping_term_PRECISION( &f[2], &f[3], &(l->oe_op_PRECISION), _ODD_SITES, l, no_threading );
+  diag_oo_inv_PRECISION( &f[4], &f[2], &(l->oe_op_PRECISION), l, l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var, l->inner_vector_size );
+  vector_PRECISION_plus( &f[3], &f[3], &f[4], l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var, l->inner_vector_size, l );
   
   // block diagonal part
-  apply_schur_complement_PRECISION( &f3, &f4, &(l->oe_op_PRECISION), l, no_threading );
-  diag_oo_PRECISION( &f3, &f4, &(l->oe_op_PRECISION), l, no_threading );
+  apply_schur_complement_PRECISION( &f[2], &f[3], &(l->oe_op_PRECISION), l, no_threading );
+  diag_oo_PRECISION( &f[2], &f[3], &(l->oe_op_PRECISION), l, no_threading );
   // back transformation part
-  diag_oo_inv_PRECISION( &f5, &f3, &(l->oe_op_PRECISION), l, l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var, l->inner_vector_size );
-  hopping_term_PRECISION( &f3, &f5, &(l->oe_op_PRECISION), _EVEN_SITES, l, no_threading );
+  diag_oo_inv_PRECISION( &f[4], &f[3], &(l->oe_op_PRECISION), l, l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var, l->inner_vector_size );
+  hopping_term_PRECISION( &f[2], &f[4], &(l->oe_op_PRECISION), _EVEN_SITES, l, no_threading );
   
-  vector_PRECISION_minus( &f1, &f2, &f3, 0, l->inner_vector_size, l );
-  diff = (PRECISION) (global_norm_PRECISION( &f1, 0, l->inner_vector_size, l, no_threading )/global_norm_PRECISION( &f2, 0, l->inner_vector_size, l, no_threading ));
+  vector_PRECISION_minus( &f[0], &f[1], &f[2], 0, l->inner_vector_size, l );
+  diff = (PRECISION) (global_norm_PRECISION( &f[0], 0, l->inner_vector_size, l, no_threading )/global_norm_PRECISION( &f[1], 0, l->inner_vector_size, l, no_threading ));
   
   test0_PRECISION("depth: %d, correctness of odd even schur complement: %le\n", l->depth, diff );
-    
-  FREE( d1.vector_buffer, complex_double, l->inner_vector_size );
-  FREE( d2.vector_buffer, complex_double, l->inner_vector_size );
-  FREE( d3.vector_buffer, complex_double, l->inner_vector_size );
-  FREE( f1.vector_buffer, complex_PRECISION, l->inner_vector_size );
-  FREE( f2.vector_buffer, complex_PRECISION, l->inner_vector_size );
-  FREE( f3.vector_buffer, complex_PRECISION, l->inner_vector_size );
-  FREE( f4.vector_buffer, complex_PRECISION, l->inner_vector_size );
-  FREE( f5.vector_buffer, complex_PRECISION, l->inner_vector_size );
+  
+  for(int i=0; i<3; i++)
+    vector_double_free( &d[i], l, no_threading );
+
+  for(int i=0; i<5; i++)
+    vector_PRECISION_free( &f[i], l, no_threading );
 }

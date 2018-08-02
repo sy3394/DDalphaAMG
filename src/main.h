@@ -189,7 +189,7 @@
   enum { _NO_DEFAULT_SET, _DEFAULT_SET };
   enum { _NO_REORDERING, _REORDER };
   enum { _ADD, _COPY };
-  enum { _ORDINARY, _SCHWARZ, _ODDEVEN };
+  enum { _ORDINARY, _SCHWARZ, _ODDEVEN, _INNER };
   enum { _RES, _NO_RES };
   enum { _STANDARD, _LIME }; //formats
   enum { _READ, _WRITE };

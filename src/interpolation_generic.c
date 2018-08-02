@@ -30,16 +30,13 @@ void interpolation_PRECISION_alloc( level_struct *l ) {
   MALLOC( l->is_PRECISION.eigenvalues, complex_PRECISION, n );
   MALLOC( l->is_PRECISION.test_vector, vector_PRECISION, n );
   MALLOC( l->is_PRECISION.interpolation, vector_PRECISION, n );
-  vector_PRECISION_init(&(l->is_PRECISION.interpolation[0]));
-  MALLOC_HUGEPAGES( l->is_PRECISION.interpolation[0].vector_buffer, complex_PRECISION, n*l->vector_size, 64 );
-  for ( k=1; k<n; k++ )
-    l->is_PRECISION.interpolation[k].vector_buffer = l->is_PRECISION.interpolation[0].vector_buffer + k*l->vector_size;
-  MALLOC( l->is_PRECISION.operator, complex_PRECISION, n*l->inner_vector_size );
-  vector_PRECISION_init(&(l->is_PRECISION.test_vector[0]));
-  MALLOC_HUGEPAGES( l->is_PRECISION.test_vector[0].vector_buffer, complex_PRECISION, n*l->inner_vector_size, 64 );
-  for ( k=1; k<n; k++ ) {
-    l->is_PRECISION.test_vector[k].vector_buffer = l->is_PRECISION.test_vector[0].vector_buffer + k*l->inner_vector_size;
+  for ( k=0; k<n; k++ ){
+    vector_PRECISION_init(&(l->is_PRECISION.interpolation[k]));
+    vector_PRECISION_alloc(&(l->is_PRECISION.interpolation[k]), _ORDINARY, 1, l, no_threading );
+    vector_PRECISION_init(&(l->is_PRECISION.test_vector[k]));
+    vector_PRECISION_alloc(&(l->is_PRECISION.test_vector[k]), _INNER, 1, l, no_threading );
   }
+  MALLOC( l->is_PRECISION.operator, complex_PRECISION, n*l->inner_vector_size );
 }
 
 
@@ -61,10 +58,12 @@ void interpolation_PRECISION_free( level_struct *l ) {
   
   int n = l->num_eig_vect;
   
-  FREE_HUGEPAGES( l->is_PRECISION.test_vector[0].vector_buffer, complex_PRECISION, n*l->inner_vector_size );
+  for (int k=0; k<n; k++ ){
+    vector_PRECISION_free(&(l->is_PRECISION.interpolation[k]), l, no_threading );
+    vector_PRECISION_free(&(l->is_PRECISION.test_vector[k]), l, no_threading );
+  }
   FREE( l->is_PRECISION.eigenvalues, complex_PRECISION, n );
   FREE( l->is_PRECISION.test_vector, vector_PRECISION, n );
-  FREE_HUGEPAGES( l->is_PRECISION.interpolation[0].vector_buffer, complex_PRECISION, n*l->vector_size );
   FREE( l->is_PRECISION.interpolation, vector_PRECISION, n );
   FREE( l->is_PRECISION.operator, complex_PRECISION, n*l->inner_vector_size );
 

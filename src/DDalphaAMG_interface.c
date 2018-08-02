@@ -1051,7 +1051,11 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
   gmres_double_struct *p = g.mixed_precision==2?&(g.p_MP.dp):&(g.p);
   buffer_double vb, vx;
   vector_double *rhs =&(p->b), *sol = &(p->x); 
-  vector_double *source=NULL, *solution=NULL, *solution2=NULL;
+  vector_double source, solution, solution2;
+
+  vector_double_init( &source );
+  vector_double_init( &solution );
+  vector_double_init( &solution2 );
 
   DDalphaAMG_status tmp_status;
 
@@ -1182,10 +1186,10 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
     ASSERT( odd_shifts != NULL );
   }
   if ( n_shifts > 1 ) {
-    MALLOC( source->vector_buffer, complex_double, l.inner_vector_size );
-    MALLOC( solution->vector_buffer, complex_double, l.inner_vector_size );
+    vector_double_alloc( &source, _INNER, 1, &l, no_threading);
+    vector_double_alloc( &solution, _INNER, 1, &l, no_threading);
     if( _TYPE == _SOLVE_SQ || _TYPE == _SOLVE_SQ_ODD || _TYPE == _SOLVE_SQ_EVEN )
-      MALLOC( solution2->vector_buffer, complex_double, l.inner_vector_size );
+      vector_double_alloc( &solution2, _INNER, 1, &l, no_threading);
   }
   
   for ( n = 0; n < n_shifts; n++ ) {
@@ -1221,10 +1225,10 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
       
     case _SOLVE :
       if ( n ) {
-        vector_copy( rhs, source );
+        vector_copy( rhs, &source );
         p->initial_guess_zero = 0;
       } else if ( n_shifts > 1 )
-        vector_copy( source, rhs );
+        vector_copy( &source, rhs );
       
       solver( );
       break;
@@ -1232,7 +1236,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
       
     case _SOLVE_SQ :
       if ( n ) {
-        vector_copy( rhs, source );
+        vector_copy( rhs, &source );
         p->initial_guess_zero = 0;
       } else if ( n_shifts > 1 ) {
         THREADED(threading[0]->n_core) 
@@ -1244,18 +1248,18 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 #endif
             // sol = (D_d^{-1})*g5*(D_u^{-1})*g5*rhs
             gamma5_double( rhs, rhs, &l, threading[omp_get_thread_num()] );
-        vector_copy( source, rhs );
+        vector_copy( &source, rhs );
       }
 
       if( n )
-        correct_guess( sol, solution, solution2, even_shifts[n]-even_shifts[n-1], odd_shifts[n]-odd_shifts[n-1]);
+        correct_guess( sol, &solution, &solution2, even_shifts[n]-even_shifts[n-1], odd_shifts[n]-odd_shifts[n-1]);
       // read NOTE RESIDUAL
       THREADED(threading[0]->n_core)
         nrhs = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
       p->tol = tol[n]/2.;
       solver( );
       if ( n < n_shifts-1 ) 
-        vector_copy( solution, sol );
+        vector_copy( &solution, sol );
         
       THREADED(threading[0]->n_core) 
 #ifdef HAVE_TM1p1
@@ -1273,7 +1277,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
         DDalphaAMG_change_mu_sign( &tmp_status );
 
       if( n )
-        vector_copy( sol, solution2 );
+        vector_copy( sol, &solution2 );
 
       // read NOTE RESIDUAL
       THREADED(threading[0]->n_core)
@@ -1281,7 +1285,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
       p->tol = (tol[n]-g.norm_res)*nrhs/nrhs2/8.;
       solver( );
       if ( n < n_shifts-1 ) 
-        vector_copy( solution2, sol );
+        vector_copy( &solution2, sol );
      
       // DDalphaAMG_change_mu_sign( &tmp_status );
       warning0("sign of mu changed during the inversion of squared operator\n");
@@ -1290,7 +1294,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 
     case _SOLVE_SQ_ODD :    
       if ( n ) {
-        vector_copy( rhs, source );
+        vector_copy( rhs, &source );
         p->initial_guess_zero = 0;
       } else if ( n_shifts > 1 ) {
         THREADED(threading[0]->n_core)
@@ -1303,11 +1307,11 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
             // sol = (D_d^{-1})*g5*(D_u^{-1})*g5*rhs
             gamma5_set_even_to_zero_double(rhs, rhs, &l, threading[omp_get_thread_num()]);
        
-        vector_copy( source, rhs );
+        vector_copy( &source, rhs );
       }
 
       if( n )
-        correct_guess( sol, solution, solution2, even_shifts[n]-even_shifts[n-1], odd_shifts[n]-odd_shifts[n-1]);
+        correct_guess( sol, &solution, &solution2, even_shifts[n]-even_shifts[n-1], odd_shifts[n]-odd_shifts[n-1]);
 
       // read NOTE RESIDUAL
       THREADED(threading[0]->n_core)
@@ -1315,7 +1319,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
       p->tol = tol[n]/2.;
       solver( );
       if ( n < n_shifts-1 ) 
-        vector_copy( solution, sol );
+        vector_copy( &solution, sol );
 
       THREADED(threading[0]->n_core)
 #ifdef HAVE_TM1p1
@@ -1333,7 +1337,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
         DDalphaAMG_change_mu_sign( &tmp_status );
 
       if( n )
-        vector_copy( sol, solution2 );
+        vector_copy( sol, &solution2 );
 
       // read NOTE RESIDUAL
       THREADED(threading[0]->n_core)
@@ -1341,7 +1345,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
       p->tol = (tol[n]-g.norm_res)*nrhs/nrhs2/8.;
       solver( );
       if ( n < n_shifts-1 ) 
-        vector_copy( solution2, sol );
+        vector_copy( &solution2, sol );
 
       // DDalphaAMG_change_mu_sign( &tmp_status );
       warning0("sign of mu changed during the inversion of squared operator\n");
@@ -1350,7 +1354,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 
     case _SOLVE_SQ_EVEN :    
       if ( n ) {
-        vector_copy( rhs, source );
+        vector_copy( rhs, &source );
         p->initial_guess_zero = 0;
       } else if ( n_shifts > 1 ) {
         THREADED(threading[0]->n_core)
@@ -1363,11 +1367,11 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
             // sol = (D_d^{-1})*g5*(D_u^{-1})*g5*rhs
             gamma5_set_odd_to_zero_double(rhs, rhs, &l, threading[omp_get_thread_num()]);
 
-        vector_copy( source, rhs );
+        vector_copy( &source, rhs );
       }
 
       if( n )
-        correct_guess( sol, solution, solution2, even_shifts[n]-even_shifts[n-1], odd_shifts[n]-odd_shifts[n-1]);
+        correct_guess( sol, &solution, &solution2, even_shifts[n]-even_shifts[n-1], odd_shifts[n]-odd_shifts[n-1]);
 
       // read NOTE RESIDUAL
       THREADED(threading[0]->n_core)
@@ -1375,7 +1379,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
       p->tol = tol[n]/2.;
       solver( );
       if ( n < n_shifts-1 ) 
-        vector_copy( solution, sol );
+        vector_copy( &solution, sol );
 
       THREADED(threading[0]->n_core)
 #ifdef HAVE_TM1p1
@@ -1393,14 +1397,14 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
         DDalphaAMG_change_mu_sign( &tmp_status );
       
       if( n )
-        vector_copy( sol, solution2 );
+        vector_copy( sol, &solution2 );
       // read NOTE RESIDUAL
       THREADED(threading[0]->n_core)
         nrhs2 = global_norm_double( rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
       p->tol = (tol[n]-g.norm_res)*nrhs/nrhs2/8.;
       solver( );
       if ( n < n_shifts-1 ) 
-        vector_copy( solution2, sol );
+        vector_copy( &solution2, sol );
 
       // DDalphaAMG_change_mu_sign( &tmp_status );
       warning0("sign of mu changed during the inversion of squared operator\n");
@@ -1489,10 +1493,10 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 
   p->initial_guess_zero = 1;
   if ( n_shifts > 0 ) {
-    FREE( source->vector_buffer, complex_double, l.inner_vector_size );
-    FREE( solution->vector_buffer, complex_double, l.inner_vector_size );
+    vector_double_free( &source, &l, no_threading);
+    vector_double_free( &solution, &l, no_threading);
     if( _TYPE == _SOLVE_SQ || _TYPE == _SOLVE_SQ_ODD || _TYPE == _SOLVE_SQ_EVEN )
-      FREE( solution2->vector_buffer, complex_double, l.inner_vector_size );
+      vector_double_free( &solution2, &l, no_threading);
   }
 
   

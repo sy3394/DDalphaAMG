@@ -125,8 +125,8 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
   vector_double solution, source;
   double minus_twisted_bc[4], norm;
 
-  vector_double_init(&solution);
-  vector_double_init(&source);
+  vector_double_init( &solution );
+  vector_double_init( &source );
  
   if(g.bc==2)
     for ( int i=0; i<4; i++ )
@@ -138,8 +138,8 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
     printf0("inverting doublet operator\n");
   }
 #endif
-  PUBLIC_MALLOC( solution.vector_buffer, complex_double, l->inner_vector_size );
-  PUBLIC_MALLOC( source.vector_buffer, complex_double, l->inner_vector_size );
+  vector_double_alloc( &solution, _INNER, 1, l, threading );
+  vector_double_alloc( &source, _INNER, 1, l, threading );
 
   rhs_define( &source, l, threading );
 
@@ -185,8 +185,8 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
   norm = global_norm_double( &solution, 0, l->inner_vector_size, l, threading );
   printf0("solution vector norm: %le\n",norm);
 
-  PUBLIC_FREE( solution.vector_buffer, complex_double, l->inner_vector_size );
-  PUBLIC_FREE( source.vector_buffer, complex_double, l->inner_vector_size );
+  vector_double_free( &solution, l, threading );
+  vector_double_free( &source, l, threading );
 
 #ifdef HAVE_TM1p1
   if( g.n_flavours == 2 ) 

@@ -69,7 +69,6 @@ void schwarz_PRECISION_init( schwarz_PRECISION_struct *s, level_struct *l ) {
   s->num_colors = 0;
 }
 
-
 void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
   
   int i, j, n, mu, nu, *bl = l->block_lattice;
@@ -141,18 +140,19 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
   MALLOC( s->block, block_struct, s->num_blocks );
 
   int svs = l->schwarz_vector_size, vs = (l->depth==0)?l->inner_vector_size:l->vector_size;
+  int nvec = 1;
 
 #ifdef HAVE_TM1p1
   svs *= 2;
   vs *= 2;
+  nvec = 2;
 #endif
 
   if ( l->depth == 0 ) {
-    vector_PRECISION_init(&(s->oe_buf[0]));
-    MALLOC( s->oe_buf[0].vector_buffer, complex_PRECISION, 4*vs );
-    s->oe_buf[1].vector_buffer = s->oe_buf[0].vector_buffer + vs;
-    s->oe_buf[2].vector_buffer = s->oe_buf[1].vector_buffer + vs;
-    s->oe_buf[3].vector_buffer = s->oe_buf[2].vector_buffer + vs;
+    for ( i=0; i<4; i++ ) {
+      vector_PRECISION_init( &(s->oe_buf[i]) );
+      vector_PRECISION_alloc( &(s->oe_buf[i]), _INNER, nvec, l, no_threading );
+    }
   }
   
   n = 0;
@@ -173,19 +173,25 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
     s->block[i].bt = NULL;
     MALLOC( s->block[i].bt, int, n );
   }
-  vector_PRECISION_init(&(s->buf1));
-  MALLOC( s->buf1.vector_buffer, complex_PRECISION, vs+3*svs );
-  s->buf2.vector_buffer = s->buf1.vector_buffer + vs;
-  s->buf3.vector_buffer = s->buf2.vector_buffer + svs;
-  s->buf4.vector_buffer = s->buf3.vector_buffer + svs;
+  vector_PRECISION_init( &(s->buf1) );
+  vector_PRECISION_init( &(s->buf2) );
+  vector_PRECISION_init( &(s->buf3) );
+  vector_PRECISION_init( &(s->buf4) );
+
+  vector_PRECISION_alloc( &(s->buf1), (l->depth==0)?_INNER:_ORDINARY, nvec, l, no_threading );
+  vector_PRECISION_alloc( &(s->buf2), _SCHWARZ, nvec, l, no_threading );
+  vector_PRECISION_alloc( &(s->buf3), _SCHWARZ, nvec, l, no_threading );
+  vector_PRECISION_alloc( &(s->buf4), _SCHWARZ, nvec, l, no_threading );
     
   if ( g.method == 1 ){
-    vector_PRECISION_init(&(s->buf5));
-    MALLOC( s->buf5.vector_buffer, complex_PRECISION, svs );
+    vector_PRECISION_init( &(s->buf5) );
+    vector_PRECISION_alloc( &(s->buf5), _SCHWARZ, nvec, l, no_threading );
   }
-  vector_PRECISION_init(&(l->sbuf_PRECISION[0]));
-  MALLOC( l->sbuf_PRECISION[0].vector_buffer, complex_PRECISION, 2*vs );
-  l->sbuf_PRECISION[1].vector_buffer = l->sbuf_PRECISION[0].vector_buffer + vs;
+
+  for ( i=0; i<2; i++ ) {
+    vector_PRECISION_init( &(l->sbuf_PRECISION[i]) );
+    vector_PRECISION_alloc( &(l->sbuf_PRECISION[i]), (l->depth==0)?_INNER:_ORDINARY, nvec, l, no_threading ); 
+  }
 
   // these buffers are introduced to make local_minres_PRECISION thread-safe
   MALLOC( s->local_minres_buffer[0], complex_PRECISION, svs );
@@ -261,27 +267,22 @@ void schwarz_PRECISION_free( schwarz_PRECISION_struct *s, level_struct *l ) {
   svs *= 2;
   vs *= 2;
 #endif
- if ( l->depth == 0 ) {
-    vector_PRECISION_init(&(s->oe_buf[1]));
-    vector_PRECISION_init(&(s->oe_buf[2]));
-    vector_PRECISION_init(&(s->oe_buf[3]));
-    FREE( s->oe_buf[0].vector_buffer, complex_PRECISION, 4*vs );
-    vector_PRECISION_init(&(s->oe_buf[0]));
-  }
+  if ( l->depth == 0 )
+    for ( i=0; i<4; i++ )
+      vector_PRECISION_free( &(s->oe_buf[i]), l, no_threading );
   
- 
-  FREE( s->buf1.vector_buffer, complex_PRECISION, vs+3*svs );
-  vector_PRECISION_init(&(s->buf2)); 
-  vector_PRECISION_init(&(s->buf3));
-  vector_PRECISION_init(&(s->buf4));
+  vector_PRECISION_free( &(s->buf1), l, no_threading );
+  vector_PRECISION_free( &(s->buf2), l, no_threading );
+  vector_PRECISION_free( &(s->buf3), l, no_threading );
+  vector_PRECISION_free( &(s->buf4), l, no_threading );
   
   if ( g.method == 1 )
-    FREE( s->buf5.vector_buffer, complex_PRECISION, svs );
+    vector_PRECISION_free( &(s->buf5), l, no_threading );
   
   operator_PRECISION_free( &(s->op), _SCHWARZ, l );
   
-  FREE( l->sbuf_PRECISION[0].vector_buffer, complex_PRECISION, 2*vs );
-  vector_PRECISION_init(&(l->sbuf_PRECISION[1]));
+  for ( i=0; i<2; i++ )
+    vector_PRECISION_free( &(l->sbuf_PRECISION[i]), l, no_threading );
 
   FREE( s->local_minres_buffer[0], complex_PRECISION, svs );
   FREE( s->local_minres_buffer[1], complex_PRECISION, svs );
@@ -2111,9 +2112,8 @@ void sixteen_color_schwarz_PRECISION( vector_PRECISION *phi, vector_PRECISION *D
     vector_PRECISION true_r;
     vector_PRECISION_init(&true_r);
 
-    PUBLIC_MALLOC( true_r.vector_buffer, complex_PRECISION, l->vector_size );
+    vector_PRECISION_alloc( &true_r, _ORDINARY, 1, l, threading );
     vector_PRECISION_define( &true_r, 0, 0, l->inner_vector_size, l );
-
 
     if ( D_phi == NULL ) {
       for ( mu=0; mu<4; mu++ ) {
@@ -2138,7 +2138,7 @@ void sixteen_color_schwarz_PRECISION( vector_PRECISION *phi, vector_PRECISION *D
     char number[3]; sprintf( number, "%2d", 31+l->depth ); printf0("\033[1;%2sm|", number );
     printf0(" ---- depth: %d, c: %d, schwarz iter %2d, norm: %11.6le |", l->depth, s->num_colors, k, r_norm );
     printf0("\033[0m\n"); fflush(0);
-    PUBLIC_FREE( true_r.vector_buffer, complex_PRECISION, l->vector_size );
+    vector_PRECISION_free( &true_r, l, threading );
     END_LOCKED_MASTER(threading)
 #endif
   }
@@ -2222,9 +2222,7 @@ void schwarz_PRECISION_mvm_testfun( schwarz_PRECISION_struct *s, level_struct *l
   START_UNTHREADED_FUNCTION(threading)
 
   int mu, i, nb = s->num_blocks;
-  int svs = l->schwarz_vector_size;
   int ivs = l->inner_vector_size;
-  int vs = l->vector_size;
 
   void (*block_op)() = (l->depth==0)?block_d_plus_clover_PRECISION:coarse_block_operator_PRECISION;
   void (*op)() = (l->depth==0)?d_plus_clover_PRECISION:apply_coarse_operator_PRECISION;
@@ -2233,13 +2231,13 @@ void schwarz_PRECISION_mvm_testfun( schwarz_PRECISION_struct *s, level_struct *l
   vector_PRECISION v1, v2, v3;
   PRECISION diff;
   
-  vector_PRECISION_init(&v1);
-  vector_PRECISION_init(&v2);
-  vector_PRECISION_init(&v3);
+  vector_PRECISION_init( &v1 );
+  vector_PRECISION_init( &v2 );
+  vector_PRECISION_init( &v3 );
 
-  MALLOC( v1.vector_buffer, complex_PRECISION, svs );
-  MALLOC( v2.vector_buffer, complex_PRECISION, vs );
-  MALLOC( v3.vector_buffer, complex_PRECISION, vs );
+  vector_PRECISION_alloc( &v1, _SCHWARZ, 1, l, no_threading );
+  vector_PRECISION_alloc( &v2, _ORDINARY, 1, l, no_threading );
+  vector_PRECISION_alloc( &v3, _ORDINARY, 1, l, no_threading );
 
   vector_PRECISION_define_random( &v1, 0, ivs, l );
 
@@ -2265,10 +2263,10 @@ void schwarz_PRECISION_mvm_testfun( schwarz_PRECISION_struct *s, level_struct *l
     global_norm_PRECISION( &v2, 0, l->inner_vector_size, l, no_threading );
   
   test0_PRECISION("depth: %d, correctness of local residual vector: %le\n", l->depth, diff );
-      
-  FREE( v1.vector_buffer, complex_PRECISION, l->schwarz_vector_size );
-  FREE( v2.vector_buffer, complex_PRECISION, l->vector_size );
-  FREE( v3.vector_buffer, complex_PRECISION, l->vector_size );
+  
+  vector_PRECISION_free( &v1, l, no_threading );
+  vector_PRECISION_free( &v2, l, no_threading );
+  vector_PRECISION_free( &v3, l, no_threading );    
 
   END_UNTHREADED_FUNCTION(threading)
 }

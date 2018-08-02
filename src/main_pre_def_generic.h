@@ -28,6 +28,9 @@
 
   typedef struct {
     buffer_PRECISION vector_buffer;
+    int num_vect;
+    int layout;
+    int type;
   } vector_PRECISION;
 
   typedef struct {
@@ -35,7 +38,7 @@
         comm_start[8], in_use[8], offset, comm,
         num_even_boundary_sites[8], num_odd_boundary_sites[8],
         num_boundary_sites[8];
-    vector_PRECISION buffer[8];
+    buffer_PRECISION buffer[8];
     MPI_Request sreqs[8], rreqs[8];
   } comm_PRECISION_struct;
   

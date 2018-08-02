@@ -1450,76 +1450,81 @@ void two_flavours_test_PRECISION( operator_PRECISION_struct *op, level_struct *l
 #ifdef HAVE_TM1p1
   double diff;
   
-  vector_double vd1, vd2, vd3, vd4, vdd1, vdd2, vdd3, vdd4;
-  vector_PRECISION vpp1, vpp2;
+  vector_double vd[4], vdd[4];
+  vector_PRECISION vpp[2];
 
-  vector_double_init(&vd1);
-  vector_PRECISION_init(&vpp1);
+  for(int i=0; i<4; i++){                                                                 
+    vector_double_init( &vd[i] );                                                         
+    vector_double_alloc( &vd[i], _INNER, 4, l, threading );
+    vector_double_init( &vdd[i] );
+    vector_double_alloc( &vdd[i], _INNER, 2*4, l, threading );                               
+  }                                                                                       
+                                                                                          
+  for(int i=0; i<2; i++){                                                                 
+    vector_PRECISION_init( &vpp[i] );                                                      
+    vector_PRECISION_alloc( &vpp[i], _INNER, 2*2, l, threading );                            
+  }
 
   ASSERT(g.n_flavours==2);
 
   data_layout_n_flavours( 1, l, threading );
 
-  int ivs = l->inner_vector_size;
-  
-  PUBLIC_MALLOC( vd1.vector_buffer, complex_double, 4*ivs + 2*4*ivs );
-  PUBLIC_MALLOC( vpp1.vector_buffer, complex_PRECISION, 2*2*ivs );
-
-  vd2.vector_buffer = vd1.vector_buffer + ivs; vd3.vector_buffer = vd2.vector_buffer + ivs; vd4.vector_buffer = vd3.vector_buffer + ivs;
-  vdd1.vector_buffer = vd4.vector_buffer + ivs; vdd2.vector_buffer = vdd1.vector_buffer + 2*ivs; vdd3.vector_buffer = vdd2.vector_buffer + 2*ivs; vdd4.vector_buffer = vdd3.vector_buffer + 2*ivs;
-  vpp2.vector_buffer = vpp1.vector_buffer + 2*ivs;
-  
   START_LOCKED_MASTER(threading)
-  vector_double_define_random( &vd1, 0, l->inner_vector_size, l );
-  vector_double_define_random( &vd2, 0, l->inner_vector_size, l );
-  apply_operator_double( &vd3, &vd1, &(g.p), l, no_threading );
+  vector_double_define_random( &vd[0], 0, l->inner_vector_size, l );
+  vector_double_define_random( &vd[1], 0, l->inner_vector_size, l );
+  apply_operator_double( &vd[2], &vd[0], &(g.p), l, no_threading );
 #ifdef HAVE_TM
   buffer_double_real_scale( g.op_double.tm_term, g.op_double.tm_term, -1, 0, l->inner_vector_size, l ); 
 #endif
-  apply_operator_double( &vd4, &vd2, &(g.p), l, no_threading );
+  apply_operator_double( &vd[3], &vd[1], &(g.p), l, no_threading );
 #ifdef HAVE_TM
   buffer_double_real_scale( g.op_double.tm_term, g.op_double.tm_term, -1, 0, l->inner_vector_size, l ); 
 #endif
-  add_diagonal_double( &vd3, &vd2, g.op_double.epsbar_term, l->inner_vector_size );
-  add_diagonal_double( &vd4, &vd1, g.op_double.epsbar_term, l->inner_vector_size );
+  add_diagonal_double( &vd[2], &vd[1], g.op_double.epsbar_term, l->inner_vector_size );
+  add_diagonal_double( &vd[3], &vd[0], g.op_double.epsbar_term, l->inner_vector_size );
 
-  two_flavours_to_serial_double( &vd1, &vd2, &vdd1, l, no_threading );
-  two_flavours_to_serial_double( &vd3, &vd4, &vdd2, l, no_threading );
+  two_flavours_to_serial_double( &vd[0], &vd[1], &vdd[0], l, no_threading );
+  two_flavours_to_serial_double( &vd[2], &vd[3], &vdd[1], l, no_threading );
   END_LOCKED_MASTER(threading)
 
   data_layout_n_flavours( 2, l, threading );
 
   START_LOCKED_MASTER(threading)
-  trans_PRECISION( &vpp1, &vdd1, op->translation_table, l, no_threading );
-  apply_operator_PRECISION( &vpp2, &vpp1, &(l->p_PRECISION), l, no_threading );
-  trans_back_PRECISION( &vdd3, &vpp2, op->translation_table, l, no_threading );
+  trans_PRECISION( &vpp[0], &vdd[0], op->translation_table, l, no_threading );
+  apply_operator_PRECISION( &vpp[1], &vpp[0], &(l->p_PRECISION), l, no_threading );
+  trans_back_PRECISION( &vdd[2], &vpp[1], op->translation_table, l, no_threading );
   
-  vector_double_minus( &vdd4, &vdd3, &vdd2, 0, l->inner_vector_size, l );
-  diff = global_norm_double( &vdd4, 0, l->inner_vector_size, l, no_threading ) /
-    global_norm_double( &vdd3, 0, l->inner_vector_size, l, no_threading );
+  vector_double_minus( &vdd[3], &vdd[2], &vdd[1], 0, l->inner_vector_size, l );
+  diff = global_norm_double( &vdd[3], 0, l->inner_vector_size, l, no_threading ) /
+    global_norm_double( &vdd[2], 0, l->inner_vector_size, l, no_threading );
   
   test0_PRECISION("depth: %d, correctness of doublet Dirac operator PRECISION: %le\n", l->depth, diff );
   END_LOCKED_MASTER(threading)
 
   if(threading->n_core > 1) {
-    trans_PRECISION( &vpp1, &vdd1, op->translation_table, l, threading );
-    apply_operator_PRECISION( &vpp2, &vpp1, &(l->p_PRECISION), l, threading );
-    trans_back_PRECISION( &vdd3, &vpp2, op->translation_table, l, threading );
+    trans_PRECISION( &vpp[0], &vdd[0], op->translation_table, l, threading );
+    apply_operator_PRECISION( &vpp[1], &vpp[0], &(l->p_PRECISION), l, threading );
+    trans_back_PRECISION( &vdd[2], &vpp[1], op->translation_table, l, threading );
     
     SYNC_MASTER_TO_ALL(threading)
     SYNC_CORES(threading)
 
     START_LOCKED_MASTER(threading)
-    vector_double_minus( &vdd4, &vdd3, &vdd2, 0, l->inner_vector_size, l );
-    diff = global_norm_double( &vdd4, 0, l->inner_vector_size, l, no_threading ) /
-      global_norm_double( &vdd3, 0, l->inner_vector_size, l, no_threading );
+    vector_double_minus( &vdd[3], &vdd[2], &vdd[1], 0, l->inner_vector_size, l );
+    diff = global_norm_double( &vdd[3], 0, l->inner_vector_size, l, no_threading ) /
+      global_norm_double( &vdd[2], 0, l->inner_vector_size, l, no_threading );
     
     test0_PRECISION("depth: %d, correctness of doublet Dirac operator PRECISION with threading: %le\n", l->depth, diff );
     END_LOCKED_MASTER(threading)
   }    
   
-  PUBLIC_FREE( vd1.vector_buffer, complex_double, 4*ivs + 2*4*ivs );
-  PUBLIC_FREE( vpp1.vector_buffer, complex_PRECISION, 2*2*ivs );
+  for(int i=0; i<4; i++){
+    vector_double_free( &vd[i], l, threading );
+    vector_double_free( &vdd[i], l, threading );
+  }
+
+  for(int i=0; i<2; i++)
+    vector_PRECISION_free( &vpp[i], l, threading );
 
   START_LOCKED_MASTER(threading)
   if ( g.method >=4 && g.odd_even )

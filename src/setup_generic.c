@@ -145,7 +145,7 @@ void read_tv_from_file_PRECISION( level_struct *l, struct Thread *threading ) {
       vector_double tmp;
       vector_double_init(&tmp);
       
-      MALLOC( tmp.vector_buffer, complex_double, l->inner_vector_size );
+      vector_double_alloc( &tmp, _INNER, 1, l, no_threading );
       
       for ( i=0; i<n; i++ ) {
         sprintf( filename, "%s.%02d", g.tv_io_file_name, i );
@@ -154,7 +154,7 @@ void read_tv_from_file_PRECISION( level_struct *l, struct Thread *threading ) {
         trans_PRECISION( &(l->is_PRECISION.test_vector[i]), &tmp, l->s_PRECISION.op.translation_table, l, no_threading );
       }
       
-      FREE( tmp.vector_buffer, complex_double, l->inner_vector_size );
+      vector_double_free( &tmp, l, no_threading );
 
       END_LOCKED_MASTER(threading)
 
@@ -208,11 +208,12 @@ void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct T
     START_MASTER(threading)
     vector_PRECISION_init(&buffer[0]);
     END_MASTER(threading)
-    PUBLIC_MALLOC( buffer[0].vector_buffer, complex_PRECISION, l->vector_size*3 );
     
     START_MASTER(threading)
-    for( i=1; i<3; i++)
-      buffer[i].vector_buffer = buffer[0].vector_buffer + l->vector_size*i;
+    for( i=0; i<3; i++){
+      vector_PRECISION_init( &buffer[i] );
+      vector_PRECISION_alloc( &buffer[i], _ORDINARY, 1, l, threading );
+    }
     if ( g.print > 0 ) printf0("initial definition --- depth: %d\n", l->depth );
 #ifdef DEBUG
     if ( g.print > 0 ) { printf0("\033[0;42m\033[1;37m|"); fflush(0); }
@@ -242,7 +243,9 @@ void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct T
 #endif
     }
     
-    PUBLIC_FREE( buffer[0].vector_buffer, complex_PRECISION, l->vector_size*3 );
+    for( i=0; i<3; i++){ 
+      vector_PRECISION_free( &buffer[i], l, threading );
+    }
     PUBLIC_FREE( buffer, vector_PRECISION, 3 );
     
     for ( k=0; k<n; k++ ) {
@@ -339,8 +342,8 @@ void inv_iter_2lvl_extension_setup_PRECISION( int setup_iter, level_struct *l, s
     // TODO: bugfix - threading, etc
     
     START_LOCKED_MASTER(threading)
-    vector_PRECISION_init(&buf1);
-    MALLOC( buf1.vector_buffer, complex_PRECISION, l->vector_size );
+    vector_PRECISION_init( &buf1 );
+    vector_PRECISION_alloc( &buf1, _ORDINARY, 1, l, no_threading );
     fgmres_PRECISION_struct_init( &gmres );
     fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, l->next_level->vector_size, g.coarse_tol, 
                                    _COARSE_GMRES, _NOTHING, NULL, apply_coarse_operator_PRECISION, &gmres, l->next_level );
@@ -428,7 +431,7 @@ void inv_iter_2lvl_extension_setup_PRECISION( int setup_iter, level_struct *l, s
       inv_iter_2lvl_extension_setup_PRECISION( setup_iter, l->next_level, threading );
 
     START_LOCKED_MASTER(threading)
-    FREE( buf1.vector_buffer, complex_PRECISION, l->vector_size );
+    vector_PRECISION_free( &buf1, l, no_threading );
     fgmres_PRECISION_struct_free( &gmres, l );
     END_LOCKED_MASTER(threading)
   }
@@ -471,8 +474,8 @@ void inv_iter_inv_fcycle_PRECISION( int setup_iter, level_struct *l, struct Thre
     set_kcycle_tol_PRECISION( g.coarse_tol, l );
   END_LOCKED_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
-  
-  PUBLIC_MALLOC( v_buf.vector_buffer, complex_PRECISION, l->vector_size );
+
+  vector_PRECISION_alloc( &v_buf, _ORDINARY, 1, l, threading ); 
   
   if ( !l->idle ) {
     for ( int j=0; j<setup_iter; j++ ) {
@@ -520,8 +523,8 @@ void inv_iter_inv_fcycle_PRECISION( int setup_iter, level_struct *l, struct Thre
       ((double)l->setup_iter))), l->next_level, threading );
     }
   }
-  
-  PUBLIC_FREE( v_buf.vector_buffer, complex_PRECISION, l->vector_size );
+ 
+  vector_PRECISION_free( &v_buf, l, threading );
   PUBLIC_FREE( buffer, complex_PRECISION, 2*l->num_eig_vect );
   
   if ( l->depth == 0 ) {
