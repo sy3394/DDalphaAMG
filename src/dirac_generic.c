@@ -1455,14 +1455,14 @@ void two_flavours_test_PRECISION( operator_PRECISION_struct *op, level_struct *l
 
   for(int i=0; i<4; i++){                                                                 
     vector_double_init( &vd[i] );                                                         
-    vector_double_alloc( &vd[i], _INNER, 4, l, threading );
+    vector_double_alloc( &vd[i], _INNER, 1, l, threading );
     vector_double_init( &vdd[i] );
-    vector_double_alloc( &vdd[i], _INNER, 2*4, l, threading );                               
+    vector_double_alloc( &vdd[i], _INNER, 2, l, threading );                               
   }                                                                                       
                                                                                           
   for(int i=0; i<2; i++){                                                                 
     vector_PRECISION_init( &vpp[i] );                                                      
-    vector_PRECISION_alloc( &vpp[i], _INNER, 2*2, l, threading );                            
+    vector_PRECISION_alloc( &vpp[i], _INNER, 2, l, threading );                            
   }
 
   ASSERT(g.n_flavours==2);

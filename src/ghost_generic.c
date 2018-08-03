@@ -144,8 +144,8 @@ void ghost_alloc_PRECISION( int buffer_size, comm_PRECISION_struct *c, level_str
     //vector_PRECISION_alloc( &(l->vbuf_PRECISION[8]), _ORDINARY, 2, l, no_threading);
     MALLOC( l->vbuf_PRECISION[8].vector_buffer, complex_PRECISION, 2*l->vector_size );
 #else
-    //vector_PRECISION_alloc( l->vbuf_PRECISION[8], _ORDINARY, 1, l, no_threading);
-    MALLOC( l->vbuf_PRECISION[8]->vector_buffer, complex_PRECISION, l->vector_size );
+    //vector_PRECISION_alloc( &(l->vbuf_PRECISION[8]), _ORDINARY, 1, l, no_threading);
+    MALLOC( l->vbuf_PRECISION[8].vector_buffer, complex_PRECISION, l->vector_size );
 #endif
   }
 }

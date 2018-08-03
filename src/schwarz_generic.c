@@ -139,12 +139,11 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
   
   MALLOC( s->block, block_struct, s->num_blocks );
 
-  int svs = l->schwarz_vector_size, vs = (l->depth==0)?l->inner_vector_size:l->vector_size;
+  int svs = l->schwarz_vector_size;
   int nvec = 1;
 
 #ifdef HAVE_TM1p1
   svs *= 2;
-  vs *= 2;
   nvec = 2;
 #endif
 
@@ -261,11 +260,10 @@ void schwarz_PRECISION_free( schwarz_PRECISION_struct *s, level_struct *l ) {
   
   FREE( s->block, block_struct, s->num_blocks );
 
-  int svs = l->schwarz_vector_size, vs = (l->depth==0)?l->inner_vector_size:l->vector_size;
+  int svs = l->schwarz_vector_size;
 
 #ifdef HAVE_TM1p1
   svs *= 2;
-  vs *= 2;
 #endif
   if ( l->depth == 0 )
     for ( i=0; i<4; i++ )
