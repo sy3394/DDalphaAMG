@@ -371,7 +371,6 @@ void ghost_wait_PRECISION( buffer_PRECISION phi, const int mu, const int dir,
 void ghost_update_PRECISION( vector_PRECISION *phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l ) {
   
   if( l->global_splitting[mu] > 1 ) {
-    printf0("hello");
     int i, j, mu_dir = 2*mu-MIN(dir,0), nu, inv_mu_dir = 2*mu+1+MIN(dir,0), length, *table=NULL,
         comm_start, num_boundary_sites, site_var;
     buffer_PRECISION buffer, recv_pt, phi_pt;
@@ -424,7 +423,6 @@ void ghost_update_PRECISION( vector_PRECISION *phi, const int mu, const int dir,
 void ghost_update_wait_PRECISION( vector_PRECISION *phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l ) {
   
   if( l->global_splitting[mu] > 1 ) {
-    printf0("hello");
     int mu_dir = 2*mu-MIN(dir,0), length = c->num_boundary_sites[mu_dir]*l->num_lattice_site_var;
     
     ASSERT( c->in_use[mu_dir] == 1 );

@@ -528,7 +528,11 @@ void SU3_ghost_update( SU3_storage *U, level_struct *l ) {
     send_size = i;
     ASSERT(send_size<=max_size);
   }
-  
+  FREE( buffer1, complex_double, max_size );		
+  FREE( buffer2, complex_double, max_size );		
+  FREE( buffer3, complex_double, max_size );		
+  FREE( buffer4, complex_double, max_size );
+
 }
 
 
