@@ -31,6 +31,7 @@
     int num_vect;
     int layout;
     int type;
+    struct level_struct *l;
   } vector_PRECISION;
 
   typedef struct {

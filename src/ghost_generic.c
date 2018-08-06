@@ -159,8 +159,14 @@ void ghost_free_PRECISION( comm_PRECISION_struct *c, level_struct *l ) {
     FREE( c->buffer[2*mu], complex_PRECISION, c->max_length[mu] );
     FREE( c->buffer[2*mu+1], complex_PRECISION, c->max_length[mu] );
   }
-  if ( l->vbuf_PRECISION[8].vector_buffer != NULL )
-    vector_PRECISION_free( &(l->vbuf_PRECISION[8]), l, no_threading);
+  if ( l->vbuf_PRECISION[8].vector_buffer != NULL ){
+ //   vector_PRECISION_free( &(l->vbuf_PRECISION[8]), l, no_threading);
+#ifdef HAVE_TM1p1		
+     FREE( l->vbuf_PRECISION[8].vector_buffer, complex_PRECISION, 2*l->vector_size );		
+ #else		
+     FREE( l->vbuf_PRECISION[8].vector_buffer, complex_PRECISION, l->vector_size );		
+ #endif		
+   }
 }
 
 

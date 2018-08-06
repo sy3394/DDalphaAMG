@@ -180,6 +180,9 @@
   #else
   #define DEBUGOUTPUT( A, FORMAT )
   #endif
+  
+  #define INDEX_NV_LV_SP_CL( NV, NUM_NV, LV, NUM_LV, SP, NUM_SP, CL, NUM_CL ) CL+NUM_CL*SP+NUM_CL*NUM_SP*LV+NUM_CL*NUM_SP*NUM_LV*NV
+  #define INDEX_LV_SP_CL_NV( NV, NUM_NV, LV, NUM_LV, SP, NUM_SP, CL, NUM_CL ) NV+NUM_NV*CL+NUM_NV*NUM_CL*SP+NUM_NV*NUM_CL*NUM_SP*LV
 
   #include "vectorization_control.h"
   #include "threading.h"
@@ -204,7 +207,8 @@
       _SM1, _SM2, _SM3, _SM4, _SMALL1, _SMALL2, _NUM_PROF }; // _NUM_PROF has always to be the last constant!
   enum { _VTS = 20 };
   enum { _TRCKD_VAL, _STP_TIME, _SLV_ITER, _SLV_TIME, _CRS_ITER, _CRS_TIME, _SLV_ERR, _CGNR_ERR, _NUM_OPTB };
-  
+  enum { _NV_LV_SP_CL_RI, _LV_SP_CL_RI_NV }; //vector layout
+
   typedef struct block_struct {
     int start, color, no_comm, *bt;
   } block_struct;
