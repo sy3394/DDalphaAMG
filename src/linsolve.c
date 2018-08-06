@@ -28,10 +28,10 @@ void fgmres_MP_struct_init( gmres_MP_struct *p ) {
 }
 
 
-void fgmres_MP_struct_alloc( int m, int n, long int vl, double tol, const int prec_kind, 
+void fgmres_MP_struct_alloc( int m, int n, long int vl, const int vl_type, double tol, const int prec_kind, 
                              void (*precond)(), gmres_MP_struct *p, level_struct *l ) {
   long int total=0; 
-  int i, k=0;
+  int i, k=0, n_vl=1;
   
   p->dp.restart_length = m;                      p->sp.restart_length = m;           
   p->dp.num_restart = n;                         p->sp.num_restart = n;
@@ -61,6 +61,7 @@ void fgmres_MP_struct_alloc( int m, int n, long int vl, double tol, const int pr
   
 #ifdef HAVE_TM1p1
   vl*=2;
+  n_vl=2;
 #endif
 
   // double precision part
@@ -90,11 +91,17 @@ void fgmres_MP_struct_alloc( int m, int n, long int vl, double tol, const int pr
   // s
   p->dp.s = p->dp.H[0] + total; total += m+1;
   // x
-  p->dp.x.vector_buffer = p->dp.H[0] + total; total += vl;
+  vector_double_alloc( &(p->dp.x), vl_type, n_vl, l, no_threading );
+  total += vl;
+  //p->dp.x.vector_buffer = p->dp.H[0] + total; total += vl;
   // r
-  p->dp.r.vector_buffer = p->dp.H[0] + total; total += vl;
+  vector_double_alloc( &(p->dp.r), vl_type, n_vl, l, no_threading );
+  total += vl;
+  //p->dp.r.vector_buffer = p->dp.H[0] + total; total += vl;
   // b
-  p->dp.b.vector_buffer = p->dp.H[0] + total; total += vl;  
+  vector_double_alloc( &(p->dp.b), vl_type, n_vl, l, no_threading );
+  total += vl;
+  //p->dp.b.vector_buffer = p->dp.H[0] + total; total += vl;  
   
   ASSERT( p->dp.total_storage == total );
   
@@ -117,20 +124,28 @@ void fgmres_MP_struct_alloc( int m, int n, long int vl, double tol, const int pr
   // precomputed storage amount
   
   vector_float_init(&(p->sp.w));
-  MALLOC( p->sp.w.vector_buffer, complex_float, total );
+  //MALLOC( p->sp.w.vector_buffer, complex_float, total );
   
   // reserve storage
   total = 0;
   // w
-  p->sp.w.vector_buffer = p->sp.w.vector_buffer + total; total += vl;
+  vector_float_alloc( &(p->sp.w), vl_type, n_vl, l, no_threading );
+  total += vl;
+  //p->sp.w.vector_buffer = p->sp.w.vector_buffer + total; total += vl;
   // V 
   for ( i=0; i<m+1; i++ ) {
-    p->sp.V[i].vector_buffer = p->sp.w.vector_buffer + total; total += vl;
+    vector_float_init(&(p->sp.V[i]));
+    vector_float_alloc( &(p->sp.V[i]), vl_type, n_vl, l, no_threading );
+    total += vl;
+    //p->sp.V[i].vector_buffer = p->sp.w.vector_buffer + total; total += vl;
   }
   // Z
   if ( precond != NULL ) {
     for ( i=0; i<k; i++ ) {
-      p->sp.Z[i].vector_buffer = p->sp.w.vector_buffer + total; total += vl;
+      vector_float_init(&(p->sp.Z[i]));
+      vector_float_alloc( &(p->sp.Z[i]), vl_type, n_vl, l, no_threading );
+      total += vl;
+      //p->sp.Z[i].vector_buffer = p->sp.w.vector_buffer + total; total += vl;
     }
   }
   

@@ -152,7 +152,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 #ifdef INIT_ONE_PREC
     if ( g.mixed_precision == 2 ) {
 #endif
-      fgmres_MP_struct_alloc( g.restart, g.max_restart, l->inner_vector_size,
+      fgmres_MP_struct_alloc( g.restart, g.max_restart, l->inner_vector_size, _INNER,
                               g.tol, _RIGHT, vcycle_float, &(g.p_MP), l );
       g.p.op = &(g.op_double);
 #if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
@@ -178,7 +178,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 #ifdef INIT_ONE_PREC
     if ( g.mixed_precision == 2 ) {
 #endif
-      fgmres_MP_struct_alloc( g.restart, g.max_restart, l->inner_vector_size,
+      fgmres_MP_struct_alloc( g.restart, g.max_restart, l->inner_vector_size, _INNER,
                               g.tol, _NOTHING, NULL, &(g.p_MP), l );
       g.p.op = &(g.op_double);
 #if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
