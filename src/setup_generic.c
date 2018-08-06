@@ -345,7 +345,7 @@ void inv_iter_2lvl_extension_setup_PRECISION( int setup_iter, level_struct *l, s
     vector_PRECISION_init( &buf1 );
     vector_PRECISION_alloc( &buf1, _ORDINARY, 1, l, no_threading );
     fgmres_PRECISION_struct_init( &gmres );
-    fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, l->next_level->vector_size, g.coarse_tol, 
+    fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, l->next_level->vector_size, _ORDINARY, g.coarse_tol, 
                                    _COARSE_GMRES, _NOTHING, NULL, apply_coarse_operator_PRECISION, &gmres, l->next_level );
     
     if ( g.odd_even && l->next_level->level == 0 )

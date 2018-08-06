@@ -40,7 +40,7 @@ void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect
 
   vec->type = type;
   vec->num_vect = num_vect;
-  vec->layout = _NV_LV_SP_CL_RI;
+  vec->layout = _NV_LV_SV;
   vec->l = l; 
 }
 
@@ -52,7 +52,7 @@ void vector_PRECISION_free( vector_PRECISION *vec, level_struct *l, Thread *thre
     break;
   case _SCHWARZ : PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->schwarz_vector_size*vec->num_vect );
     break;
-  case _INNER: PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->inner_vector_size*vec->num_vect );
+  case _INNER : PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->inner_vector_size*vec->num_vect );
     break;
   }
 }
@@ -79,6 +79,9 @@ void vector_PRECISION_define( vector_PRECISION *phi, complex_PRECISION value, in
 void vector_PRECISION_real_scale( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION alpha, 
                                   int start, int end, level_struct *l ) { 
    
+  vector_PRECISION_check_comp( z, x );
+  //z->layout = x->layout;
+
   PRECISION *r_z = (PRECISION*)z->vector_buffer, *r_x = (PRECISION*)x->vector_buffer, r_alpha = creal_PRECISION(alpha); 
   int r_start = 2*start, r_end = 2*end; 
    
@@ -94,21 +97,31 @@ void vector_PRECISION_real_scale( vector_PRECISION *z, vector_PRECISION *x, comp
 
 
 void vector_PRECISION_copy( vector_PRECISION *z, vector_PRECISION *x, int start, int end, level_struct *l ) {
+ 
+  //vector_PRECISION_check_comp( z, x );
+  //z->layout = x->layout;
 
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
   PROF_PRECISION_START( _CPY );
 
   VECTOR_FOR( int i=start, i<end, z->vector_buffer[i] = x->vector_buffer[i], i++, l );
-
+  
   if(thread == 0 && start != end)
   PROF_PRECISION_STOP( _CPY, (double)(end-start)/(double)l->inner_vector_size );
 }
 
 
-void vector_PRECISION_check_compatibility( vector_PRECISION *vec1, vector_PRECISION *vec2) {
+void vector_PRECISION_check_comp( vector_PRECISION *vec1, vector_PRECISION *vec2) {
 
-   
+  if(vec1->num_vect != vec2->num_vect)
+    error0("Error: The number of vectors have to be the same in both vectors\n");
+
+  if(vec1->l->level != vec2->l->level)
+    error0("Error: The level of multigrid must be the same in both vectors\n");
+
+  if(vec1->type != vec2->type)
+    error0("Error: The type must be the same in both vectors\n");
 
 }
 
@@ -116,22 +129,17 @@ void vector_PRECISION_check_compatibility( vector_PRECISION *vec1, vector_PRECIS
 void vector_PRECISION_change_layout( vector_PRECISION *vec_out, vector_PRECISION *vec_in, const int layout, Thread *threading ) {
   
   if(vec_in->layout==layout) return;
+ 
+  vector_PRECISION_check_comp( vec_out, vec_in );
 
-  int n, i, s, c, lv = 0, num_s, num_c;
+  int n, i, sv, lv = 0, num_sv = vec_in->l->num_lattice_site_var;
   vector_PRECISION vec_tmp;
+
   if( vec_in->vector_buffer == vec_out->vector_buffer ){
     vector_PRECISION_init( &vec_tmp );
     vector_PRECISION_alloc( &vec_tmp, vec_in->type, vec_in->num_vect, vec_in->l, no_threading );
   } else {
     vec_tmp = *vec_out;
-  }
-
-  if(vec_in->l->depth == 0){
-    num_s = 4;
-    num_c = 3;
-  } else {
-    num_s = 2;
-    num_c = vec_in->l->num_parent_eig_vect;
   }
 
   switch (vec_in->type){
@@ -147,28 +155,26 @@ void vector_PRECISION_change_layout( vector_PRECISION *vec_out, vector_PRECISION
   }
 
   switch (layout){
-  case _NV_LV_SP_CL_RI :
+  case _NV_LV_SV :
     for( n=0; n<vec_in->num_vect; n++ )
       for( i=0; i<lv; i++ )
-        for( s=0; s<num_s; s++ )
-	  for( c=0; c<num_c; c++ )
-	    vec_tmp.vector_buffer[INDEX_NV_LV_SP_CL( n, vec_in->num_vect, i, lv, s, num_s, c, num_c )] = vec_in->vector_buffer[INDEX_LV_SP_CL_NV( n, vec_in->num_vect, i, lv, s, num_s, c, num_c )];
+        for( sv=0; sv<num_sv; sv++ )
+	  vec_tmp.vector_buffer[INDEX_NV_LV_SV( n, vec_in->num_vect, i, lv, sv, num_sv )] = vec_in->vector_buffer[INDEX_LV_SV_NV( n, vec_in->num_vect, i, lv, sv, num_sv )];
 
-    vec_out->layout = _NV_LV_SP_CL_RI;
+    vec_out->layout = _NV_LV_SV;
     break;
-  case _LV_SP_CL_RI_NV : 
+  case _LV_SV_NV : 
     for( i=0; i<lv; i++ )
-      for( s=0; s<num_s; s++ )
-        for( c=0; c<num_c; c++ )
-          for( n=0; n<vec_in->num_vect; n++ )
-            vec_tmp.vector_buffer[INDEX_LV_SP_CL_NV( n, vec_in->num_vect, i, lv, s, num_s, c, num_c )] = vec_in->vector_buffer[INDEX_NV_LV_SP_CL( n, vec_in->num_vect, i, lv, s, num_s, c, num_c )];
+      for( sv=0; sv<num_sv; sv++ )
+        for( n=0; n<vec_in->num_vect; n++ )
+          vec_tmp.vector_buffer[INDEX_LV_SV_NV( n, vec_in->num_vect, i, lv, sv, num_sv )] = vec_in->vector_buffer[INDEX_NV_LV_SV( n, vec_in->num_vect, i, lv, sv, num_sv )];
     
-    vec_out->layout = _LV_SP_CL_RI_NV;
+    vec_out->layout = _LV_SV_NV;
     break;
   }
  
   if( vec_in->vector_buffer == vec_out->vector_buffer ){
-     vector_PRECISION_copy( vec_out, &vec_tmp, 0, lv*num_s*num_c*vec_out->num_vect, vec_out->l );
+     vector_PRECISION_copy( vec_out, &vec_tmp, 0, lv*num_sv*vec_out->num_vect, vec_out->l );
      vector_PRECISION_free( &vec_tmp, vec_in->l, no_threading ); 
   }
 
@@ -189,8 +195,8 @@ void vector_PRECISION_test_routine( level_struct *l, struct Thread *threading ) 
 
   vector_PRECISION_define_random( &vp[0], 0, 4*l->vector_size, l );
   vector_PRECISION_copy( &vp[1], &vp[0], 0, 4*l->vector_size, l );
-  vector_PRECISION_change_layout( &vp[1], &vp[1], _LV_SP_CL_RI_NV, no_threading );
-  vector_PRECISION_change_layout( &vp[1], &vp[1], _NV_LV_SP_CL_RI, no_threading ); 
+  vector_PRECISION_change_layout( &vp[1], &vp[1], _LV_SV_NV, no_threading );
+  vector_PRECISION_change_layout( &vp[1], &vp[1], _NV_LV_SV, no_threading ); 
   vector_PRECISION_minus( &vp[2], &vp[1], &vp[0], 0, 4*l->vector_size, l );
   diff = global_norm_PRECISION( &vp[2], 0, 4*l->vector_size, l, no_threading )/
     global_norm_PRECISION( &vp[0], 0, 4*l->vector_size, l, no_threading );

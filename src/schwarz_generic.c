@@ -74,19 +74,19 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
   int i, j, n, mu, nu, *bl = l->block_lattice;
   
   if ( g.method == 4 ) {
-    fgmres_PRECISION_struct_alloc( l->block_iter, 1, (l->depth==0)?l->inner_vector_size:l->vector_size,
+    fgmres_PRECISION_struct_alloc( l->block_iter, 1, (l->depth==0)?l->inner_vector_size:l->vector_size, (l->depth==0)?_INNER:_ORDINARY,
                                    EPS_PRECISION, _COARSE_GMRES, _NOTHING, NULL,
                                    (l->depth==0)?(g.odd_even?apply_schur_complement_PRECISION:d_plus_clover_PRECISION):
                                    (g.odd_even?coarse_apply_schur_complement_PRECISION:apply_coarse_operator_PRECISION),
                                    &(l->sp_PRECISION), l );
   } else if ( g.method == 5 ) {
-    fgmres_PRECISION_struct_alloc( 5, 1, (l->depth==0)?l->inner_vector_size:l->vector_size,
+    fgmres_PRECISION_struct_alloc( 5, 1, (l->depth==0)?l->inner_vector_size:l->vector_size, (l->depth==0)?_INNER:_ORDINARY,
                                    EPS_PRECISION, _COARSE_GMRES, _NOTHING, NULL,
                                    (l->depth==0)?(g.odd_even?apply_schur_complement_PRECISION:d_plus_clover_PRECISION):
                                    (g.odd_even?coarse_apply_schur_complement_PRECISION:apply_coarse_operator_PRECISION),
                                    &(l->sp_PRECISION), l );
   } else if ( g.method == 6 ) {
-    fgmres_PRECISION_struct_alloc( l->block_iter, 1, (l->depth==0)?l->inner_vector_size:l->vector_size,
+    fgmres_PRECISION_struct_alloc( l->block_iter, 1, (l->depth==0)?l->inner_vector_size:l->vector_size, (l->depth==0)?_INNER:_ORDINARY,
                                    EPS_PRECISION, _COARSE_GMRES, _NOTHING, NULL,
                                    (l->depth==0)?(g.odd_even?g5D_apply_schur_complement_PRECISION:g5D_plus_clover_PRECISION):
                                    (g.odd_even?g5D_coarse_apply_schur_complement_PRECISION:g5D_apply_coarse_operator_PRECISION),

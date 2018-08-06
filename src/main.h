@@ -39,7 +39,7 @@
   #define EPS_double 1E-14
 
   #define HAVE_TM      // flag for enable twisted mass
-  #define HAVE_TM1p1   // flag for enable doublet for twisted mass
+  //#define HAVE_TM1p1   // flag for enable doublet for twisted mass
 
   #undef INIT_ONE_PREC // flag undef for enabling additional features in the lib
   
@@ -181,8 +181,8 @@
   #define DEBUGOUTPUT( A, FORMAT )
   #endif
   
-  #define INDEX_NV_LV_SP_CL( NV, NUM_NV, LV, NUM_LV, SP, NUM_SP, CL, NUM_CL ) CL+NUM_CL*SP+NUM_CL*NUM_SP*LV+NUM_CL*NUM_SP*NUM_LV*NV
-  #define INDEX_LV_SP_CL_NV( NV, NUM_NV, LV, NUM_LV, SP, NUM_SP, CL, NUM_CL ) NV+NUM_NV*CL+NUM_NV*NUM_CL*SP+NUM_NV*NUM_CL*NUM_SP*LV
+  #define INDEX_NV_LV_SV( NV, NUM_NV, LV, NUM_LV, SV, NUM_SV ) SV+NUM_SV*LV+NUM_SV*NUM_LV*NV
+  #define INDEX_LV_SV_NV( NV, NUM_NV, LV, NUM_LV, SV, NUM_SV ) NV+NUM_NV*SV+NUM_NV*NUM_SV*LV
 
   #include "vectorization_control.h"
   #include "threading.h"
@@ -207,7 +207,7 @@
       _SM1, _SM2, _SM3, _SM4, _SMALL1, _SMALL2, _NUM_PROF }; // _NUM_PROF has always to be the last constant!
   enum { _VTS = 20 };
   enum { _TRCKD_VAL, _STP_TIME, _SLV_ITER, _SLV_TIME, _CRS_ITER, _CRS_TIME, _SLV_ERR, _CGNR_ERR, _NUM_OPTB };
-  enum { _NV_LV_SP_CL_RI, _LV_SP_CL_RI_NV }; //vector layout
+  enum { _NV_LV_SV, _LV_SV_NV }; //vector layout
 
   typedef struct block_struct {
     int start, color, no_comm, *bt;

@@ -28,6 +28,8 @@
 #ifndef OPTIMIZED_LINALG_PRECISION
 complex_PRECISION global_inner_product_PRECISION( vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l, struct Thread *threading ) {
   
+  //vector_PRECISION_check_comp( phi, psi );
+
   PROF_PRECISION_START( _GIP, threading );
   complex_PRECISION local_alpha = 0, global_alpha = 0;
 
@@ -76,6 +78,8 @@ complex_PRECISION global_inner_product_PRECISION( vector_PRECISION *phi, vector_
 
 complex_PRECISION process_inner_product_PRECISION( vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l, struct Thread *threading ) {
   
+  //vector_PRECISION_check_comp( phi, psi );
+  
   PROF_PRECISION_START( _PIP, threading );
   int i;
   complex_PRECISION local_alpha = 0;
@@ -106,6 +110,8 @@ complex_PRECISION process_inner_product_PRECISION( vector_PRECISION *phi, vector
 #if !defined( OPTIMIZED_LINALG_PRECISION ) 
 void process_multi_inner_product_PRECISION( int count, complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi,
     int start, int end, level_struct *l, struct Thread *threading ) {
+
+  //vector_PRECISION_check_comp( phi, psi );
 
   PROF_PRECISION_START( _PIP, threading );
   int i;
@@ -157,6 +163,8 @@ void process_multi_inner_product_PRECISION( int count, complex_PRECISION *result
 
 complex_PRECISION local_xy_over_xx_PRECISION( vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l  ) {
   
+  //vector_PRECISION_check_comp( phi, psi );
+
   complex_PRECISION numerator = 0.0; PRECISION denominator = 0.0;
   
   VECTOR_FOR( int i=start, i<end, numerator += conj_PRECISION(phi->vector_buffer[i])*psi->vector_buffer[i]; denominator += NORM_SQUARE_PRECISION(phi->vector_buffer[i]), i++, l );
@@ -248,6 +256,8 @@ PRECISION process_norm_PRECISION( vector_PRECISION *x, int start, int end, level
 
 void vector_PRECISION_plus( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l ) {
   
+  //vector_PRECISION_check_comp( x, y );
+
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
   PROF_PRECISION_START( _LA2 );
@@ -261,6 +271,8 @@ void vector_PRECISION_plus( vector_PRECISION *z, vector_PRECISION *x, vector_PRE
 
 void vector_PRECISION_minus( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l ) {
   
+  //vector_PRECISION_check_comp( x, y );
+
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
   PROF_PRECISION_START( _LA2 );
@@ -273,6 +285,8 @@ void vector_PRECISION_minus( vector_PRECISION *z, vector_PRECISION *x, vector_PR
 
 #ifndef OPTIMIZED_LINALG_PRECISION
 void vector_PRECISION_scale( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION alpha, int start, int end, level_struct *l ) {
+
+  //vector_PRECISION_check_comp( z, x );
   
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
@@ -317,6 +331,8 @@ void buffer_PRECISION_copy( complex_PRECISION *z, complex_PRECISION *x, int star
 
 #ifndef OPTIMIZED_LINALG_PRECISION
 void vector_PRECISION_saxpy( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, complex_PRECISION alpha, int start, int end, level_struct *l ) {
+
+  //vector_PRECISION_check_comp( x, y );
   
   int thread = omp_get_thread_num();
   if (thread == 0 && start != end )

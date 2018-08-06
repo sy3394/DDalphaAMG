@@ -135,14 +135,14 @@ void next_level_PRECISION_setup( level_struct *l ) {
     coarsening_index_table_PRECISION_define( &(l->is_PRECISION), &(l->s_PRECISION), l );
 
     if ( l->level == 1 && !l->next_level->idle ) {
-      fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, l->next_level->vector_size, g.coarse_tol, 
+      fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, l->next_level->vector_size, _ORDINARY, g.coarse_tol, 
                                      _COARSE_GMRES, _NOTHING, NULL,
                                      g.method==6?(g.odd_even?g5D_coarse_apply_schur_complement_PRECISION:g5D_apply_coarse_operator_PRECISION)
                                      :(g.odd_even?coarse_apply_schur_complement_PRECISION:apply_coarse_operator_PRECISION),
                                      &(l->next_level->p_PRECISION), l->next_level );
     } else {
       if ( g.kcycle ) {
-        fgmres_PRECISION_struct_alloc( g.kcycle_restart, g.kcycle_max_restart, l->next_level->vector_size, g.kcycle_tol, 
+        fgmres_PRECISION_struct_alloc( g.kcycle_restart, g.kcycle_max_restart, l->next_level->vector_size, _ORDINARY, g.kcycle_tol, 
                                        _K_CYCLE, _RIGHT, vcycle_PRECISION,
                                        g.method==6?g5D_apply_coarse_operator_PRECISION:apply_coarse_operator_PRECISION,
                                        &(l->next_level->p_PRECISION), l->next_level );

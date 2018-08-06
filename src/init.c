@@ -167,7 +167,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 #ifdef INIT_ONE_PREC
     } else {
 #endif
-      fgmres_double_struct_alloc( g.restart, g.max_restart, l->inner_vector_size, g.tol,
+      fgmres_double_struct_alloc( g.restart, g.max_restart, l->inner_vector_size, _INNER, g.tol,
                                   _GLOBAL_FGMRES, _RIGHT, preconditioner,
                                   g.method==6?g5D_plus_clover_double:d_plus_clover_double, &(g.p), l );
     }
@@ -193,14 +193,14 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 #ifdef INIT_ONE_PREC
     } else {
 #endif
-      fgmres_double_struct_alloc( g.restart, g.max_restart, l->inner_vector_size, g.tol,
+      fgmres_double_struct_alloc( g.restart, g.max_restart, l->inner_vector_size, _INNER, g.tol,
                                   _GLOBAL_FGMRES, _NOTHING, NULL, d_plus_clover_double,
                                   &(g.p), l );
 #ifdef INIT_ONE_PREC
     }
 #endif
   } else if ( g.method == -1 ) {
-    fgmres_double_struct_alloc( 4, g.restart*g.max_restart, l->inner_vector_size, g.tol,
+    fgmres_double_struct_alloc( 4, g.restart*g.max_restart, l->inner_vector_size, _INNER, g.tol,
                                 _GLOBAL_FGMRES, _NOTHING, NULL, d_plus_clover_double, &(g.p), l );
     fine_level_double_alloc( l );
   }

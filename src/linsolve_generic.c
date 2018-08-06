@@ -44,7 +44,7 @@ void fgmres_PRECISION_struct_init( gmres_PRECISION_struct *p ) {
 }
 
 
-void fgmres_PRECISION_struct_alloc( int m, int n, long int vl, PRECISION tol, const int type, const int prec_kind,
+void fgmres_PRECISION_struct_alloc( int m, int n, long int vl, const int vl_type, PRECISION tol, const int type, const int prec_kind,
                                     void (*precond)(), void (*eval_op)(), gmres_PRECISION_struct *p, level_struct *l ) {
 
 /*********************************************************************************
@@ -62,7 +62,7 @@ void fgmres_PRECISION_struct_alloc( int m, int n, long int vl, PRECISION tol, co
 *********************************************************************************/  
   
   long int total=0; 
-  int i, k=0;
+  int i, k=0, n_vl=1;
   
   p->restart_length = m;
   p->num_restart = n;
@@ -73,6 +73,7 @@ void fgmres_PRECISION_struct_alloc( int m, int n, long int vl, PRECISION tol, co
 
 #ifdef HAVE_TM1p1
   vl*=2;
+  n_vl=2;
 #endif
   
   if(m > 0) {
@@ -126,22 +127,36 @@ void fgmres_PRECISION_struct_alloc( int m, int n, long int vl, PRECISION tol, co
   // s
   p->s = p->H[0] + total; total += m+1;
   // w
-  p->w.vector_buffer = p->H[0] + total; total += vl;
+  vector_PRECISION_alloc( &(p->w), vl_type, n_vl, l, no_threading );
+  total += vl;
+  //p->w.vector_buffer = p->H[0] + total; total += vl;
   // V
   for ( i=0; i<m+1; i++ ) {
-    p->V[i].vector_buffer = p->H[0] + total; total += vl;
+    vector_PRECISION_init(&(p->V[i]));
+    vector_PRECISION_alloc( &(p->V[i]), vl_type, n_vl, l, no_threading );
+    total += vl;
+    //p->V[i].vector_buffer = p->H[0] + total; total += vl;
   }
   // Z
   for ( i=0; i<k; i++ ) {
-    p->Z[i].vector_buffer = p->H[0] + total; total += vl;
+    vector_PRECISION_init(&(p->Z[i]));
+    vector_PRECISION_alloc( &(p->Z[i]), vl_type, n_vl, l, no_threading );
+    total += vl;
+    //p->Z[i].vector_buffer = p->H[0] + total; total += vl;
   }
 
   // x
-  p->x.vector_buffer = p->H[0] + total; total += vl;
+  vector_PRECISION_alloc( &(p->x), vl_type, n_vl, l, no_threading );
+  total += vl;
+  //p->x.vector_buffer = p->H[0] + total; total += vl;
   // r
-  p->r.vector_buffer = p->H[0] + total; total += vl;
+  vector_PRECISION_alloc( &(p->r), vl_type, n_vl, l, no_threading );
+  total += vl;
+  //p->r.vector_buffer = p->H[0] + total; total += vl;
   // b
-  p->b.vector_buffer = p->H[0] + total; total += vl;
+  vector_PRECISION_alloc( &(p->b), vl_type, n_vl, l, no_threading );
+  total += vl;
+  //p->b.vector_buffer = p->H[0] + total; total += vl;
   
   ASSERT( p->total_storage == total );
   }
