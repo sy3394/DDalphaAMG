@@ -36,9 +36,9 @@
                             gmres_float_struct *p, level_struct *l, struct Thread *threading );
   
   void fgmres_MP_struct_init( gmres_MP_struct *p );
-  void fgmres_MP_struct_alloc( int m, int n, long int vl, const int vl_type, double tol, const int prec_kind,
+  void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const int prec_kind,
                                void (*precond)(), gmres_MP_struct *p, level_struct* l );
-  void fgmres_MP_struct_free( gmres_MP_struct *p );
+  void fgmres_MP_struct_free( gmres_MP_struct *p,  level_struct *l );
   
   int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading );
   

@@ -152,7 +152,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 #ifdef INIT_ONE_PREC
     if ( g.mixed_precision == 2 ) {
 #endif
-      fgmres_MP_struct_alloc( g.restart, g.max_restart, l->inner_vector_size, _INNER,
+      fgmres_MP_struct_alloc( g.restart, g.max_restart, _INNER,
                               g.tol, _RIGHT, vcycle_float, &(g.p_MP), l );
       g.p.op = &(g.op_double);
 #if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
@@ -167,7 +167,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 #ifdef INIT_ONE_PREC
     } else {
 #endif
-      fgmres_double_struct_alloc( g.restart, g.max_restart, l->inner_vector_size, _INNER, g.tol,
+      fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
                                   _GLOBAL_FGMRES, _RIGHT, preconditioner,
                                   g.method==6?g5D_plus_clover_double:d_plus_clover_double, &(g.p), l );
     }
@@ -178,7 +178,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 #ifdef INIT_ONE_PREC
     if ( g.mixed_precision == 2 ) {
 #endif
-      fgmres_MP_struct_alloc( g.restart, g.max_restart, l->inner_vector_size, _INNER,
+      fgmres_MP_struct_alloc( g.restart, g.max_restart, _INNER,
                               g.tol, _NOTHING, NULL, &(g.p_MP), l );
       g.p.op = &(g.op_double);
 #if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
@@ -193,14 +193,14 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 #ifdef INIT_ONE_PREC
     } else {
 #endif
-      fgmres_double_struct_alloc( g.restart, g.max_restart, l->inner_vector_size, _INNER, g.tol,
+      fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
                                   _GLOBAL_FGMRES, _NOTHING, NULL, d_plus_clover_double,
                                   &(g.p), l );
 #ifdef INIT_ONE_PREC
     }
 #endif
   } else if ( g.method == -1 ) {
-    fgmres_double_struct_alloc( 4, g.restart*g.max_restart, l->inner_vector_size, _INNER, g.tol,
+    fgmres_double_struct_alloc( 4, g.restart*g.max_restart, _INNER, g.tol,
                                 _GLOBAL_FGMRES, _NOTHING, NULL, d_plus_clover_double, &(g.p), l );
     fine_level_double_alloc( l );
   }
@@ -361,7 +361,7 @@ void method_free( level_struct *l ) {
 #ifdef INIT_ONE_PREC
   if ( g.mixed_precision == 2 && g.method >= 0 ) {
 #endif
-    fgmres_MP_struct_free( &(g.p_MP) );
+    fgmres_MP_struct_free( &(g.p_MP), l );
 #if defined (INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
 #ifdef HAVE_TM1p1
     FREE( g.p.b, complex_double, 2*l->inner_vector_size );

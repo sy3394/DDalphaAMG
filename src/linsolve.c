@@ -28,7 +28,7 @@ void fgmres_MP_struct_init( gmres_MP_struct *p ) {
 }
 
 
-void fgmres_MP_struct_alloc( int m, int n, long int vl, const int vl_type, double tol, const int prec_kind, 
+void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const int prec_kind, 
                              void (*precond)(), gmres_MP_struct *p, level_struct *l ) {
   long int total=0; 
   int i, k=0, n_vl=1;
@@ -60,7 +60,6 @@ void fgmres_MP_struct_alloc( int m, int n, long int vl, const int vl_type, doubl
   }
   
 #ifdef HAVE_TM1p1
-  vl*=2;
   n_vl=2;
 #endif
 
@@ -69,7 +68,6 @@ void fgmres_MP_struct_alloc( int m, int n, long int vl, const int vl_type, doubl
   total += (m+1)*m; // Hessenberg matrix
   MALLOC( p->dp.H, complex_double*, m );
   total += 4*(m+1); // y, gamma, c, s
-  total += 3*vl;    // x, r, b
   p->dp.total_storage = total;
   // precomputed storage amount
   
@@ -92,30 +90,21 @@ void fgmres_MP_struct_alloc( int m, int n, long int vl, const int vl_type, doubl
   p->dp.s = p->dp.H[0] + total; total += m+1;
   // x
   vector_double_alloc( &(p->dp.x), vl_type, n_vl, l, no_threading );
-  total += vl;
-  //p->dp.x.vector_buffer = p->dp.H[0] + total; total += vl;
   // r
   vector_double_alloc( &(p->dp.r), vl_type, n_vl, l, no_threading );
-  total += vl;
-  //p->dp.r.vector_buffer = p->dp.H[0] + total; total += vl;
   // b
   vector_double_alloc( &(p->dp.b), vl_type, n_vl, l, no_threading );
-  total += vl;
-  //p->dp.b.vector_buffer = p->dp.H[0] + total; total += vl;  
   
   ASSERT( p->dp.total_storage == total );
   
   
   // single precision part
   total = 0;
-  total += (2+m)*vl; // w, V
   MALLOC( p->sp.V, vector_float, m+1 );
   if ( precond != NULL ) {
     if ( prec_kind == _RIGHT ) {
-      total += (m+1)*vl; // Z
       k = m+1;
     } else {
-      total += vl;
       k = 1;
     }
     MALLOC( p->sp.Z, vector_float, k );
@@ -123,29 +112,18 @@ void fgmres_MP_struct_alloc( int m, int n, long int vl, const int vl_type, doubl
   p->sp.total_storage = total;
   // precomputed storage amount
   
-  vector_float_init(&(p->sp.w));
-  //MALLOC( p->sp.w.vector_buffer, complex_float, total );
-  
   // reserve storage
   total = 0;
   // w
   vector_float_alloc( &(p->sp.w), vl_type, n_vl, l, no_threading );
-  total += vl;
-  //p->sp.w.vector_buffer = p->sp.w.vector_buffer + total; total += vl;
   // V 
   for ( i=0; i<m+1; i++ ) {
-    vector_float_init(&(p->sp.V[i]));
     vector_float_alloc( &(p->sp.V[i]), vl_type, n_vl, l, no_threading );
-    total += vl;
-    //p->sp.V[i].vector_buffer = p->sp.w.vector_buffer + total; total += vl;
   }
   // Z
   if ( precond != NULL ) {
     for ( i=0; i<k; i++ ) {
-      vector_float_init(&(p->sp.Z[i]));
       vector_float_alloc( &(p->sp.Z[i]), vl_type, n_vl, l, no_threading );
-      total += vl;
-      //p->sp.Z[i].vector_buffer = p->sp.w.vector_buffer + total; total += vl;
     }
   }
   
@@ -153,10 +131,10 @@ void fgmres_MP_struct_alloc( int m, int n, long int vl, const int vl_type, doubl
 }  
    
    
-void fgmres_MP_struct_free( gmres_MP_struct *p ) {
+void fgmres_MP_struct_free( gmres_MP_struct *p, level_struct *l ) {
    
   // single precision
-  FREE( p->sp.w.vector_buffer, complex_float, p->sp.total_storage );
+  vector_float_free( &(p->sp.w), l, no_threading );
   FREE( p->sp.V, vector_float, p->sp.restart_length+1 );
   if ( p->sp.Z != NULL )
     FREE( p->sp.Z, vector_float, p->sp.kind==_RIGHT?p->sp.restart_length+1:1 );
@@ -164,7 +142,9 @@ void fgmres_MP_struct_free( gmres_MP_struct *p ) {
   // double precision
   FREE( p->dp.H[0], complex_double, p->dp.total_storage );
   FREE( p->dp.H, complex_double*, p->dp.restart_length );
-  
+  vector_double_free( &(p->dp.x), l, no_threading );
+  vector_double_free( &(p->dp.r), l, no_threading );
+  vector_double_free( &(p->dp.b), l, no_threading );
 } 
   
   

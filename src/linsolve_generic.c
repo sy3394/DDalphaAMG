@@ -44,7 +44,7 @@ void fgmres_PRECISION_struct_init( gmres_PRECISION_struct *p ) {
 }
 
 
-void fgmres_PRECISION_struct_alloc( int m, int n, long int vl, const int vl_type, PRECISION tol, const int type, const int prec_kind,
+void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION tol, const int type, const int prec_kind,
                                     void (*precond)(), void (*eval_op)(), gmres_PRECISION_struct *p, level_struct *l ) {
 
 /*********************************************************************************
@@ -72,7 +72,6 @@ void fgmres_PRECISION_struct_alloc( int m, int n, long int vl, const int vl_type
   p->kind = prec_kind;
 
 #ifdef HAVE_TM1p1
-  vl*=2;
   n_vl=2;
 #endif
   
@@ -80,22 +79,18 @@ void fgmres_PRECISION_struct_alloc( int m, int n, long int vl, const int vl_type
   total += (m+1)*m; // Hessenberg matrix
   MALLOC( p->H, complex_PRECISION*, m );
   
-  total += (5+m)*vl; // x, r, b, w, V
   MALLOC( p->V, vector_PRECISION, m+1 );
   
   if ( precond != NULL ) {
     if ( prec_kind == _RIGHT ) {
-      total += (m+1)*vl; // Z
       k = m+1;
     } else {
-      total += vl;
       k = 1;
     }
     MALLOC( p->Z, vector_PRECISION, k );
   } else {
 #if defined(SINGLE_ALLREDUCE_ARNOLDI) && defined(PIPELINED_ARNOLDI)
     if ( l->level == 0 && l->depth > 0 ) {
-      total += (m+2)*vl;
       k = m+2;
       MALLOC( p->Z, vector_PRECISION, k );
     }
@@ -128,35 +123,23 @@ void fgmres_PRECISION_struct_alloc( int m, int n, long int vl, const int vl_type
   p->s = p->H[0] + total; total += m+1;
   // w
   vector_PRECISION_alloc( &(p->w), vl_type, n_vl, l, no_threading );
-  total += vl;
-  //p->w.vector_buffer = p->H[0] + total; total += vl;
   // V
   for ( i=0; i<m+1; i++ ) {
     vector_PRECISION_init(&(p->V[i]));
     vector_PRECISION_alloc( &(p->V[i]), vl_type, n_vl, l, no_threading );
-    total += vl;
-    //p->V[i].vector_buffer = p->H[0] + total; total += vl;
   }
   // Z
   for ( i=0; i<k; i++ ) {
     vector_PRECISION_init(&(p->Z[i]));
     vector_PRECISION_alloc( &(p->Z[i]), vl_type, n_vl, l, no_threading );
-    total += vl;
-    //p->Z[i].vector_buffer = p->H[0] + total; total += vl;
   }
 
   // x
   vector_PRECISION_alloc( &(p->x), vl_type, n_vl, l, no_threading );
-  total += vl;
-  //p->x.vector_buffer = p->H[0] + total; total += vl;
   // r
   vector_PRECISION_alloc( &(p->r), vl_type, n_vl, l, no_threading );
-  total += vl;
-  //p->r.vector_buffer = p->H[0] + total; total += vl;
   // b
   vector_PRECISION_alloc( &(p->b), vl_type, n_vl, l, no_threading );
-  total += vl;
-  //p->b.vector_buffer = p->H[0] + total; total += vl;
   
   ASSERT( p->total_storage == total );
   }
@@ -221,7 +204,11 @@ void fgmres_PRECISION_struct_free( gmres_PRECISION_struct *p, level_struct *l ) 
   FREE( p->H[0], complex_PRECISION, p->total_storage );
   FREE( p->H, complex_PRECISION*, p->restart_length );
   FREE( p->V, vector_PRECISION, p->restart_length+1 );
-  
+  vector_PRECISION_free( &(p->w), l, no_threading );
+  vector_PRECISION_free( &(p->x), l, no_threading );
+  vector_PRECISION_free( &(p->r), l, no_threading );
+  vector_PRECISION_free( &(p->b), l, no_threading );
+ 
   if ( p->Z != NULL )
     FREE( p->Z, vector_PRECISION, k );
   }
