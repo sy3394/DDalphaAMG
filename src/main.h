@@ -32,6 +32,11 @@
 #ifndef MAIN_HEADER
   #define MAIN_HEADER
 
+  #define double_SIZE 64
+  #define float_SIZE 32
+  #define double_LENGTH SIMD_LENGTH/double_SIZE
+  #define float_LENGTH SIMD_LENGTH/float_SIZE
+
   #define STRINGLENGTH 500
   
   #define _FILE_OFFSET_BITS 64
@@ -87,7 +92,7 @@
 #ifdef SSE
   #define MALLOC( variable, kind, length ) do{ if ( variable != NULL ) { \
   printf0("malloc of \"%s\" failed: pointer is not NULL (%s:%d).\n", #variable, __FILE__, __LINE__ ); } \
-  if ( (length) > 0 ) { variable = (kind*) memalign( 64, sizeof(kind) * (length) ); } \
+  if ( (length) > 0 ) { variable = (kind*) memalign( SIMD_LENGTH, sizeof(kind) * (length) ); } \
   if ( variable == NULL && (length) > 0 ) { \
   error0("malloc of \"%s\" failed: no memory allocated (%s:%d), current memory used: %lf GB.\n", \
   #variable, __FILE__, __LINE__, g.cur_storage/1024.0 ); } \
@@ -204,7 +209,7 @@
   enum { _LEFT, _RIGHT, _NOTHING };
   enum { _PERIODIC, _ANTIPERIODIC, _TWISTED, _DIRICHLET };
   enum { _GIP, _PIP, _LA2, _LA6, _LA8, _LA, _CPY, _SET, _PR, _SC, _NC, _SM, _OP_COMM, _OP_IDLE, _ALLR, _GD_COMM, _GD_IDLE, _GRAM_SCHMIDT, _GRAM_SCHMIDT_ON_AGGREGATES,
-      _SM1, _SM2, _SM3, _SM4, _SMALL1, _SMALL2, _NUM_PROF }; // _NUM_PROF has always to be the last constant!
+      _SM1, _SM2, _SM3, _SM4, _SMALL1, _SMALL2, _RS, _NUM_PROF }; // _NUM_PROF has always to be the last constant!
   enum { _VTS = 20 };
   enum { _TRCKD_VAL, _STP_TIME, _SLV_ITER, _SLV_TIME, _CRS_ITER, _CRS_TIME, _SLV_ERR, _CGNR_ERR, _NUM_OPTB };
   enum { _NV_LV_SV, _LV_SV_NV }; //vector layout

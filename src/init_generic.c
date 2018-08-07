@@ -52,6 +52,7 @@ void prof_PRECISION_init( level_struct *l ) {
     sprintf( l->prof_PRECISION.name[_GRAM_SCHMIDT], "Gram-Schmidt, PRECISION" );
     sprintf( l->prof_PRECISION.name[_GRAM_SCHMIDT_ON_AGGREGATES], "Gram-Schmidt on aggregates, PRECISION" );
     sprintf( l->prof_PRECISION.name[_CPY], "copy operations, PRECISION" );
+    sprintf( l->prof_PRECISION.name[_RS], "real scale operations, PRECISION" );
     sprintf( l->prof_PRECISION.name[_SET], "set value operations, PRECISION" );
     sprintf( l->prof_PRECISION.name[_PR], "interpolation and restriction, PRECISION" );
     l->prof_PRECISION.flop[_PR] = level_ratio*l->num_lattice_site_var*8.0*(l->num_lattice_site_var/2);

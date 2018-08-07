@@ -21,10 +21,20 @@
 
 #ifndef MAIN_PRE_DEF_PRECISION_HEADER
   #define MAIN_PRE_DEF_PRECISION_HEADER
-  
+
+  #ifdef AVX
+    #define SIMD_LENGTH 128
+  #elif AVX2
+    #define SIMD_LENGTH 256
+  #elif AVX512
+    #define SIMD_LENGTH 512
+  #else
+    #define SIMD_LENGTH 128
+  #endif
+
   typedef PRECISION complex complex_PRECISION;
   typedef PRECISION complex *config_PRECISION;
-  typedef PRECISION complex *buffer_PRECISION;
+  typedef PRECISION complex *buffer_PRECISION __attribute__ ((aligned (SIMD_LENGTH)));
 
   typedef struct {
     buffer_PRECISION vector_buffer;
