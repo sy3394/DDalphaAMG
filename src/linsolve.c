@@ -118,11 +118,13 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
   vector_float_alloc( &(p->sp.w), vl_type, n_vl, l, no_threading );
   // V 
   for ( i=0; i<m+1; i++ ) {
+    vector_float_init( &(p->sp.V[i]) );
     vector_float_alloc( &(p->sp.V[i]), vl_type, n_vl, l, no_threading );
   }
   // Z
   if ( precond != NULL ) {
     for ( i=0; i<k; i++ ) {
+      vector_float_init( &(p->sp.Z[i]) );
       vector_float_alloc( &(p->sp.Z[i]), vl_type, n_vl, l, no_threading );
     }
   }
