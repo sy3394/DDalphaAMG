@@ -57,7 +57,9 @@ int main( int argc, char **argv ) {
   }
   
   method_init( &argc, &argv, &l );
-  
+
+  g.num_rhs_vect = 4;
+
   no_threading = (struct Thread *)malloc(sizeof(struct Thread));
   setup_no_threading(no_threading, &l);
   
@@ -89,7 +91,7 @@ int main( int argc, char **argv ) {
     
     solve_driver( &l, &threading );
   }
-  
+  printf0("Number of rhs vectors = %d\n", g.num_rhs_vect);
   finalize_common_thread_data(commonthreaddata);
   finalize_no_threading(no_threading);
   free(commonthreaddata);

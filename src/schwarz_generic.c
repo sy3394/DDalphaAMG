@@ -32,7 +32,8 @@ void smoother_PRECISION_def( level_struct *l ) {
   if ( g.method == 6 ) {
     l->p_PRECISION.eval_operator = (l->depth > 0)?g5D_apply_coarse_operator_PRECISION:g5D_plus_clover_PRECISION;
   } else {
-    l->p_PRECISION.eval_operator = (l->depth > 0)?apply_coarse_operator_PRECISION:d_plus_clover_PRECISION;
+    //l->p_PRECISION.eval_operator = (l->depth > 0)?apply_coarse_operator_PRECISION:d_plus_clover_PRECISION;
+    l->p_PRECISION.eval_operator = d_plus_clover_PRECISION_new;
   }
 }
 

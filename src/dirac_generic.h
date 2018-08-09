@@ -29,8 +29,10 @@
 
 
   void clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, int start, int end, level_struct *l, struct Thread *threading );
-  
+  void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int n_vec, operator_PRECISION_struct *op, int start, int end, level_struct *l, struct Thread *threading );
+
   void d_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
+  void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int n_vec, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
   void d_plus_clover_dagger_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
   void g5D_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
   void block_d_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );

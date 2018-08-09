@@ -30,11 +30,17 @@ void vector_PRECISION_init( vector_PRECISION *vec ) {
 void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect, level_struct *l, Thread *threading ) {
 
   switch (type){
-  case _ORDINARY : PUBLIC_MALLOC( vec->vector_buffer, complex_PRECISION, l->vector_size*num_vect );
+  case _ORDINARY : 
+    PUBLIC_MALLOC( vec->vector_buffer, complex_PRECISION, l->vector_size*num_vect );
+    vec->size = l->vector_size;
     break;
-  case _SCHWARZ : PUBLIC_MALLOC( vec->vector_buffer, complex_PRECISION, l->schwarz_vector_size*num_vect );
+  case _SCHWARZ : 
+    PUBLIC_MALLOC( vec->vector_buffer, complex_PRECISION, l->schwarz_vector_size*num_vect );
+    vec->size = l->schwarz_vector_size;
     break;
-  case _INNER: PUBLIC_MALLOC( vec->vector_buffer, complex_PRECISION, l->inner_vector_size*num_vect );
+  case _INNER: 
+    PUBLIC_MALLOC( vec->vector_buffer, complex_PRECISION, l->inner_vector_size*num_vect );
+    vec->size = l->inner_vector_size;
     break;
   }
 
@@ -45,7 +51,7 @@ void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect
 }
 
 
-void vector_PRECISION_free( vector_PRECISION *vec, level_struct *l, Thread *threading ) {
+void vector_PRECISION_free( vector_PRECISION *vec, level_struct *l, struct Thread *threading ) {
   
   switch (vec->type){
   case _ORDINARY : PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->vector_size*vec->num_vect );
@@ -79,6 +85,26 @@ void vector_PRECISION_define( vector_PRECISION *phi, complex_PRECISION value, in
     error0("Error in \"vector_PRECISION_define\": pointer is null\n");
   }
   if(thread == 0 && start != end)
+    PROF_PRECISION_STOP( _SET, 1 );
+}
+
+
+void vector_PRECISION_define_new( vector_PRECISION *phi, complex_PRECISION value, level_struct *l, struct Thread *threading ) {
+
+  int start, end;
+  compute_core_start_end(0, (phi->size)*(phi->num_vect), &start, &end, l, threading);
+  int thread = omp_get_thread_num();
+  if(thread == 0)
+    PROF_PRECISION_START( _SET );
+
+  if ( phi->vector_buffer != NULL ) {
+    int i;
+    for ( i=start; i<end; i++ )
+      phi->vector_buffer[i] = value;
+  } else {
+    error0("Error in \"vector_PRECISION_define\": pointer is null\n");
+  }
+  if(thread == 0)
     PROF_PRECISION_STOP( _SET, 1 );
 }
 
@@ -156,7 +182,25 @@ void vector_PRECISION_copy( vector_PRECISION *z, vector_PRECISION *x, int start,
       z_pt[i+j] = x_pt[i+j];
 
   if(thread == 0 && start != end)
-  PROF_PRECISION_STOP( _CPY, (double)(end-start)/(double)l->inner_vector_size );
+    PROF_PRECISION_STOP( _CPY, (double)(end-start)/(double)l->inner_vector_size );
+}
+
+
+void vector_PRECISION_copy_new( vector_PRECISION *z, vector_PRECISION *x, level_struct *l, struct Thread *threading ) {
+
+  if(z == x) return;
+
+  int start, end;
+  compute_core_start_end(0, (x->size)*(x->num_vect), &start, &end, l, threading);
+  buffer_PRECISION z_pt=z->vector_buffer, x_pt=x->vector_buffer;
+  int thread = omp_get_thread_num();
+  if(thread == 0)
+    PROF_PRECISION_START( _CPY );
+    
+  VECTOR_FOR( int i=start, i<end, z_pt[i] = x_pt[i], i++, l );
+
+  if(thread == 0)
+    PROF_PRECISION_STOP( _CPY, (double)(end-start)/(double)l->inner_vector_size );
 }
 
 
@@ -174,7 +218,7 @@ void vector_PRECISION_check_comp( vector_PRECISION *vec1, vector_PRECISION *vec2
 }
 
 
-void vector_PRECISION_change_layout( vector_PRECISION *vec_out, vector_PRECISION *vec_in, const int layout, Thread *threading ) {
+void vector_PRECISION_change_layout( vector_PRECISION *vec_out, vector_PRECISION *vec_in, const int layout, struct Thread *threading ) {
   
   if(vec_in->layout==layout) return;
  
@@ -255,7 +299,7 @@ void vector_PRECISION_test_routine( level_struct *l, struct Thread *threading ) 
   for(int i=0; i<3; i++){
     vector_PRECISION_free( &vp[i], l, threading );
   }
-  if ( l->level == 0 )
+  if ( l->level == 0 && g.method == 0)
     return;
   else
     vector_PRECISION_test_routine(l->next_level, threading);

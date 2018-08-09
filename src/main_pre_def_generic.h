@@ -41,6 +41,7 @@
     int num_vect;
     int layout;
     int type;
+    int size;
     struct level_struct *l;
   } vector_PRECISION;
 

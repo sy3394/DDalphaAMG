@@ -193,8 +193,11 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 #ifdef INIT_ONE_PREC
     } else {
 #endif
-      fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
+      /*fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
                                   _GLOBAL_FGMRES, _NOTHING, NULL, d_plus_clover_double,
+                                  &(g.p), l );*/
+      fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
+                                  _GLOBAL_FGMRES, _NOTHING, NULL, d_plus_clover_double_new,
                                   &(g.p), l );
 #ifdef INIT_ONE_PREC
     }

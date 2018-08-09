@@ -38,10 +38,14 @@
   int arnoldi_step_PRECISION( vector_PRECISION *V, vector_PRECISION *Z, vector_PRECISION *w,
                               complex_PRECISION **H, complex_PRECISION* buffer, int j, void (*prec)(),
                               gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );
+  int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector_PRECISION *w,
+                              complex_PRECISION **H, complex_PRECISION* buffer, int j, int n_vec, void (*prec)(),
+                              gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );
   void qr_update_PRECISION( complex_PRECISION **H, complex_PRECISION *s,
                             complex_PRECISION *c, complex_PRECISION *gamma, int j,
                             level_struct *l, struct Thread *threading );
   void compute_solution_PRECISION( vector_PRECISION *x, vector_PRECISION *V, complex_PRECISION *y, complex_PRECISION *gamma,
                                    complex_PRECISION **H, int j, int ol, gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );
-  
+  void compute_solution_PRECISION_new( vector_PRECISION *x, vector_PRECISION *V, complex_PRECISION *y, complex_PRECISION *gamma,
+                                   complex_PRECISION **H, int j, int ol, int n_vec, gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );
 #endif

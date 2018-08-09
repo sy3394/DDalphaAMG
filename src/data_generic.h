@@ -24,5 +24,5 @@
   
   void buffer_PRECISION_define( complex_PRECISION *phi, complex_PRECISION value, int start, int end, level_struct *l );
   void vector_PRECISION_define_random( vector_PRECISION *phi, int start, int end, level_struct *l );
-  
+  void vector_PRECISION_define_random_new( vector_PRECISION *phi, level_struct *l, struct Thread *threading ); 
 #endif

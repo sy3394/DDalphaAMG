@@ -401,6 +401,9 @@
     // bc: 0 dirichlet, 1 periodic, 2 anti-periodic
     int bc; 
     
+    // number of rhs vectors (b) to be solved at the same time (hopefully)
+    int num_rhs_vect;
+
     complex_double **gamma;
     var_table vt;
     
