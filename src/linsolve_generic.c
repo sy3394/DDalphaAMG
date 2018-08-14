@@ -235,7 +235,13 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   complex_PRECISION gamma0 = 0;
 
   complex_PRECISION beta = 0;
+  PRECISION tt0=0, tt1=0;
 
+  START_LOCKED_MASTER(threading)
+  if ( l->depth == 0 ) tt0 = MPI_Wtime();
+  END_LOCKED_MASTER(threading)
+  
+  for( n_vec=0; n_vec<g.num_rhs_vect; n_vec++ )  {
   PRECISION norm_r0=1, gamma_jp1=1, t0=0, t1=0;
   START_LOCKED_MASTER(threading)
 
@@ -251,8 +257,6 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   SYNC_MASTER_TO_ALL(threading)
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-  for( n_vec=0; n_vec<g.num_rhs_vect; n_vec++ )  {
-  
   int j=-1, finish=0;
   iter = 0;
   compute_core_start_end(p->v_start+p->r.size*n_vec, p->v_end+p->r.size*n_vec, &start, &end, l, threading);
@@ -428,6 +432,14 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
     END_MASTER(threading)
   }
   }  
+  START_LOCKED_MASTER(threading)
+  if ( l->depth == 0 ) tt1 = MPI_Wtime();
+  if ( p->print ) {
+    printf0("+----------------------------------------------------------+\n");
+    printf0("| total elapsed wall clock time: %-8.4lf seconds          |\n", tt1-tt0 );
+    printf0("+----------------------------------------------------------+\n");
+  }
+  END_LOCKED_MASTER(threading)
   return iter;
 }
 
