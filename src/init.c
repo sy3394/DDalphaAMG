@@ -682,6 +682,7 @@ void g_init( level_struct *l ) {
   g.cur_storage = 0;
   g.max_storage = 0;
   g.in_setup = 0;
+  g.num_rhs_vect = 0;
 }
 
 void read_global_info( FILE *in ) {

@@ -31,6 +31,8 @@
   void vector_PRECISION_define_new( vector_PRECISION *phi, complex_PRECISION value, level_struct *l, struct Thread *threading );
   void vector_PRECISION_real_scale( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION alpha,
                                     int start, int end, level_struct *l );
+  void vector_PRECISION_real_scale_new( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION *alpha,
+                                  int n, int opt, level_struct *l, struct Thread *threading );
   void vector_PRECISION_copy( vector_PRECISION *z, vector_PRECISION *x, int start, int end, level_struct *l ); // z := x
   void vector_PRECISION_copy_new( vector_PRECISION *z, vector_PRECISION *x, level_struct *l, struct Thread *threading );
   void vector_PRECISION_check_comp( vector_PRECISION *vec1, vector_PRECISION *vec2 );

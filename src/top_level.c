@@ -131,8 +131,8 @@ void solve( vector_double *solution, vector_double *source, level_struct *l, str
 void solve_driver( level_struct *l, struct Thread *threading ) {
   
   vector_double solution, source;
-  double minus_twisted_bc[4], norm;
-
+  double minus_twisted_bc[4], norm[g.num_rhs_vect];
+  
   vector_double_init( &solution );
   vector_double_init( &source );
  
@@ -154,10 +154,10 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
   if(g.bc==2)
       apply_twisted_bc_to_vector_double( &source, &source, g.twisted_bc, l);
 
+  global_norm_double_new( norm, &source, l, threading );
   for( int i=0; i<g.num_rhs_vect; i++ ){
     //norm = global_norm_double( &source, 0, l->inner_vector_size, l, threading );
-    norm = global_norm_double( &source, source.size*i, source.size*(i+1), l, threading );
-    printf0("source vector norm: %le\n",norm);
+    printf0("source vector %d norm: %le\n",i,norm[i]);
   }
 #ifdef HAVE_TM1p1
   if( g.n_flavours == 1 )
@@ -192,10 +192,10 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
   if(g.bc==2)
     apply_twisted_bc_to_vector_double( &solution, &solution, minus_twisted_bc, l);
  
+  global_norm_double_new( norm, &solution, l, threading );
   for( int i=0; i<g.num_rhs_vect; i++ ){
     //norm = global_norm_double( &solution, 0, l->inner_vector_size, l, threading );
-    norm = global_norm_double( &solution, solution.size*i, solution.size*(i+1), l, threading );
-    printf0("solution vector norm: %le\n",norm);
+    printf0("solution vector %d norm: %le\n",i,norm[i]);
   }
 
   vector_double_free( &solution, l, threading );

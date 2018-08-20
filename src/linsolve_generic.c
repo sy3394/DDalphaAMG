@@ -62,7 +62,7 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
 *********************************************************************************/  
   
   long int total=0; 
-  int i, k=0, n_vl=g.num_rhs_vect;//, n_vl2=1;
+  int i, k=0, n_vl=g.num_rhs_vect;
   
   p->restart_length = m;
   p->num_restart = n;
@@ -73,11 +73,10 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
 
 #ifdef HAVE_TM1p1
   n_vl*=2;
-  //n_vl2=2;
 #endif
   
   if(m > 0) {
-  total += (m+1)*m; // Hessenberg matrix
+  total += (m+1)*m*n_vl; // Hessenberg matrix
   MALLOC( p->H, complex_PRECISION*, m );
   
   MALLOC( p->V, vector_PRECISION, m+1 );
@@ -100,7 +99,7 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
 #endif
   }
   
-  total += 4*(m+1); // y, gamma, c, s
+  total += 4*(m+1)*n_vl; // y, gamma, c, s
   
   p->H[0] = NULL; // allocate connected memory
   MALLOC( p->H[0], complex_PRECISION, total );
@@ -111,17 +110,17 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
   // ordering: H, y, gamma, c, s, w, V, Z, x, r, b
   // H
   for ( i=1; i<m; i++ )
-    p->H[i] = p->H[0] + i*(m+1);
-  total += m*(m+1);
+    p->H[i] = p->H[0] + i*(m+1)*n_vl;
+  total += m*(m+1)*n_vl;
   
   // y
-  p->y = p->H[0] + total; total += m+1;
+  p->y = p->H[0] + total; total += (m+1)*n_vl;
   // gamma
-  p->gamma = p->H[0] + total; total += m+1;
+  p->gamma = p->H[0] + total; total += (m+1)*n_vl;
   // c
-  p->c = p->H[0] + total; total += m+1;
+  p->c = p->H[0] + total; total += (m+1)*n_vl;
   // s
-  p->s = p->H[0] + total; total += m+1;
+  p->s = p->H[0] + total; total += (m+1)*n_vl;
   // w
   vector_PRECISION_alloc( &(p->w), vl_type, n_vl, l, no_threading );
   // V
@@ -231,18 +230,23 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   int end;
 
   //int j=-1, finish=0, iter=0, il, ol, res, n_vec=0;
-  int iter=0, il, ol, res, n_vec=0;
-  complex_PRECISION gamma0 = 0;
+  int iter=0, il, ol, res, n_vect=g.num_rhs_vect, i, n_vec;
+  complex_PRECISION gamma0[n_vect];//gamma0 = 0;
 
-  complex_PRECISION beta = 0;
-  PRECISION tt0=0, tt1=0;
+  PRECISION beta[n_vect];//complex_PRECISION beta = 0;
+  /*PRECISION tt0=0, tt1=0;
 
   START_LOCKED_MASTER(threading)
   if ( l->depth == 0 ) tt0 = MPI_Wtime();
   END_LOCKED_MASTER(threading)
-  
-  for( n_vec=0; n_vec<g.num_rhs_vect; n_vec++ )  {
-  PRECISION norm_r0=1, gamma_jp1=1, t0=0, t1=0;
+  */
+  //for( n_vec=0; n_vec<g.num_rhs_vect; n_vec++ )  {
+  double H_tot;
+  PRECISION norm_r0[n_vect], gamma_jp1[n_vect], gamma_tot, gamma0_real[n_vect], t0=0, t1=0;
+  for( i=0; i<n_vect; i++ )  {
+    norm_r0[i]=1;
+    gamma_jp1[i]=1;
+  }
   START_LOCKED_MASTER(threading)
 
   if ( l->depth==0 && ( p->timing || p->print ) ) prof_init( l );
@@ -259,47 +263,59 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
   int j=-1, finish=0;
   iter = 0;
-  compute_core_start_end(p->v_start+p->r.size*n_vec, p->v_end+p->r.size*n_vec, &start, &end, l, threading);
-  printf0("n_vec=%d\n", n_vec);
+  //compute_core_start_end(p->v_start+p->r.size*n_vec, p->v_end+p->r.size*n_vec, &start, &end, l, threading);
+  //printf0("n_vec=%d\n", n_vec);
 
+  SYNC_CORES(threading)
   for( ol=0; ol<p->num_restart && finish==0; ol++ )  {
     if( ol == 0 && p->initial_guess_zero ) {
       res = _NO_RES;
-      vector_PRECISION_copy( &(p->r), &(p->b), start, end, l );
-      //vector_PRECISION_copy_new( &(p->r), &(p->b), l, threading );
+      //vector_PRECISION_copy( &(p->r), &(p->b), start, end, l );
+      vector_PRECISION_copy_new( &(p->r), &(p->b), l, threading );
     } else {
       res = _RES;
       if ( p->kind == _LEFT && p->preconditioner ) {
         apply_operator_PRECISION( &(p->Z[0]), &(p->x), p, l, threading );
         if ( g.method == 5 ) {
           START_LOCKED_MASTER(threading)
-          g.bicgstab_tol = (!g.mixed_precision)?p->tol:MAX( 1E-3, (p->tol/(gamma_jp1/norm_r0))*5E-1 );
+          //g.bicgstab_tol = (!g.mixed_precision)?p->tol:MAX( 1E-3, (p->tol/(gamma_jp1/norm_r0))*5E-1 );
           END_LOCKED_MASTER(threading)
         }
         p->preconditioner( &(p->w), NULL, &(p->Z[0]), _NO_RES, l, threading );
       } else {
         //apply_operator_PRECISION( &(p->w), &(p->x), p, l, threading ); // compute w = D*x
-        apply_operator_PRECISION_new( &(p->w), &(p->x), n_vec, p, l, threading );
+        for( n_vec=0; n_vec<n_vect; n_vec++ )
+          apply_operator_PRECISION_new( &(p->w), &(p->x), n_vec, p, l, threading );
       }
-      vector_PRECISION_minus( &(p->r), &(p->b), &(p->w), start, end, l ); // compute r = b - w
+      //vector_PRECISION_minus( &(p->r), &(p->b), &(p->w), start, end, l ); // compute r = b - w
+      vector_PRECISION_minus_new( &(p->r), &(p->b), &(p->w), l, threading );
     }
     //gamma0 = global_norm_PRECISION( &(p->r), p->v_start, p->v_end, l, threading ); // gamma_0 = norm(r)
-    gamma0 = global_norm_PRECISION( &(p->r), p->v_start+p->r.size*n_vec, p->v_end+p->r.size*n_vec, l, threading );
+    global_norm_PRECISION_new( gamma0_real, &(p->r), l, threading );
+    for( i=0; i<n_vect; i++ )
+      gamma0[i]=gamma0_real[i];
+
     START_MASTER(threading)
-    p->gamma[0] = gamma0;
+    //p->gamma[0] = gamma0;
+    for( i=0; i<n_vect; i++ )
+      p->gamma[i] = gamma0[i];
     END_MASTER(threading);
     SYNC_MASTER_TO_ALL(threading);
     
     if ( ol == 0 ) {
      if (l->depth == 0 && !p->initial_guess_zero) {
-       norm_r0 = global_norm_PRECISION( &(p->b), p->v_start, p->v_end, l, threading );
-       printf0("| initial guess relative residual:            %le |\n", creal(gamma0)/norm_r0);
+       //norm_r0 = global_norm_PRECISION( &(p->b), p->v_start, p->v_end, l, threading );
+       global_norm_PRECISION_new( norm_r0, &(p->b), l, threading );
+       for( i=0; i<n_vect; i++ )
+         printf0("| initial guess relative residual (%d):        %le |\n", i, creal(gamma0[i])/norm_r0[i]);
      } else {
-       norm_r0 = creal(p->gamma[0]);
+       //norm_r0 = creal(p->gamma[0]);
+       for( i=0; i<n_vect; i++ )
+         norm_r0[i] = creal(p->gamma[i]);
      }
     }
-
-    vector_PRECISION_real_scale( &(p->V[0]), &(p->r), 1/p->gamma[0], start, end, l ); // v_0 = r / gamma_0
+    //vector_PRECISION_real_scale( &(p->V[0]), &(p->r), 1/p->gamma[0], start, end, l ); // v_0 = r / gamma_0
+    vector_PRECISION_real_scale_new( &(p->V[0]), &(p->r), p->gamma, 0, 1, l, threading );
 #if defined(SINGLE_ALLREDUCE_ARNOLDI) && defined(PIPELINED_ARNOLDI)
     if ( l->level == 0 && l->depth > 0 ) {
       arnoldi_step_PRECISION( p->V, p->Z, &(p->w), p->H, p->y, 0, p->preconditioner, p, l, threading );
@@ -310,7 +326,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
       j = il; iter++;
       if ( g.method == 5 ) {
         START_LOCKED_MASTER(threading)
-        g.bicgstab_tol = (!g.mixed_precision)?p->tol:MAX( 1E-3, (p->tol/(gamma_jp1/norm_r0))*5E-1 );
+        //g.bicgstab_tol = (!g.mixed_precision)?p->tol:MAX( 1E-3, (p->tol/(gamma_jp1/norm_r0))*5E-1 );
         END_LOCKED_MASTER(threading)
       }
       
@@ -328,32 +344,45 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
         }
       }
 #else
-      if ( !arnoldi_step_PRECISION_new( p->V, p->Z, &(p->w), p->H, p->y, j, n_vec, p->preconditioner, p, l, threading ) ) {
+      if ( !arnoldi_step_PRECISION_new( p->V, p->Z, &(p->w), p->H, p->y, j, p->preconditioner, p, l, threading ) ) {
         printf0("| -------------- iteration %d, restart due to H(%d,%d) < 0 |\n", iter, j+1, j );
         break;
       }
 #endif
-      
-      if ( cabs( p->H[j][j+1] ) > p->tol/10 ) {
+      H_tot=0;
+      for( i=0; i<n_vect; i++ )
+        H_tot += cabs( p->H[j][(j+1)*n_vect+i] );
+
+      //if ( cabs( p->H[j][j+1] ) > p->tol/10 ) {
+      if ( H_tot > n_vect*p->tol/10 ) {
         qr_update_PRECISION( p->H, p->s, p->c, p->gamma, j, l, threading );
-        gamma_jp1 = cabs( p->gamma[j+1] );
+        //gamma_jp1 = cabs( p->gamma[(j+1)] );
+        for( i=0; i<n_vect; i++ )
+          gamma_jp1[i] = cabs( p->gamma[(j+1)*n_vect+i] );
         
 #if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
         if ( iter%10 == 0 || p->preconditioner != NULL || l->depth > 0 ) {
           START_MASTER(threading)
           if ( p->print && g.print > 0 )
-            printf0("| approx. rel. res. after  %-6d iterations: %e |\n", iter, gamma_jp1/norm_r0 );
+            for( i=0; i<n_vect; i++ )
+              printf0("| vector %d, approx. rel. res. after  %-6d iterations: %e |\n", i, iter, gamma_jp1[i]/norm_r0[i] );
           END_MASTER(threading)
         }
 #endif
-        if( gamma_jp1/norm_r0 < p->tol || gamma_jp1/norm_r0 > 1E+5 ) { // if satisfied ... stop
+        gamma_tot=0;
+        for( i=0; i<n_vect; i++ )
+          gamma_tot += gamma_jp1[i]/norm_r0[i];
+
+        //if( gamma_jp1/norm_r0 < p->tol || gamma_jp1/norm_r0 > 1E+5 ) { // if satisfied ... stop
+        if( gamma_tot < n_vect*p->tol || gamma_tot > n_vect*1E+5 ) {
           finish = 1;
           START_MASTER(threading)
-          if ( gamma_jp1/norm_r0 > 1E+5 ) printf0("Divergence of fgmres_PRECISION, iter = %d, level=%d\n", iter, l->level );
+          if ( gamma_tot > n_vect*1E+5 ) printf0("Divergence of fgmres_PRECISION, iter = %d, level=%d\n", iter, l->level );
           END_MASTER(threading)
         }
       } else {
-        printf0("depth: %d, iter: %d, p->H(%d,%d) = %+lf+%lfi\n", l->depth, iter, j+1, j, CSPLIT( p->H[j][j+1] ) );
+        for( i=0; i<n_vect; i++ )
+          printf0("vector: %d, depth: %d, iter: %d, p->H(%d,%d) = %+lf+%lfi\n", i, l->depth, iter, j+1, j, CSPLIT( p->H[j][(j+1)*n_vect+i] ) );
         finish = 1;
         break;
       }
@@ -361,32 +390,41 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
     /*compute_solution_PRECISION( &(p->x), (p->preconditioner&&p->kind==_RIGHT)?(p->Z):(p->V),
                                 p->y, p->gamma, p->H, j, (res==_NO_RES)?ol:1, p, l, threading );*/
     compute_solution_PRECISION_new( &(p->x), (p->preconditioner&&p->kind==_RIGHT)?(p->Z):(p->V),
-                                p->y, p->gamma, p->H, j, (res==_NO_RES)?ol:1, n_vec, p, l, threading );
+                                p->y, p->gamma, p->H, j, (res==_NO_RES)?ol:1, p, l, threading );
   } // end of fgmres
   
   START_LOCKED_MASTER(threading)
-  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.total_time = t1-t0; g.iter_count = iter; g.norm_res = gamma_jp1/norm_r0; }
+  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.total_time = t1-t0; g.iter_count = iter; g.norm_res = gamma_tot ; }//= gamma_jp1/norm_r0; }
   END_LOCKED_MASTER(threading)
   
   if ( p->print ) {
 #ifdef FGMRES_RESTEST
     //apply_operator_PRECISION( &(p->w), &(p->x), p, l, threading );
-    apply_operator_PRECISION_new( &(p->w), &(p->x), n_vec, p, l, threading );
-    vector_PRECISION_minus( &(p->r), &(p->b), &(p->w), start, end, l );
-    beta = global_norm_PRECISION( &(p->r), p->v_start+p->r.size*n_vec, p->v_end+p->r.size*n_vec, l, threading );
+    for( n_vec=0; n_vec<n_vect; n_vec++ )
+      apply_operator_PRECISION_new( &(p->w), &(p->x), n_vec, p, l, threading );
+    //vector_PRECISION_minus( &(p->r), &(p->b), &(p->w), start, end, l );
+    vector_PRECISION_minus_new( &(p->r), &(p->b), &(p->w), l, threading );
+    //beta = global_norm_PRECISION( &(p->r), p->v_start+p->r.size*n_vec, p->v_end+p->r.size*n_vec, l, threading );
+    global_norm_PRECISION_new( beta, &(p->r), l, threading );
 #else
-    beta = gamma_jp1;
+    for( i=0; i<n_vect; i++ )
+      beta[i] = creal_PRECISION(gamma_jp1[i]);
 #endif
     START_MASTER(threading)
-    g.norm_res = creal(beta)/norm_r0;
+    //g.norm_res = creal(beta)/norm_r0;
+    g.norm_res = 0;
+    for( i=0; i<n_vect; i++ )
+      g.norm_res += beta[i]/norm_r0[i];
 #if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
     if ( g.print > 0 ) printf0("+----------------------------------------------------------+\n\n");
 #endif
     printf0("+----------------------------------------------------------+\n");
     printf0("|       FGMRES iterations: %-6d coarse average: %-6.2lf   |\n", iter,
             ((double)g.coarse_iter_count)/((double)iter) );
-    printf0("| exact relative residual: ||r||/||b|| = %e      |\n", creal(beta)/norm_r0 );
-    printf0("| soltion for the vector : n_vec = %d                       |\n", n_vec+1 );
+    for( i=0; i<n_vect; i++ ) {
+      printf0("| vector %d:                                                |\n", i );
+      printf0("| exact relative residual: ||r||/||b|| = %e      |\n", beta[i]/norm_r0[i] );
+    }
     printf0("| elapsed wall clock time: %-8.4lf seconds                |\n", t1-t0 );
     if ( g.coarse_time > 0 ) 
       printf0("|        coarse grid time: %-8.4lf seconds (%04.1lf%%)        |\n",
@@ -402,7 +440,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   if ( l->depth > 0 ) {
     START_MASTER(threading)
     char number[3]; sprintf( number, "%2d", 31+l->depth ); printf0("\033[1;%2sm|", number );
-    printf0(" - depth: %d, gmres iter: %2d, approx rel res: %le |", l->depth, iter, gamma_jp1/norm_r0 );
+    //printf0(" - depth: %d, gmres iter: %2d, approx rel res: %le |", l->depth, iter, gamma_jp1/norm_r0 );
     printf0("\033[0m\n"); fflush(0);
     END_MASTER(threading)
   }
@@ -431,15 +469,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
     if ( g.method != 6 ) prof_print( l );
     END_MASTER(threading)
   }
-  }  
-  START_LOCKED_MASTER(threading)
-  if ( l->depth == 0 ) tt1 = MPI_Wtime();
-  if ( p->print ) {
-    printf0("+----------------------------------------------------------+\n");
-    printf0("| total elapsed wall clock time: %-8.4lf seconds          |\n", tt1-tt0 );
-    printf0("+----------------------------------------------------------+\n");
-  }
-  END_LOCKED_MASTER(threading)
+  //}  
   return iter;
 }
 
@@ -925,7 +955,7 @@ int arnoldi_step_PRECISION( vector_PRECISION *V, vector_PRECISION *Z, vector_PRE
 
 
 int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector_PRECISION *w,
-                            complex_PRECISION **H, complex_PRECISION* buffer, int j, int n_vec, void (*prec)(),
+                            complex_PRECISION **H, complex_PRECISION* buffer, int j, void (*prec)(),
                             gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading ) {
 
 /*********************************************************************************
@@ -1081,12 +1111,13 @@ int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector
 #else
   SYNC_MASTER_TO_ALL(threading)
   SYNC_CORES(threading)
-  int i;
+  int i, n_vect=g.num_rhs_vect, n_vec;
+  PRECISION H_tot;
   // start and end indices for vector functions depending on thread
   int start, end;
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-  compute_core_start_end(p->v_start+p->w.size*n_vec, p->v_end+p->w.size*n_vec, &start, &end, l, threading);
+  //compute_core_start_end(p->v_start, p->v_end, &start, &end, l, threading);
 
   if ( prec != NULL ) {
     if ( p->kind == _LEFT ) {
@@ -1106,33 +1137,37 @@ int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector
       }
     }
   } else {
-    apply_operator_PRECISION_new( w, &V[j], n_vec, p, l, threading ); // w = D*V[j]
+    for( n_vec=0; n_vec<n_vect; n_vec++ )
+      apply_operator_PRECISION_new( w, &V[j], n_vec, p, l, threading ); // w = D*V[j]
   }
 
   // orthogonalization
-  complex_PRECISION tmp[j+1];
-  process_multi_inner_product_PRECISION( j+1, tmp, V, w, p->v_start+p->w.size*n_vec, p->v_end+p->w.size*n_vec, l, threading );
+  complex_PRECISION tmp[(j+1)*n_vect];
+  process_multi_inner_product_PRECISION_new( j+1, tmp, V, w, l, threading );
   START_MASTER(threading)
   for( i=0; i<=j; i++ )
-    buffer[i] = tmp[i];
+    for( n_vec=0; n_vec<n_vect; n_vec++ )
+      buffer[i*n_vect+n_vec] = tmp[i*n_vect+n_vec];
   if ( g.num_processes > 1 ) {
     PROF_PRECISION_START( _ALLR );
     MPI_Allreduce( buffer, H[j], j+1, MPI_COMPLEX_PRECISION, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_PRECISION.level_comm );
     PROF_PRECISION_STOP( _ALLR, 1 );
   } else {
     for( i=0; i<=j; i++ )
-      H[j][i] = buffer[i];
+      for( n_vec=0; n_vec<n_vect; n_vec++ )
+        H[j][i*n_vect+n_vec] = buffer[i*n_vect+n_vec];
   }
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
   for( i=0; i<=j; i++ )
-    vector_PRECISION_saxpy( w, w, &V[i], -H[j][i], start, end, l );
+    vector_PRECISION_saxpy_new( w, w, &V[i], H[j], i, -1, l, threading );
 #ifdef REORTH
   // re-orthogonalization
-  process_multi_inner_product_PRECISION( j+1, tmp, V, w, p->v_start+p->w.size*n_vec, p->v_end+p->w.size*n_vec, l, threading );
+  process_multi_inner_product_PRECISION_new( j+1, tmp, V, w, l, threading );
   START_MASTER(threading)
   for( i=0; i<=j; i++ )
-    buffer[i] = tmp[i];
+    for( n_vec=0; n_vec<n_vect; n_vec++ )
+      buffer[i*n_vect+n_vec] = tmp[i*n_vect+n_vec];
   if ( g.num_processes > 1 ) {
     PROF_PRECISION_START( _ALLR );
     MPI_Allreduce( buffer, tmp, j+1, MPI_COMPLEX_PRECISION, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_PRECISION.level_comm );
@@ -1140,24 +1175,30 @@ int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector
   }
   
   for( i=0; i<=j; i++ )
-    H[j][i] += tmp[i];
+    for( n_vec=0; n_vec<n_vect; n_vec++ )
+      H[j][i*n_vect+n_vec] += tmp[i*n_vect+n_vec];
 
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
   for( i=0; i<=j; i++ )
-    vector_PRECISION_saxpy( w, w, &V[i], -tmp[i], start, end, l );
+    vector_PRECISION_saxpy_new( w, w, &V[i], tmp, i, -1, l, threading );
 #endif
   
   // normalization
-  PRECISION tmp2 = global_norm_PRECISION( w, p->v_start+p->w.size*n_vec, p->v_end+p->w.size*n_vec, l, threading );
+  PRECISION tmp2[n_vect]; 
+  global_norm_PRECISION_new( tmp2, w, l, threading );
   START_MASTER(threading)
-  H[j][j+1] = tmp2;
+  for( n_vec=0; n_vec<n_vect; n_vec++ )
+    H[j][(j+1)*n_vect+n_vec] = tmp2[n_vec];
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
   
   // V_j+1 = w / H_j+1,j
-  if ( cabs_PRECISION( H[j][j+1] ) > 1e-15 )
-    vector_PRECISION_real_scale( &V[j+1], w, 1/H[j][j+1], start, end, l );
+  H_tot=0;
+  for( i=0; i<n_vect; i++ )
+    H_tot += cabs_PRECISION( p->H[j][(j+1)*n_vect+i] );
+  if ( H_tot > n_vect*1e-15 )
+    vector_PRECISION_real_scale_new( &V[j+1], w, H[j], j+1, 1, l, threading );
 #endif
   return 1;
 }
@@ -1183,23 +1224,33 @@ void qr_update_PRECISION( complex_PRECISION **H, complex_PRECISION *s,
   
   PROF_PRECISION_START( _SMALL1 );
   
-  int i;
-  complex_PRECISION beta;
+  int i, n, n_vect=g.num_rhs_vect;
+  complex_PRECISION beta[n_vect];
   
   // update QR factorization
   // apply previous Givens rotation
   for ( i=0; i<j; i++ ) {
-    beta = (-s[i])*H[j][i] + (c[i])*H[j][i+1];
-    H[j][i] = conj_PRECISION(c[i])*H[j][i] + conj_PRECISION(s[i])*H[j][i+1];
-    H[j][i+1] = beta;
+    for( n=0; n<n_vect; n++){
+      beta[n] = (-s[i*n_vect+n])*H[j][i*n_vect+n] + (c[i])*H[j][(i+1)*n_vect+n];
+      H[j][i*n_vect+n] = conj_PRECISION(c[i*n_vect+n])*H[j][i*n_vect+n] + conj_PRECISION(s[i*n_vect+n])*H[j][(i+1)*n_vect+n];
+      H[j][(i+1)*n_vect+n] = beta[n];
+    }
   }
   // compute current Givens rotation
-  beta = (complex_PRECISION) sqrt( NORM_SQUARE_PRECISION(H[j][j]) + NORM_SQUARE_PRECISION(H[j][j+1]) );
-  s[j] = H[j][j+1]/beta; c[j] = H[j][j]/beta;
+  for( n=0; n<n_vect; n++){
+    beta[n] = (complex_PRECISION) sqrt( NORM_SQUARE_PRECISION(H[j][j*n_vect+n]) + NORM_SQUARE_PRECISION(H[j][(j+1)*n_vect+n]) );
+    s[j*n_vect+n] = H[j][(j+1)*n_vect+n]/beta[n]; c[j*n_vect+n] = H[j][j*n_vect+n]/beta[n];
+  }
   // update right column
-  gamma[j+1] = (-s[j])*gamma[j]; gamma[j] = conj_PRECISION(c[j])*gamma[j];
+  for( n=0; n<n_vect; n++){
+    gamma[(j+1)*n_vect+n] = (-s[j*n_vect+n])*gamma[j*n_vect+n];
+    gamma[j*n_vect+n] = conj_PRECISION(c[j*n_vect+n])*gamma[j*n_vect+n];
+  }
   // apply current Givens rotation
-  H[j][j] = beta; H[j][j+1] = 0;
+  for( n=0; n<n_vect; n++){
+    H[j][j*n_vect+n] = beta[n];
+    H[j][(j+1)*n_vect+n] = 0;
+  }
   
   PROF_PRECISION_STOP( _SMALL1, 6*j+6 );
   
@@ -1253,16 +1304,16 @@ void compute_solution_PRECISION( vector_PRECISION *x, vector_PRECISION *V, compl
 
 
 void compute_solution_PRECISION_new( vector_PRECISION *x, vector_PRECISION *V, complex_PRECISION *y,
-                                 complex_PRECISION *gamma, complex_PRECISION **H, int j, int ol, int n_vec,
+                                 complex_PRECISION *gamma, complex_PRECISION **H, int j, int ol,
                                  gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading ) {
   
-  int i, k;
+  int i, k, n, n_vect=g.num_rhs_vect;
   // start and end indices for vector functions depending on thread
-  int start;
-  int end;
+  //int start;
+  //int end;
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-  compute_core_start_end(p->v_start+x->size*n_vec, p->v_end+x->size*n_vec, &start, &end, l, threading);
+  //compute_core_start_end(p->v_start+x->size*n_vec, p->v_end+x->size*n_vec, &start, &end, l, threading);
 
   START_MASTER(threading)
   
@@ -1270,11 +1321,14 @@ void compute_solution_PRECISION_new( vector_PRECISION *x, vector_PRECISION *V, c
   
   // backward substitution
   for ( i=j; i>=0; i-- ) {
-    y[i] = gamma[i];
+    for ( n=0; n<n_vect; n++)
+      y[i*n_vect+n] = gamma[i*n_vect+n];
     for ( k=i+1; k<=j; k++ ) {
-      y[i] -= H[k][i]*y[k];
+      for ( n=0; n<n_vect; n++)
+        y[i*n_vect+n] -= H[k][i*n_vect+n]*y[k*n_vect+n];
     }
-    y[i] /= H[i][i];
+    for ( n=0; n<n_vect; n++)
+      y[i*n_vect+n] /= H[i][i*n_vect+n];
   }
   
   PROF_PRECISION_STOP( _SMALL2, ((j+1)*(j+2))/2 + j+1 );
@@ -1285,12 +1339,12 @@ void compute_solution_PRECISION_new( vector_PRECISION *x, vector_PRECISION *V, c
   // x = x + V*y
   if ( ol ) {
     for ( i=0; i<=j; i++ ) {
-      vector_PRECISION_saxpy( x, x, &V[i], y[i], start, end, l );
+      vector_PRECISION_saxpy_new( x, x, &V[i], y, i, 1, l, threading );
     }
   } else {
-    vector_PRECISION_scale( x, &V[0], y[0], start, end, l );
+    vector_PRECISION_scale_new( x, &V[0], y, 0, l, threading );
     for ( i=1; i<=j; i++ ) {
-      vector_PRECISION_saxpy( x, x, &V[i], y[i], start, end, l );
+      vector_PRECISION_saxpy_new( x, x, &V[i], y, i, 1, l, threading );
     }
   }
 }
