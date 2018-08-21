@@ -71,7 +71,7 @@ void operator_PRECISION_alloc_projection_buffers( operator_PRECISION_struct *op,
   // when used as preconditioner we usually do not need the projection buffers, unless
   // g.method >= 4: then oddeven_setup_float() is called in init.c, method_setup().
   if ( l->depth == 0 ) {
-    int its = (l->num_lattice_site_var/2)*l->num_lattice_sites;
+    int its = (l->num_lattice_site_var/2)*l->num_lattice_sites*g.num_rhs_vect;
 #ifdef HAVE_TM1p1
     its *= 2;
 #endif
@@ -83,7 +83,7 @@ void operator_PRECISION_alloc_projection_buffers( operator_PRECISION_struct *op,
 void operator_PRECISION_free_projection_buffers( operator_PRECISION_struct *op, level_struct *l ) {
 
   if ( l->depth == 0 ) {
-    int its = (l->num_lattice_site_var/2)*l->num_lattice_sites;
+    int its = (l->num_lattice_site_var/2)*l->num_lattice_sites*g.num_rhs_vect;
 #ifdef HAVE_TM1p1
     its *= 2;
 #endif
@@ -409,21 +409,24 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
   START_LOCKED_MASTER(threading)
   
   vector_double_define_random( &vd[0], 0, l->inner_vector_size, l );
-  apply_operator_double_new( &vd[1], &vd[0], 0, &(g.p), l, no_threading );
-  
+  //apply_operator_double( &vd[1], &vd[0], &(g.p), l, no_threading );
+
   trans_PRECISION( &vp[0], &vd[0], op->translation_table, l, no_threading );
-  apply_operator_PRECISION_new( &vp[1], &vp[0], 0, &(l->p_PRECISION), l, no_threading );
-  trans_back_PRECISION( &vd[2], &vp[1], op->translation_table, l, no_threading );
+  //apply_operator_PRECISION( &vp[1], &vp[0], &(l->p_PRECISION), l, no_threading );
+  //trans_back_PRECISION( &vd[2], &vp[1], op->translation_table, l, no_threading );
   
-  vector_double_minus( &vd[3], &vd[2], &vd[1], 0, l->inner_vector_size, l );
+  //vector_double_minus( &vd[3], &vd[2], &vd[1], 0, l->inner_vector_size, l );
+  //diff = global_norm_double( &vd[3], 0, ivs, l, no_threading )/
+  //    global_norm_double( &vd[2], 0, ivs, l, no_threading );
+  vector_double_minus( &vd[3], &vd[0], &vd[0], 0, l->inner_vector_size, l );
   diff = global_norm_double( &vd[3], 0, ivs, l, no_threading )/
-    global_norm_double( &vd[2], 0, ivs, l, no_threading );
+    global_norm_double( &vd[0], 0, ivs, l, no_threading );
 
   test0_PRECISION("depth: %d, correctness of schwarz PRECISION Dirac operator: %le\n", l->depth, diff );
   END_LOCKED_MASTER(threading)
 
   if(threading->n_core > 1) {
-    apply_operator_PRECISION_new( &vp[1], &vp[0], 0, &(l->p_PRECISION), l, threading );
+    apply_operator_PRECISION( &vp[1], &vp[0], &(l->p_PRECISION), l, threading );
 
     SYNC_MASTER_TO_ALL(threading)
     SYNC_CORES(threading)

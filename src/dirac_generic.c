@@ -167,13 +167,12 @@ void clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PR
 }
 
 
-void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int n_vec, operator_PRECISION_struct *op, int start, int end,
+void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, int start, int end,
                        level_struct *l, struct Thread *threading ) {
 
-  int nv = l->num_lattice_site_var;
-  int phi_shift = (phi->num_vect == 1)?0:phi->size*n_vec, eta_shift = (eta->num_vect == 1)?0:eta->size*n_vec;
-  buffer_PRECISION lphi = phi->vector_buffer+start+phi_shift, leta = eta->vector_buffer+start+eta_shift;
-  buffer_PRECISION leta_end = eta->vector_buffer+end+eta->size*n_vec;
+  int nv = l->num_lattice_site_var, n_vect=g.num_rhs_vect, i, j;
+  buffer_PRECISION lphi = phi->vector_buffer+start*n_vect, leta = eta->vector_buffer+start*n_vect;
+  buffer_PRECISION leta_end = eta->vector_buffer+end*n_vect;
 #ifdef PROFILING
   START_MASTER(threading)
   PROF_PRECISION_START( _SC );
@@ -187,7 +186,7 @@ void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int n_v
   if ( g.csw == 0.0 ) {
 
     config_PRECISION clover = op->clover+(start/nv)*12;
-#ifdef HAVE_TM1p1
+/*#ifdef HAVE_TM1p1
     if( g.n_flavours == 2 ) {
 #ifdef HAVE_TM
       if ( g.mu + g.mu_odd_shift != 0.0 || g.mu + g.mu_even_shift != 0.0 ) 
@@ -211,25 +210,41 @@ void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int n_v
           FOR6( *leta = (*lphi)*(*clover); leta++; lphi++; clover++; );
         }
     } else {
-#endif
+#endif*/
 #ifdef HAVE_TM
       if ( g.mu + g.mu_odd_shift != 0.0 || g.mu + g.mu_even_shift != 0.0 ) {
         while ( leta < leta_end )
-          FOR12( *leta = (*lphi)*((*clover)+(*tm_term)); leta++; lphi++; clover++; tm_term++; );
-      } else
+          for( i=0; i<12; i++ ){
+            for( j=0; j<n_vect; j++ ){
+	      *leta = (*lphi)*((*clover)+(*tm_term));
+	      leta++;
+	      lphi++;              
+            }
+          clover++;
+          tm_term++;
+          }
+      }// else
 #endif
-        while ( leta < leta_end )
-          FOR12( *leta = (*lphi)*(*clover); leta++; lphi++; clover++; );
-#ifdef HAVE_TM1p1
+      while ( leta < leta_end )
+        for( i=0; i<12; i++ ){
+          for( j=0; j<n_vect; j++ ){
+            *leta = (*lphi)*((*clover)+(*tm_term));
+            leta++;
+            lphi++;
+          }
+        clover++;
+        tm_term++;
+        }
+/*#ifdef HAVE_TM1p1
     }
-#endif
+#endif*/
 
   } else {
 
 #ifndef OPTIMIZED_SELF_COUPLING_PRECISION
 
     config_PRECISION clover = op->clover+(start/nv)*42;
-#ifdef HAVE_TM1p1
+/*#ifdef HAVE_TM1p1
     if( g.n_flavours == 2 ) {
 #ifdef HAVE_TM
       if ( g.mu + g.mu_odd_shift != 0.0 || g.mu + g.mu_even_shift != 0.0 ) 
@@ -251,22 +266,29 @@ void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int n_v
           clover+=42;
         }
     } else {
-#endif
+#endif*/
 #ifdef HAVE_TM
       if ( g.mu + g.mu_odd_shift != 0.0 || g.mu + g.mu_even_shift != 0.0 ) 
         while ( leta < leta_end ) {
-          site_clover_PRECISION( leta, lphi, clover );
-          FOR12( *leta += (*lphi)*(*tm_term); leta++; lphi++; tm_term++; );
+          site_clover_PRECISION_new( leta, lphi, clover );
+          for( i=0; i<12; i++ ){
+            for( j=0; j<n_vect; j++ ){
+              *leta += (*lphi)*(*tm_term);
+              leta++;
+              lphi++;
+            }
+          tm_term++;
+          }
           clover+=42;
         }
-      else
+     // else
 #endif
         while ( leta < leta_end ) {
-          site_clover_PRECISION( leta, lphi, clover );
-          leta+=12; lphi+=12;
+          site_clover_PRECISION_new( leta, lphi, clover );
+          leta+=12*n_vect; lphi+=12*n_vect;
           clover+=42;
         }
-#ifdef HAVE_TM1p1
+/*#ifdef HAVE_TM1p1
     }
 #endif
 
@@ -283,11 +305,11 @@ void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int n_v
       leta += nv; lphi += nv;
       clover += 12*nv;
     }
-    
+    */
 #endif
-    
+  
   }
-
+/*
 #ifdef HAVE_TM1p1
   config_PRECISION eps_term = op->epsbar_term+(start/nv)*12;  
   lphi = phi->vector_buffer+start+phi_shift, leta = eta->vector_buffer+start+eta_shift;
@@ -302,7 +324,7 @@ void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int n_v
       lphi += 6;
     }
 #endif
-
+*/
   
 #ifdef PROFILING
   START_MASTER(threading)
@@ -512,7 +534,7 @@ void d_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, oper
 
   SYNC_MASTER_TO_ALL(threading)
 
-  clover_PRECISION(eta, phi, op, start, end, l, threading );
+  clover_PRECISION( eta, phi, op, start, end, l, threading );
 
   START_MASTER(threading)
   PROF_PRECISION_START( _NC ); 
@@ -765,9 +787,9 @@ void d_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, oper
 }
 
 
-void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int n_vec, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
+void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
   
-  int n = l->num_inner_lattice_sites, *neighbor = op->neighbor_table, start, end, nv = l->num_lattice_site_var;
+  int n = l->num_inner_lattice_sites, *neighbor = op->neighbor_table, start, end, nv = l->num_lattice_site_var, n_vect = g.num_rhs_vect;
 #ifdef OPTIMIZED_NEIGHBOR_COUPLING_PRECISION
   complex_PRECISION *prn[4] = { op->prnT, op->prnZ, op->prnY, op->prnX };
   complex_PRECISION *prp[4] = { op->prpT, op->prpZ, op->prpY, op->prpX };
@@ -775,17 +797,20 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
   int i, j, *nb_pt;
   buffer_PRECISION phi_pt, eta_pt, end_pt;
   config_PRECISION D_pt;
-  int phi_shift = (phi->num_vect == 1)?0:phi->size*n_vec, eta_shift = (eta->num_vect == 1)?0:eta->size*n_vec;
+  //int phi_shift = (phi->num_vect == 1)?0:phi->size*n_vec, eta_shift = (eta->num_vect == 1)?0:eta->size*n_vec;
 #endif
 
   compute_core_start_end(0, nv*n, &start, &end, l, threading );
 
+  //vector_PRECISION_change_layout( phi, phi, _LV_SV_NV, no_threading );
+  //vector_PRECISION_change_layout( eta, eta, _LV_SV_NV, no_threading );
+
   SYNC_MASTER_TO_ALL(threading)
-  clover_PRECISION_new(eta, phi, n_vec, op, start, end, l, threading );
+  clover_PRECISION_new( eta, phi, op, start, end, l, threading );
   START_MASTER(threading)
   PROF_PRECISION_START( _NC ); 
   END_MASTER(threading)
-
+/*
 #ifdef HAVE_TM1p1
   if( g.n_flavours == 2 ) {
 #ifdef OPTIMIZED_NEIGHBOR_COUPLING_PRECISION
@@ -911,16 +936,16 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
 #endif
   } else {
 #endif
-
+*/
 #ifdef OPTIMIZED_NEIGHBOR_COUPLING_PRECISION
   prp_PRECISION( prn, phi->vector_buffer, start, end );
 #else
-  complex_PRECISION pbuf[6];
-  for ( i=start/2, phi_pt=phi->vector_buffer+start+phi_shift; i<end/2; i+=6, phi_pt+=12 ) {
-    prp_T_PRECISION( op->prnT+i, phi_pt );
-    prp_Z_PRECISION( op->prnZ+i, phi_pt );
-    prp_Y_PRECISION( op->prnY+i, phi_pt );
-    prp_X_PRECISION( op->prnX+i, phi_pt );
+  complex_PRECISION pbuf[6*n_vect];
+  for ( i=start*n_vect/2, phi_pt=phi->vector_buffer+start*n_vect; i<end*n_vect/2; i+=6*n_vect, phi_pt+=12*n_vect ) {
+    prp_T_PRECISION_new( op->prnT+i, phi_pt );
+    prp_Z_PRECISION_new( op->prnZ+i, phi_pt );
+    prp_Y_PRECISION_new( op->prnY+i, phi_pt );
+    prp_X_PRECISION_new( op->prnX+i, phi_pt );
   }
 #endif
   // start communication in negative direction
@@ -935,27 +960,27 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
 #ifdef OPTIMIZED_NEIGHBOR_COUPLING_PRECISION
   prn_su3_PRECISION( prp, phi->vector_buffer, op, neighbor, start, end );
 #else
-  for ( phi_pt=phi->vector_buffer+start+phi_shift, end_pt=phi->vector_buffer+end+phi_shift, D_pt = op->D+(start*3), nb_pt=neighbor+((start/12)*4); phi_pt<end_pt; phi_pt+=12 ) {
+  for ( phi_pt=phi->vector_buffer+start*n_vect, end_pt=phi->vector_buffer+end*n_vect, D_pt = op->D+(start*3), nb_pt=neighbor+((start/12)*4); phi_pt<end_pt; phi_pt+=12*n_vect ) {
     // T dir
-    j = 6*(*nb_pt); nb_pt++;
-    prn_T_PRECISION( pbuf, phi_pt );
-    mvmh_PRECISION( op->prpT+j, D_pt, pbuf );
-    mvmh_PRECISION( op->prpT+j+3, D_pt, pbuf+3 ); D_pt += 9;
+    j = 6*(*nb_pt)*n_vect; nb_pt++;
+    prn_T_PRECISION_new( pbuf, phi_pt );
+    mvmh_PRECISION_new( op->prpT+j, D_pt, pbuf );
+    mvmh_PRECISION_new( op->prpT+j+3*n_vect, D_pt, pbuf+3*n_vect ); D_pt += 9;
     // Z dir
-    j = 6*(*nb_pt); nb_pt++;
-    prn_Z_PRECISION( pbuf, phi_pt );
-    mvmh_PRECISION( op->prpZ+j, D_pt, pbuf );
-    mvmh_PRECISION( op->prpZ+j+3, D_pt, pbuf+3 ); D_pt += 9;
+    j = 6*(*nb_pt)*n_vect; nb_pt++;
+    prn_Z_PRECISION_new( pbuf, phi_pt );
+    mvmh_PRECISION_new( op->prpZ+j, D_pt, pbuf );
+    mvmh_PRECISION_new( op->prpZ+j+3*n_vect, D_pt, pbuf+3*n_vect ); D_pt += 9;
     // Y dir
-    j = 6*(*nb_pt); nb_pt++;
-    prn_Y_PRECISION( pbuf, phi_pt );
-    mvmh_PRECISION( op->prpY+j, D_pt, pbuf );
-    mvmh_PRECISION( op->prpY+j+3, D_pt, pbuf+3 ); D_pt += 9;
+    j = 6*(*nb_pt)*n_vect; nb_pt++;
+    prn_Y_PRECISION_new( pbuf, phi_pt );
+    mvmh_PRECISION_new( op->prpY+j, D_pt, pbuf );
+    mvmh_PRECISION_new( op->prpY+j+3*n_vect, D_pt, pbuf+3*n_vect ); D_pt += 9;
     // X dir
-    j = 6*(*nb_pt); nb_pt++;
-    prn_X_PRECISION( pbuf, phi_pt );
-    mvmh_PRECISION( op->prpX+j, D_pt, pbuf );
-    mvmh_PRECISION( op->prpX+j+3, D_pt, pbuf+3 ); D_pt += 9;
+    j = 6*(*nb_pt)*n_vect; nb_pt++;
+    prn_X_PRECISION_new( pbuf, phi_pt );
+    mvmh_PRECISION_new( op->prpX+j, D_pt, pbuf );
+    mvmh_PRECISION_new( op->prpX+j+3*n_vect, D_pt, pbuf+3*n_vect ); D_pt += 9;
   }
 #endif
   
@@ -976,27 +1001,27 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
 #ifdef OPTIMIZED_NEIGHBOR_COUPLING_PRECISION
   su3_pbp_PRECISION( eta->vector_buffer, prn, op, neighbor, start, end );
 #else
-  for ( eta_pt=eta->vector_buffer+start+eta_shift, end_pt=eta->vector_buffer+end+eta_shift, D_pt = op->D+start*3, nb_pt=neighbor+(start/12)*4; eta_pt<end_pt; eta_pt+=12 ) {
+  for ( eta_pt=eta->vector_buffer+start*n_vect, end_pt=eta->vector_buffer+end*n_vect, D_pt = op->D+start*3, nb_pt=neighbor+(start/12)*4; eta_pt<end_pt; eta_pt+=12*n_vect ) {
     // T dir
-    j = 6*(*nb_pt); nb_pt++;
-    mvm_PRECISION( pbuf, D_pt, op->prnT+j );
-    mvm_PRECISION( pbuf+3, D_pt, op->prnT+j+3 );
-    pbp_su3_T_PRECISION( pbuf, eta_pt ); D_pt += 9;
+    j = 6*(*nb_pt)*n_vect; nb_pt++;
+    mvm_PRECISION_new( pbuf, D_pt, op->prnT+j );
+    mvm_PRECISION_new( pbuf+3*n_vect, D_pt, op->prnT+j+3*n_vect );
+    pbp_su3_T_PRECISION_new( pbuf, eta_pt ); D_pt += 9;
     // Z dir
-    j = 6*(*nb_pt); nb_pt++;
-    mvm_PRECISION( pbuf, D_pt, op->prnZ+j );
-    mvm_PRECISION( pbuf+3, D_pt, op->prnZ+j+3 );
-    pbp_su3_Z_PRECISION( pbuf, eta_pt ); D_pt += 9;
+    j = 6*(*nb_pt)*n_vect; nb_pt++;
+    mvm_PRECISION_new( pbuf, D_pt, op->prnZ+j );
+    mvm_PRECISION_new( pbuf+3*n_vect, D_pt, op->prnZ+j+3*n_vect );
+    pbp_su3_Z_PRECISION_new( pbuf, eta_pt ); D_pt += 9;
     // Y dir
-    j = 6*(*nb_pt); nb_pt++;
-    mvm_PRECISION( pbuf, D_pt, op->prnY+j );
-    mvm_PRECISION( pbuf+3, D_pt, op->prnY+j+3 );
-    pbp_su3_Y_PRECISION( pbuf, eta_pt ); D_pt += 9;
+    j = 6*(*nb_pt)*n_vect; nb_pt++;
+    mvm_PRECISION_new( pbuf, D_pt, op->prnY+j );
+    mvm_PRECISION_new( pbuf+3*n_vect, D_pt, op->prnY+j+3*n_vect );
+    pbp_su3_Y_PRECISION_new( pbuf, eta_pt ); D_pt += 9;
     // X dir
-    j = 6*(*nb_pt); nb_pt++;
-    mvm_PRECISION( pbuf, D_pt, op->prnX+j );
-    mvm_PRECISION( pbuf+3, D_pt, op->prnX+j+3 );
-    pbp_su3_X_PRECISION( pbuf, eta_pt ); D_pt += 9;
+    j = 6*(*nb_pt)*n_vect; nb_pt++;
+    mvm_PRECISION_new( pbuf, D_pt, op->prnX+j );
+    mvm_PRECISION_new( pbuf+3*n_vect, D_pt, op->prnX+j+3*n_vect );
+    pbp_su3_X_PRECISION_new( pbuf, eta_pt ); D_pt += 9;
   }
 #endif
   
@@ -1012,17 +1037,20 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
 #ifdef OPTIMIZED_NEIGHBOR_COUPLING_PRECISION
   pbn_PRECISION( eta->vector_buffer, prp, start, end );
 #else
-  for ( i=start/2, eta_pt=eta->vector_buffer+start+eta_shift; i<end/2; i+=6, eta_pt+=12 ) {
-    pbn_su3_T_PRECISION( op->prpT+i, eta_pt );
-    pbn_su3_Z_PRECISION( op->prpZ+i, eta_pt );
-    pbn_su3_Y_PRECISION( op->prpY+i, eta_pt );
-    pbn_su3_X_PRECISION( op->prpX+i, eta_pt );
+  for ( i=start*n_vect/2, eta_pt=eta->vector_buffer+start*n_vect; i<end*n_vect/2; i+=6*n_vect, eta_pt+=12*n_vect ) {
+    pbn_su3_T_PRECISION_new( op->prpT+i, eta_pt );
+    pbn_su3_Z_PRECISION_new( op->prpZ+i, eta_pt );
+    pbn_su3_Y_PRECISION_new( op->prpY+i, eta_pt );
+    pbn_su3_X_PRECISION_new( op->prpX+i, eta_pt );
   }
 #endif
-#ifdef HAVE_TM1p1
+/*#ifdef HAVE_TM1p1
   }
-#endif
-
+#endif*/
+  
+  //vector_PRECISION_change_layout( phi, phi, _NV_LV_SV, no_threading );
+  //vector_PRECISION_change_layout( eta, eta, _NV_LV_SV, no_threading );
+  
   START_MASTER(threading)
   PROF_PRECISION_STOP( _NC, 1 );
   END_MASTER(threading)

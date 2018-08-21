@@ -232,14 +232,9 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   //int j=-1, finish=0, iter=0, il, ol, res, n_vec=0;
   int iter=0, il, ol, res, n_vect=g.num_rhs_vect, i, n_vec;
   complex_PRECISION gamma0[n_vect];//gamma0 = 0;
-
+  
   PRECISION beta[n_vect];//complex_PRECISION beta = 0;
-  /*PRECISION tt0=0, tt1=0;
 
-  START_LOCKED_MASTER(threading)
-  if ( l->depth == 0 ) tt0 = MPI_Wtime();
-  END_LOCKED_MASTER(threading)
-  */
   //for( n_vec=0; n_vec<g.num_rhs_vect; n_vec++ )  {
   double H_tot;
   PRECISION norm_r0[n_vect], gamma_jp1[n_vect], gamma_tot, gamma0_real[n_vect], t0=0, t1=0;
@@ -264,7 +259,6 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   int j=-1, finish=0;
   iter = 0;
   //compute_core_start_end(p->v_start+p->r.size*n_vec, p->v_end+p->r.size*n_vec, &start, &end, l, threading);
-  //printf0("n_vec=%d\n", n_vec);
 
   SYNC_CORES(threading)
   for( ol=0; ol<p->num_restart && finish==0; ol++ )  {
@@ -283,9 +277,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
         }
         p->preconditioner( &(p->w), NULL, &(p->Z[0]), _NO_RES, l, threading );
       } else {
-        //apply_operator_PRECISION( &(p->w), &(p->x), p, l, threading ); // compute w = D*x
-        for( n_vec=0; n_vec<n_vect; n_vec++ )
-          apply_operator_PRECISION_new( &(p->w), &(p->x), n_vec, p, l, threading );
+        apply_operator_PRECISION( &(p->w), &(p->x), p, l, threading ); // compute w = D*x
       }
       //vector_PRECISION_minus( &(p->r), &(p->b), &(p->w), start, end, l ); // compute r = b - w
       vector_PRECISION_minus_new( &(p->r), &(p->b), &(p->w), l, threading );
@@ -399,9 +391,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   
   if ( p->print ) {
 #ifdef FGMRES_RESTEST
-    //apply_operator_PRECISION( &(p->w), &(p->x), p, l, threading );
-    for( n_vec=0; n_vec<n_vect; n_vec++ )
-      apply_operator_PRECISION_new( &(p->w), &(p->x), n_vec, p, l, threading );
+    apply_operator_PRECISION( &(p->w), &(p->x), p, l, threading );
     //vector_PRECISION_minus( &(p->r), &(p->b), &(p->w), start, end, l );
     vector_PRECISION_minus_new( &(p->r), &(p->b), &(p->w), l, threading );
     //beta = global_norm_PRECISION( &(p->r), p->v_start+p->r.size*n_vec, p->v_end+p->r.size*n_vec, l, threading );
@@ -1137,8 +1127,7 @@ int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector
       }
     }
   } else {
-    for( n_vec=0; n_vec<n_vect; n_vec++ )
-      apply_operator_PRECISION_new( w, &V[j], n_vec, p, l, threading ); // w = D*V[j]
+    apply_operator_PRECISION( w, &V[j], p, l, threading ); // w = D*V[j]
   }
 
   // orthogonalization
@@ -1150,7 +1139,7 @@ int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector
       buffer[i*n_vect+n_vec] = tmp[i*n_vect+n_vec];
   if ( g.num_processes > 1 ) {
     PROF_PRECISION_START( _ALLR );
-    MPI_Allreduce( buffer, H[j], j+1, MPI_COMPLEX_PRECISION, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_PRECISION.level_comm );
+    MPI_Allreduce( buffer, H[j], (j+1)*n_vect, MPI_COMPLEX_PRECISION, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_PRECISION.level_comm );
     PROF_PRECISION_STOP( _ALLR, 1 );
   } else {
     for( i=0; i<=j; i++ )
@@ -1170,7 +1159,7 @@ int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector
       buffer[i*n_vect+n_vec] = tmp[i*n_vect+n_vec];
   if ( g.num_processes > 1 ) {
     PROF_PRECISION_START( _ALLR );
-    MPI_Allreduce( buffer, tmp, j+1, MPI_COMPLEX_PRECISION, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_PRECISION.level_comm );
+    MPI_Allreduce( buffer, tmp, (j+1)*n_vect, MPI_COMPLEX_PRECISION, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_PRECISION.level_comm );
     PROF_PRECISION_STOP( _ALLR, 1 );
   }
   

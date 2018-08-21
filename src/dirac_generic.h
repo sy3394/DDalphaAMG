@@ -29,10 +29,10 @@
 
 
   void clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, int start, int end, level_struct *l, struct Thread *threading );
-  void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int n_vec, operator_PRECISION_struct *op, int start, int end, level_struct *l, struct Thread *threading );
+  void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, int start, int end, level_struct *l, struct Thread *threading );
 
   void d_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
-  void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int n_vec, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
+  void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
   void d_plus_clover_dagger_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
   void g5D_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
   void block_d_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
@@ -108,6 +108,21 @@
     eta[2] += D[7]*phi[1];
     eta[2] += D[8]*phi[2];
   }
+
+  static inline void mvm_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D, const buffer_PRECISION phi ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      eta[0*n_vect+i]  = D[0]*phi[0*n_vect+i];
+      eta[0*n_vect+i] += D[1]*phi[1*n_vect+i];
+      eta[0*n_vect+i] += D[2]*phi[2*n_vect+i];
+      eta[1*n_vect+i]  = D[3]*phi[0*n_vect+i];
+      eta[1*n_vect+i] += D[4]*phi[1*n_vect+i];
+      eta[1*n_vect+i] += D[5]*phi[2*n_vect+i];
+      eta[2*n_vect+i]  = D[6]*phi[0*n_vect+i];
+      eta[2*n_vect+i] += D[7]*phi[1*n_vect+i];
+      eta[2*n_vect+i] += D[8]*phi[2*n_vect+i];
+    }
+  }
   
   // eta = D**H*phi
   static inline void mvmh_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D, const buffer_PRECISION phi ) {
@@ -120,6 +135,21 @@
     eta[0] += conj_PRECISION(D[6])*phi[2];
     eta[1] += conj_PRECISION(D[7])*phi[2];
     eta[2] += conj_PRECISION(D[8])*phi[2];
+  }
+
+  static inline void mvmh_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D, const buffer_PRECISION phi ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      eta[0*n_vect+i]  = conj_PRECISION(D[0])*phi[0*n_vect+i];
+      eta[1*n_vect+i]  = conj_PRECISION(D[1])*phi[0*n_vect+i];
+      eta[2*n_vect+i]  = conj_PRECISION(D[2])*phi[0*n_vect+i];
+      eta[0*n_vect+i] += conj_PRECISION(D[3])*phi[1*n_vect+i];
+      eta[1*n_vect+i] += conj_PRECISION(D[4])*phi[1*n_vect+i];
+      eta[2*n_vect+i] += conj_PRECISION(D[5])*phi[1*n_vect+i];
+      eta[0*n_vect+i] += conj_PRECISION(D[6])*phi[2*n_vect+i];
+      eta[1*n_vect+i] += conj_PRECISION(D[7])*phi[2*n_vect+i];
+      eta[2*n_vect+i] += conj_PRECISION(D[8])*phi[2*n_vect+i];
+    }
   }
   
   // eta = -D*phi
@@ -157,6 +187,18 @@
     prp_pt[4] = l_pt[4] -GAMMA_T_SPIN1_VAL*l_pt[3*GAMMA_T_SPIN1_CO+1];
     prp_pt[5] = l_pt[5] -GAMMA_T_SPIN1_VAL*l_pt[3*GAMMA_T_SPIN1_CO+2];
   }
+ 
+  static inline void prp_T_PRECISION_new( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt ) {
+    int i, n_vect = g.num_rhs_vect;
+    for( i=0; i<n_vect; i++){
+      prp_pt[0*n_vect+i] = l_pt[0*n_vect+i] -GAMMA_T_SPIN0_VAL*l_pt[3*GAMMA_T_SPIN0_CO*n_vect+i];
+      prp_pt[1*n_vect+i] = l_pt[1*n_vect+i] -GAMMA_T_SPIN0_VAL*l_pt[(3*GAMMA_T_SPIN0_CO+1)*n_vect+i];
+      prp_pt[2*n_vect+i] = l_pt[2*n_vect+i] -GAMMA_T_SPIN0_VAL*l_pt[(3*GAMMA_T_SPIN0_CO+2)*n_vect+i];
+      prp_pt[3*n_vect+i] = l_pt[3*n_vect+i] -GAMMA_T_SPIN1_VAL*l_pt[3*GAMMA_T_SPIN1_CO*n_vect+i];
+      prp_pt[4*n_vect+i] = l_pt[4*n_vect+i] -GAMMA_T_SPIN1_VAL*l_pt[(3*GAMMA_T_SPIN1_CO+1)*n_vect+i];
+      prp_pt[5*n_vect+i] = l_pt[5*n_vect+i] -GAMMA_T_SPIN1_VAL*l_pt[(3*GAMMA_T_SPIN1_CO+2)*n_vect+i];
+    }
+  }
 
   // 1 + gamma_T
   static inline void prn_T_PRECISION( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt ) {
@@ -166,6 +208,18 @@
     prn_pt[3] = l_pt[3] +GAMMA_T_SPIN1_VAL*l_pt[3*GAMMA_T_SPIN1_CO];
     prn_pt[4] = l_pt[4] +GAMMA_T_SPIN1_VAL*l_pt[3*GAMMA_T_SPIN1_CO+1];
     prn_pt[5] = l_pt[5] +GAMMA_T_SPIN1_VAL*l_pt[3*GAMMA_T_SPIN1_CO+2];
+  }
+
+  static inline void prn_T_PRECISION_new( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      prn_pt[0*n_vect+i] = l_pt[0*n_vect+i] +GAMMA_T_SPIN0_VAL*l_pt[3*GAMMA_T_SPIN0_CO*n_vect+i];
+      prn_pt[1*n_vect+i] = l_pt[1*n_vect+i] +GAMMA_T_SPIN0_VAL*l_pt[(3*GAMMA_T_SPIN0_CO+1)*n_vect+i];
+      prn_pt[2*n_vect+i] = l_pt[2*n_vect+i] +GAMMA_T_SPIN0_VAL*l_pt[(3*GAMMA_T_SPIN0_CO+2)*n_vect+i];
+      prn_pt[3*n_vect+i] = l_pt[3*n_vect+i] +GAMMA_T_SPIN1_VAL*l_pt[3*GAMMA_T_SPIN1_CO*n_vect+i];
+      prn_pt[4*n_vect+i] = l_pt[4*n_vect+i] +GAMMA_T_SPIN1_VAL*l_pt[(3*GAMMA_T_SPIN1_CO+1)*n_vect+i];
+      prn_pt[5*n_vect+i] = l_pt[5*n_vect+i] +GAMMA_T_SPIN1_VAL*l_pt[(3*GAMMA_T_SPIN1_CO+2)*n_vect+i];
+    }
   }
 
   // - (1 - gamma_T)
@@ -184,6 +238,24 @@
     l_pt[11] += GAMMA_T_SPIN3_VAL*prp_su3_pt[3*GAMMA_T_SPIN3_CO+2];
   }
 
+  static inline void pbp_su3_T_PRECISION_new( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      l_pt[ 0*n_vect+i] -= prp_su3_pt[0*n_vect+i];
+      l_pt[ 1*n_vect+i] -= prp_su3_pt[1*n_vect+i];
+      l_pt[ 2*n_vect+i] -= prp_su3_pt[2*n_vect+i];
+      l_pt[ 3*n_vect+i] -= prp_su3_pt[3*n_vect+i];
+      l_pt[ 4*n_vect+i] -= prp_su3_pt[4*n_vect+i];
+      l_pt[ 5*n_vect+i] -= prp_su3_pt[5*n_vect+i];
+      l_pt[ 6*n_vect+i] += GAMMA_T_SPIN2_VAL*prp_su3_pt[3*GAMMA_T_SPIN2_CO*n_vect+i];
+      l_pt[ 7*n_vect+i] += GAMMA_T_SPIN2_VAL*prp_su3_pt[(3*GAMMA_T_SPIN2_CO+1)*n_vect+i];
+      l_pt[ 8*n_vect+i] += GAMMA_T_SPIN2_VAL*prp_su3_pt[(3*GAMMA_T_SPIN2_CO+2)*n_vect+i];
+      l_pt[ 9*n_vect+i] += GAMMA_T_SPIN3_VAL*prp_su3_pt[3*GAMMA_T_SPIN3_CO*n_vect+i];
+      l_pt[10*n_vect+i] += GAMMA_T_SPIN3_VAL*prp_su3_pt[(3*GAMMA_T_SPIN3_CO+1)*n_vect+i];
+      l_pt[11*n_vect+i] += GAMMA_T_SPIN3_VAL*prp_su3_pt[(3*GAMMA_T_SPIN3_CO+2)*n_vect+i];
+    }
+  }
+
   // -(1 + gamma_T)
   static inline void pbn_su3_T_PRECISION( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt ) {
     l_pt[ 0] -= prn_su3_pt[0];
@@ -200,6 +272,24 @@
     l_pt[11] -= GAMMA_T_SPIN3_VAL*prn_su3_pt[3*GAMMA_T_SPIN3_CO+2];
   }
 
+  static inline void pbn_su3_T_PRECISION_new( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      l_pt[ 0*n_vect+i] -= prn_su3_pt[0*n_vect+i];
+      l_pt[ 1*n_vect+i] -= prn_su3_pt[1*n_vect+i];
+      l_pt[ 2*n_vect+i] -= prn_su3_pt[2*n_vect+i];
+      l_pt[ 3*n_vect+i] -= prn_su3_pt[3*n_vect+i];
+      l_pt[ 4*n_vect+i] -= prn_su3_pt[4*n_vect+i];
+      l_pt[ 5*n_vect+i] -= prn_su3_pt[5*n_vect+i];
+      l_pt[ 6*n_vect+i] -= GAMMA_T_SPIN2_VAL*prn_su3_pt[3*GAMMA_T_SPIN2_CO*n_vect+i];
+      l_pt[ 7*n_vect+i] -= GAMMA_T_SPIN2_VAL*prn_su3_pt[(3*GAMMA_T_SPIN2_CO+1)*n_vect+i];
+      l_pt[ 8*n_vect+i] -= GAMMA_T_SPIN2_VAL*prn_su3_pt[(3*GAMMA_T_SPIN2_CO+2)*n_vect+i];
+      l_pt[ 9*n_vect+i] -= GAMMA_T_SPIN3_VAL*prn_su3_pt[3*GAMMA_T_SPIN3_CO*n_vect+i];
+      l_pt[10*n_vect+i] -= GAMMA_T_SPIN3_VAL*prn_su3_pt[(3*GAMMA_T_SPIN3_CO+1)*n_vect+i];
+      l_pt[11*n_vect+i] -= GAMMA_T_SPIN3_VAL*prn_su3_pt[(3*GAMMA_T_SPIN3_CO+2)*n_vect+i];
+    }
+  }
+
   static inline void prp_Z_PRECISION( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt ) {
     prp_pt[0] = l_pt[0] -GAMMA_Z_SPIN0_VAL*l_pt[3*GAMMA_Z_SPIN0_CO];
     prp_pt[1] = l_pt[1] -GAMMA_Z_SPIN0_VAL*l_pt[3*GAMMA_Z_SPIN0_CO+1];
@@ -209,6 +299,18 @@
     prp_pt[5] = l_pt[5] -GAMMA_Z_SPIN1_VAL*l_pt[3*GAMMA_Z_SPIN1_CO+2];
   }
 
+  static inline void prp_Z_PRECISION_new( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){  
+      prp_pt[0*n_vect+i] = l_pt[0*n_vect+i] -GAMMA_Z_SPIN0_VAL*l_pt[3*GAMMA_Z_SPIN0_CO*n_vect+i];
+      prp_pt[1*n_vect+i] = l_pt[1*n_vect+i] -GAMMA_Z_SPIN0_VAL*l_pt[(3*GAMMA_Z_SPIN0_CO+1)*n_vect+i];
+      prp_pt[2*n_vect+i] = l_pt[2*n_vect+i] -GAMMA_Z_SPIN0_VAL*l_pt[(3*GAMMA_Z_SPIN0_CO+2)*n_vect+i];
+      prp_pt[3*n_vect+i] = l_pt[3*n_vect+i] -GAMMA_Z_SPIN1_VAL*l_pt[3*GAMMA_Z_SPIN1_CO*n_vect+i];
+      prp_pt[4*n_vect+i] = l_pt[4*n_vect+i] -GAMMA_Z_SPIN1_VAL*l_pt[(3*GAMMA_Z_SPIN1_CO+1)*n_vect+i];
+      prp_pt[5*n_vect+i] = l_pt[5*n_vect+i] -GAMMA_Z_SPIN1_VAL*l_pt[(3*GAMMA_Z_SPIN1_CO+2)*n_vect+i];
+    }
+  }
+
   static inline void prn_Z_PRECISION( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt ) {
     prn_pt[0] = l_pt[0] +GAMMA_Z_SPIN0_VAL*l_pt[3*GAMMA_Z_SPIN0_CO];
     prn_pt[1] = l_pt[1] +GAMMA_Z_SPIN0_VAL*l_pt[3*GAMMA_Z_SPIN0_CO+1];
@@ -216,6 +318,18 @@
     prn_pt[3] = l_pt[3] +GAMMA_Z_SPIN1_VAL*l_pt[3*GAMMA_Z_SPIN1_CO];
     prn_pt[4] = l_pt[4] +GAMMA_Z_SPIN1_VAL*l_pt[3*GAMMA_Z_SPIN1_CO+1];
     prn_pt[5] = l_pt[5] +GAMMA_Z_SPIN1_VAL*l_pt[3*GAMMA_Z_SPIN1_CO+2];
+  }
+
+  static inline void prn_Z_PRECISION_new( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      prn_pt[0*n_vect+i] = l_pt[0*n_vect+i] +GAMMA_Z_SPIN0_VAL*l_pt[3*GAMMA_Z_SPIN0_CO*n_vect+i];
+      prn_pt[1*n_vect+i] = l_pt[1*n_vect+i] +GAMMA_Z_SPIN0_VAL*l_pt[(3*GAMMA_Z_SPIN0_CO+1)*n_vect+i];
+      prn_pt[2*n_vect+i] = l_pt[2*n_vect+i] +GAMMA_Z_SPIN0_VAL*l_pt[(3*GAMMA_Z_SPIN0_CO+2)*n_vect+i];
+      prn_pt[3*n_vect+i] = l_pt[3*n_vect+i] +GAMMA_Z_SPIN1_VAL*l_pt[3*GAMMA_Z_SPIN1_CO*n_vect+i];
+      prn_pt[4*n_vect+i] = l_pt[4*n_vect+i] +GAMMA_Z_SPIN1_VAL*l_pt[(3*GAMMA_Z_SPIN1_CO+1)*n_vect+i];
+      prn_pt[5*n_vect+i] = l_pt[5*n_vect+i] +GAMMA_Z_SPIN1_VAL*l_pt[(3*GAMMA_Z_SPIN1_CO+2)*n_vect+i];
+    }
   }
 
   static inline void pbp_su3_Z_PRECISION( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt ) {
@@ -233,6 +347,24 @@
     l_pt[11] += GAMMA_Z_SPIN3_VAL*prp_su3_pt[3*GAMMA_Z_SPIN3_CO+2];
   }
 
+  static inline void pbp_su3_Z_PRECISION_new( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      l_pt[ 0*n_vect+i] -= prp_su3_pt[0*n_vect+i];
+      l_pt[ 1*n_vect+i] -= prp_su3_pt[1*n_vect+i];
+      l_pt[ 2*n_vect+i] -= prp_su3_pt[2*n_vect+i];
+      l_pt[ 3*n_vect+i] -= prp_su3_pt[3*n_vect+i];
+      l_pt[ 4*n_vect+i] -= prp_su3_pt[4*n_vect+i];
+      l_pt[ 5*n_vect+i] -= prp_su3_pt[5*n_vect+i];
+      l_pt[ 6*n_vect+i] += GAMMA_Z_SPIN2_VAL*prp_su3_pt[3*GAMMA_Z_SPIN2_CO*n_vect+i];
+      l_pt[ 7*n_vect+i] += GAMMA_Z_SPIN2_VAL*prp_su3_pt[(3*GAMMA_Z_SPIN2_CO+1)*n_vect+i];
+      l_pt[ 8*n_vect+i] += GAMMA_Z_SPIN2_VAL*prp_su3_pt[(3*GAMMA_Z_SPIN2_CO+2)*n_vect+i];
+      l_pt[ 9*n_vect+i] += GAMMA_Z_SPIN3_VAL*prp_su3_pt[3*GAMMA_Z_SPIN3_CO*n_vect+i];
+      l_pt[10*n_vect+i] += GAMMA_Z_SPIN3_VAL*prp_su3_pt[(3*GAMMA_Z_SPIN3_CO+1)*n_vect+i];
+      l_pt[11*n_vect+i] += GAMMA_Z_SPIN3_VAL*prp_su3_pt[(3*GAMMA_Z_SPIN3_CO+2)*n_vect+i];
+    }
+  }
+
   static inline void pbn_su3_Z_PRECISION( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt ) {
     l_pt[ 0] -= prn_su3_pt[0];
     l_pt[ 1] -= prn_su3_pt[1];
@@ -248,6 +380,24 @@
     l_pt[11] -= GAMMA_Z_SPIN3_VAL*prn_su3_pt[3*GAMMA_Z_SPIN3_CO+2];
   }
 
+  static inline void pbn_su3_Z_PRECISION_new( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      l_pt[ 0*n_vect+i] -= prn_su3_pt[0*n_vect+i];
+      l_pt[ 1*n_vect+i] -= prn_su3_pt[1*n_vect+i];
+      l_pt[ 2*n_vect+i] -= prn_su3_pt[2*n_vect+i];
+      l_pt[ 3*n_vect+i] -= prn_su3_pt[3*n_vect+i];
+      l_pt[ 4*n_vect+i] -= prn_su3_pt[4*n_vect+i];
+      l_pt[ 5*n_vect+i] -= prn_su3_pt[5*n_vect+i];
+      l_pt[ 6*n_vect+i] -= GAMMA_Z_SPIN2_VAL*prn_su3_pt[3*GAMMA_Z_SPIN2_CO*n_vect+i];
+      l_pt[ 7*n_vect+i] -= GAMMA_Z_SPIN2_VAL*prn_su3_pt[(3*GAMMA_Z_SPIN2_CO+1)*n_vect+i];
+      l_pt[ 8*n_vect+i] -= GAMMA_Z_SPIN2_VAL*prn_su3_pt[(3*GAMMA_Z_SPIN2_CO+2)*n_vect+i];
+      l_pt[ 9*n_vect+i] -= GAMMA_Z_SPIN3_VAL*prn_su3_pt[3*GAMMA_Z_SPIN3_CO*n_vect+i];
+      l_pt[10*n_vect+i] -= GAMMA_Z_SPIN3_VAL*prn_su3_pt[(3*GAMMA_Z_SPIN3_CO+1)*n_vect+i];
+      l_pt[11*n_vect+i] -= GAMMA_Z_SPIN3_VAL*prn_su3_pt[(3*GAMMA_Z_SPIN3_CO+2)*n_vect+i];
+    }
+  }
+
   static inline void prp_Y_PRECISION( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt ) {
     prp_pt[0] = l_pt[0] -GAMMA_Y_SPIN0_VAL*l_pt[3*GAMMA_Y_SPIN0_CO];
     prp_pt[1] = l_pt[1] -GAMMA_Y_SPIN0_VAL*l_pt[3*GAMMA_Y_SPIN0_CO+1];
@@ -257,6 +407,18 @@
     prp_pt[5] = l_pt[5] -GAMMA_Y_SPIN1_VAL*l_pt[3*GAMMA_Y_SPIN1_CO+2];
   }
 
+  static inline void prp_Y_PRECISION_new( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      prp_pt[0*n_vect+i] = l_pt[0*n_vect+i] -GAMMA_Y_SPIN0_VAL*l_pt[3*GAMMA_Y_SPIN0_CO*n_vect+i];
+      prp_pt[1*n_vect+i] = l_pt[1*n_vect+i] -GAMMA_Y_SPIN0_VAL*l_pt[(3*GAMMA_Y_SPIN0_CO+1)*n_vect+i];
+      prp_pt[2*n_vect+i] = l_pt[2*n_vect+i] -GAMMA_Y_SPIN0_VAL*l_pt[(3*GAMMA_Y_SPIN0_CO+2)*n_vect+i];
+      prp_pt[3*n_vect+i] = l_pt[3*n_vect+i] -GAMMA_Y_SPIN1_VAL*l_pt[3*GAMMA_Y_SPIN1_CO*n_vect+i];
+      prp_pt[4*n_vect+i] = l_pt[4*n_vect+i] -GAMMA_Y_SPIN1_VAL*l_pt[(3*GAMMA_Y_SPIN1_CO+1)*n_vect+i];
+      prp_pt[5*n_vect+i] = l_pt[5*n_vect+i] -GAMMA_Y_SPIN1_VAL*l_pt[(3*GAMMA_Y_SPIN1_CO+2)*n_vect+i];
+    }
+  }
+
   static inline void prn_Y_PRECISION( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt ) {
     prn_pt[0] = l_pt[0] +GAMMA_Y_SPIN0_VAL*l_pt[3*GAMMA_Y_SPIN0_CO];
     prn_pt[1] = l_pt[1] +GAMMA_Y_SPIN0_VAL*l_pt[3*GAMMA_Y_SPIN0_CO+1];
@@ -264,6 +426,18 @@
     prn_pt[3] = l_pt[3] +GAMMA_Y_SPIN1_VAL*l_pt[3*GAMMA_Y_SPIN1_CO];
     prn_pt[4] = l_pt[4] +GAMMA_Y_SPIN1_VAL*l_pt[3*GAMMA_Y_SPIN1_CO+1];
     prn_pt[5] = l_pt[5] +GAMMA_Y_SPIN1_VAL*l_pt[3*GAMMA_Y_SPIN1_CO+2];
+  }
+
+  static inline void prn_Y_PRECISION_new( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){  
+      prn_pt[0*n_vect+i] = l_pt[0*n_vect+i] +GAMMA_Y_SPIN0_VAL*l_pt[3*GAMMA_Y_SPIN0_CO*n_vect+i];
+      prn_pt[1*n_vect+i] = l_pt[1*n_vect+i] +GAMMA_Y_SPIN0_VAL*l_pt[(3*GAMMA_Y_SPIN0_CO+1)*n_vect+i];
+      prn_pt[2*n_vect+i] = l_pt[2*n_vect+i] +GAMMA_Y_SPIN0_VAL*l_pt[(3*GAMMA_Y_SPIN0_CO+2)*n_vect+i];
+      prn_pt[3*n_vect+i] = l_pt[3*n_vect+i] +GAMMA_Y_SPIN1_VAL*l_pt[3*GAMMA_Y_SPIN1_CO*n_vect+i];
+      prn_pt[4*n_vect+i] = l_pt[4*n_vect+i] +GAMMA_Y_SPIN1_VAL*l_pt[(3*GAMMA_Y_SPIN1_CO+1)*n_vect+i];
+      prn_pt[5*n_vect+i] = l_pt[5*n_vect+i] +GAMMA_Y_SPIN1_VAL*l_pt[(3*GAMMA_Y_SPIN1_CO+2)*n_vect+i];
+    }
   }
 
   static inline void pbp_su3_Y_PRECISION( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt ) {
@@ -281,6 +455,24 @@
     l_pt[11] += GAMMA_Y_SPIN3_VAL*prp_su3_pt[3*GAMMA_Y_SPIN3_CO+2];
   }
 
+  static inline void pbp_su3_Y_PRECISION_new( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      l_pt[ 0*n_vect+i] -= prp_su3_pt[0*n_vect+i];
+      l_pt[ 1*n_vect+i] -= prp_su3_pt[1*n_vect+i];
+      l_pt[ 2*n_vect+i] -= prp_su3_pt[2*n_vect+i];
+      l_pt[ 3*n_vect+i] -= prp_su3_pt[3*n_vect+i];
+      l_pt[ 4*n_vect+i] -= prp_su3_pt[4*n_vect+i];
+      l_pt[ 5*n_vect+i] -= prp_su3_pt[5*n_vect+i];
+      l_pt[ 6*n_vect+i] += GAMMA_Y_SPIN2_VAL*prp_su3_pt[3*GAMMA_Y_SPIN2_CO*n_vect+i];
+      l_pt[ 7*n_vect+i] += GAMMA_Y_SPIN2_VAL*prp_su3_pt[(3*GAMMA_Y_SPIN2_CO+1)*n_vect+i];
+      l_pt[ 8*n_vect+i] += GAMMA_Y_SPIN2_VAL*prp_su3_pt[(3*GAMMA_Y_SPIN2_CO+2)*n_vect+i];
+      l_pt[ 9*n_vect+i] += GAMMA_Y_SPIN3_VAL*prp_su3_pt[3*GAMMA_Y_SPIN3_CO*n_vect+i];
+      l_pt[10*n_vect+i] += GAMMA_Y_SPIN3_VAL*prp_su3_pt[(3*GAMMA_Y_SPIN3_CO+1)*n_vect+i];
+      l_pt[11*n_vect+i] += GAMMA_Y_SPIN3_VAL*prp_su3_pt[(3*GAMMA_Y_SPIN3_CO+2)*n_vect+i];
+    }
+  }
+
   static inline void pbn_su3_Y_PRECISION( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt ) {
     l_pt[ 0] -= prn_su3_pt[0];
     l_pt[ 1] -= prn_su3_pt[1];
@@ -296,6 +488,24 @@
     l_pt[11] -= GAMMA_Y_SPIN3_VAL*prn_su3_pt[3*GAMMA_Y_SPIN3_CO+2];
   }
 
+  static inline void pbn_su3_Y_PRECISION_new( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      l_pt[ 0*n_vect+i] -= prn_su3_pt[0*n_vect+i];
+      l_pt[ 1*n_vect+i] -= prn_su3_pt[1*n_vect+i];
+      l_pt[ 2*n_vect+i] -= prn_su3_pt[2*n_vect+i];
+      l_pt[ 3*n_vect+i] -= prn_su3_pt[3*n_vect+i];
+      l_pt[ 4*n_vect+i] -= prn_su3_pt[4*n_vect+i];
+      l_pt[ 5*n_vect+i] -= prn_su3_pt[5*n_vect+i];
+      l_pt[ 6*n_vect+i] -= GAMMA_Y_SPIN2_VAL*prn_su3_pt[3*GAMMA_Y_SPIN2_CO*n_vect+i];
+      l_pt[ 7*n_vect+i] -= GAMMA_Y_SPIN2_VAL*prn_su3_pt[(3*GAMMA_Y_SPIN2_CO+1)*n_vect+i];
+      l_pt[ 8*n_vect+i] -= GAMMA_Y_SPIN2_VAL*prn_su3_pt[(3*GAMMA_Y_SPIN2_CO+2)*n_vect+i];
+      l_pt[ 9*n_vect+i] -= GAMMA_Y_SPIN3_VAL*prn_su3_pt[3*GAMMA_Y_SPIN3_CO*n_vect+i];
+      l_pt[10*n_vect+i] -= GAMMA_Y_SPIN3_VAL*prn_su3_pt[(3*GAMMA_Y_SPIN3_CO+1)*n_vect+i];
+      l_pt[11*n_vect+i] -= GAMMA_Y_SPIN3_VAL*prn_su3_pt[(3*GAMMA_Y_SPIN3_CO+2)*n_vect+i];
+    }
+  }
+
   static inline void prp_X_PRECISION( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt ) {
     prp_pt[0] = l_pt[0] -GAMMA_X_SPIN0_VAL*l_pt[3*GAMMA_X_SPIN0_CO];
     prp_pt[1] = l_pt[1] -GAMMA_X_SPIN0_VAL*l_pt[3*GAMMA_X_SPIN0_CO+1];
@@ -305,6 +515,18 @@
     prp_pt[5] = l_pt[5] -GAMMA_X_SPIN1_VAL*l_pt[3*GAMMA_X_SPIN1_CO+2];
   }
 
+  static inline void prp_X_PRECISION_new( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      prp_pt[0*n_vect+i] = l_pt[0*n_vect+i] -GAMMA_X_SPIN0_VAL*l_pt[3*GAMMA_X_SPIN0_CO*n_vect+i];
+      prp_pt[1*n_vect+i] = l_pt[1*n_vect+i] -GAMMA_X_SPIN0_VAL*l_pt[(3*GAMMA_X_SPIN0_CO+1)*n_vect+i];
+      prp_pt[2*n_vect+i] = l_pt[2*n_vect+i] -GAMMA_X_SPIN0_VAL*l_pt[(3*GAMMA_X_SPIN0_CO+2)*n_vect+i];
+      prp_pt[3*n_vect+i] = l_pt[3*n_vect+i] -GAMMA_X_SPIN1_VAL*l_pt[3*GAMMA_X_SPIN1_CO*n_vect+i];
+      prp_pt[4*n_vect+i] = l_pt[4*n_vect+i] -GAMMA_X_SPIN1_VAL*l_pt[(3*GAMMA_X_SPIN1_CO+1)*n_vect+i];
+      prp_pt[5*n_vect+i] = l_pt[5*n_vect+i] -GAMMA_X_SPIN1_VAL*l_pt[(3*GAMMA_X_SPIN1_CO+2)*n_vect+i];
+    }
+  }
+
   static inline void prn_X_PRECISION( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt ) {
     prn_pt[0] = l_pt[0] +GAMMA_X_SPIN0_VAL*l_pt[3*GAMMA_X_SPIN0_CO];
     prn_pt[1] = l_pt[1] +GAMMA_X_SPIN0_VAL*l_pt[3*GAMMA_X_SPIN0_CO+1];
@@ -312,6 +534,18 @@
     prn_pt[3] = l_pt[3] +GAMMA_X_SPIN1_VAL*l_pt[3*GAMMA_X_SPIN1_CO];
     prn_pt[4] = l_pt[4] +GAMMA_X_SPIN1_VAL*l_pt[3*GAMMA_X_SPIN1_CO+1];
     prn_pt[5] = l_pt[5] +GAMMA_X_SPIN1_VAL*l_pt[3*GAMMA_X_SPIN1_CO+2];
+  }
+
+  static inline void prn_X_PRECISION_new( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      prn_pt[0*n_vect+i] = l_pt[0*n_vect+i] +GAMMA_X_SPIN0_VAL*l_pt[3*GAMMA_X_SPIN0_CO*n_vect+i];
+      prn_pt[1*n_vect+i] = l_pt[1*n_vect+i] +GAMMA_X_SPIN0_VAL*l_pt[(3*GAMMA_X_SPIN0_CO+1)*n_vect+i];
+      prn_pt[2*n_vect+i] = l_pt[2*n_vect+i] +GAMMA_X_SPIN0_VAL*l_pt[(3*GAMMA_X_SPIN0_CO+2)*n_vect+i];
+      prn_pt[3*n_vect+i] = l_pt[3*n_vect+i] +GAMMA_X_SPIN1_VAL*l_pt[3*GAMMA_X_SPIN1_CO*n_vect+i];
+      prn_pt[4*n_vect+i] = l_pt[4*n_vect+i] +GAMMA_X_SPIN1_VAL*l_pt[(3*GAMMA_X_SPIN1_CO+1)*n_vect+i];
+      prn_pt[5*n_vect+i] = l_pt[5*n_vect+i] +GAMMA_X_SPIN1_VAL*l_pt[(3*GAMMA_X_SPIN1_CO+2)*n_vect+i];
+    }  
   }
 
   static inline void pbp_su3_X_PRECISION( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt ) {
@@ -329,6 +563,24 @@
     l_pt[11] += GAMMA_X_SPIN3_VAL*prp_su3_pt[3*GAMMA_X_SPIN3_CO+2];
   }
 
+  static inline void pbp_su3_X_PRECISION_new( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      l_pt[ 0*n_vect+i] -= prp_su3_pt[0*n_vect+i];
+      l_pt[ 1*n_vect+i] -= prp_su3_pt[1*n_vect+i];
+      l_pt[ 2*n_vect+i] -= prp_su3_pt[2*n_vect+i];
+      l_pt[ 3*n_vect+i] -= prp_su3_pt[3*n_vect+i];
+      l_pt[ 4*n_vect+i] -= prp_su3_pt[4*n_vect+i];
+      l_pt[ 5*n_vect+i] -= prp_su3_pt[5*n_vect+i];
+      l_pt[ 6*n_vect+i] += GAMMA_X_SPIN2_VAL*prp_su3_pt[3*GAMMA_X_SPIN2_CO*n_vect+i];
+      l_pt[ 7*n_vect+i] += GAMMA_X_SPIN2_VAL*prp_su3_pt[(3*GAMMA_X_SPIN2_CO+1)*n_vect+i];
+      l_pt[ 8*n_vect+i] += GAMMA_X_SPIN2_VAL*prp_su3_pt[(3*GAMMA_X_SPIN2_CO+2)*n_vect+i];
+      l_pt[ 9*n_vect+i] += GAMMA_X_SPIN3_VAL*prp_su3_pt[3*GAMMA_X_SPIN3_CO*n_vect+i];
+      l_pt[10*n_vect+i] += GAMMA_X_SPIN3_VAL*prp_su3_pt[(3*GAMMA_X_SPIN3_CO+1)*n_vect+i];
+      l_pt[11*n_vect+i] += GAMMA_X_SPIN3_VAL*prp_su3_pt[(3*GAMMA_X_SPIN3_CO+2)*n_vect+i];
+    }
+  }
+
   static inline void pbn_su3_X_PRECISION( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt ) {
     l_pt[ 0] -= prn_su3_pt[0];
     l_pt[ 1] -= prn_su3_pt[1];
@@ -342,6 +594,24 @@
     l_pt[ 9] -= GAMMA_X_SPIN3_VAL*prn_su3_pt[3*GAMMA_X_SPIN3_CO];
     l_pt[10] -= GAMMA_X_SPIN3_VAL*prn_su3_pt[3*GAMMA_X_SPIN3_CO+1];
     l_pt[11] -= GAMMA_X_SPIN3_VAL*prn_su3_pt[3*GAMMA_X_SPIN3_CO+2];
+  }
+
+  static inline void pbn_su3_X_PRECISION_new( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){
+      l_pt[ 0*n_vect+i] -= prn_su3_pt[0*n_vect+i];
+      l_pt[ 1*n_vect+i] -= prn_su3_pt[1*n_vect+i];
+      l_pt[ 2*n_vect+i] -= prn_su3_pt[2*n_vect+i];
+      l_pt[ 3*n_vect+i] -= prn_su3_pt[3*n_vect+i];
+      l_pt[ 4*n_vect+i] -= prn_su3_pt[4*n_vect+i];
+      l_pt[ 5*n_vect+i] -= prn_su3_pt[5*n_vect+i];
+      l_pt[ 6*n_vect+i] -= GAMMA_X_SPIN2_VAL*prn_su3_pt[3*GAMMA_X_SPIN2_CO*n_vect+i];
+      l_pt[ 7*n_vect+i] -= GAMMA_X_SPIN2_VAL*prn_su3_pt[(3*GAMMA_X_SPIN2_CO+1)*n_vect+i];
+      l_pt[ 8*n_vect+i] -= GAMMA_X_SPIN2_VAL*prn_su3_pt[(3*GAMMA_X_SPIN2_CO+2)*n_vect+i];
+      l_pt[ 9*n_vect+i] -= GAMMA_X_SPIN3_VAL*prn_su3_pt[3*GAMMA_X_SPIN3_CO*n_vect+i];
+      l_pt[10*n_vect+i] -= GAMMA_X_SPIN3_VAL*prn_su3_pt[(3*GAMMA_X_SPIN3_CO+1)*n_vect+i];
+      l_pt[11*n_vect+i] -= GAMMA_X_SPIN3_VAL*prn_su3_pt[(3*GAMMA_X_SPIN3_CO+2)*n_vect+i];
+    }
   }
 
 //START
@@ -1355,5 +1625,88 @@
     eta[11] += conj_PRECISION(clover[40])*phi[ 9];
     eta[11] += conj_PRECISION(clover[41])*phi[10];
   }
-  
+
+
+
+  static inline void site_clover_PRECISION_new( const buffer_PRECISION eta, const buffer_PRECISION phi, const config_PRECISION clover ) {
+    int n_vect = g.num_rhs_vect;
+    for( int i=0; i<n_vect; i++){ 
+       // diagonal
+      eta[ 0*n_vect+i] = clover[ 0]*phi[ 0*n_vect+i];
+      eta[ 1*n_vect+i] = clover[ 1]*phi[ 1*n_vect+i];
+      eta[ 2*n_vect+i] = clover[ 2]*phi[ 2*n_vect+i];
+      eta[ 3*n_vect+i] = clover[ 3]*phi[ 3*n_vect+i];
+      eta[ 4*n_vect+i] = clover[ 4]*phi[ 4*n_vect+i];
+      eta[ 5*n_vect+i] = clover[ 5]*phi[ 5*n_vect+i];
+      eta[ 6*n_vect+i] = clover[ 6]*phi[ 6*n_vect+i];
+      eta[ 7*n_vect+i] = clover[ 7]*phi[ 7*n_vect+i];
+      eta[ 8*n_vect+i] = clover[ 8]*phi[ 8*n_vect+i];
+      eta[ 9*n_vect+i] = clover[ 9]*phi[ 9*n_vect+i];
+      eta[10*n_vect+i] = clover[10]*phi[10*n_vect+i];
+      eta[11*n_vect+i] = clover[11]*phi[11*n_vect+i];
+      // spin 0 and 1, row major
+      eta[0*n_vect+i] += clover[12]*phi[1*n_vect+i];
+      eta[0*n_vect+i] += clover[13]*phi[2*n_vect+i];
+      eta[0*n_vect+i] += clover[14]*phi[3*n_vect+i];
+      eta[0*n_vect+i] += clover[15]*phi[4*n_vect+i];
+      eta[0*n_vect+i] += clover[16]*phi[5*n_vect+i];
+      eta[1*n_vect+i] += clover[17]*phi[2*n_vect+i];
+      eta[1*n_vect+i] += clover[18]*phi[3*n_vect+i];
+      eta[1*n_vect+i] += clover[19]*phi[4*n_vect+i];
+      eta[1*n_vect+i] += clover[20]*phi[5*n_vect+i];
+      eta[2*n_vect+i] += clover[21]*phi[3*n_vect+i];
+      eta[2*n_vect+i] += clover[22]*phi[4*n_vect+i];
+      eta[2*n_vect+i] += clover[23]*phi[5*n_vect+i];
+      eta[3*n_vect+i] += clover[24]*phi[4*n_vect+i];
+      eta[3*n_vect+i] += clover[25]*phi[5*n_vect+i];
+      eta[4*n_vect+i] += clover[26]*phi[5*n_vect+i];
+      eta[1*n_vect+i] += conj_PRECISION(clover[12])*phi[0*n_vect+i];
+      eta[2*n_vect+i] += conj_PRECISION(clover[13])*phi[0*n_vect+i];
+      eta[3*n_vect+i] += conj_PRECISION(clover[14])*phi[0*n_vect+i];
+      eta[4*n_vect+i] += conj_PRECISION(clover[15])*phi[0*n_vect+i];
+      eta[5*n_vect+i] += conj_PRECISION(clover[16])*phi[0*n_vect+i];
+      eta[2*n_vect+i] += conj_PRECISION(clover[17])*phi[1*n_vect+i];
+      eta[3*n_vect+i] += conj_PRECISION(clover[18])*phi[1*n_vect+i];
+      eta[4*n_vect+i] += conj_PRECISION(clover[19])*phi[1*n_vect+i];
+      eta[5*n_vect+i] += conj_PRECISION(clover[20])*phi[1*n_vect+i];
+      eta[3*n_vect+i] += conj_PRECISION(clover[21])*phi[2*n_vect+i];
+      eta[4*n_vect+i] += conj_PRECISION(clover[22])*phi[2*n_vect+i];
+      eta[5*n_vect+i] += conj_PRECISION(clover[23])*phi[2*n_vect+i];
+      eta[4*n_vect+i] += conj_PRECISION(clover[24])*phi[3*n_vect+i];
+      eta[5*n_vect+i] += conj_PRECISION(clover[25])*phi[3*n_vect+i];
+      eta[5*n_vect+i] += conj_PRECISION(clover[26])*phi[4*n_vect+i];
+      // spin 2 and 3, row major
+      eta[ 6*n_vect+i] += clover[27]*phi[ 7*n_vect+i];
+      eta[ 6*n_vect+i] += clover[28]*phi[ 8*n_vect+i];
+      eta[ 6*n_vect+i] += clover[29]*phi[ 9*n_vect+i];
+      eta[ 6*n_vect+i] += clover[30]*phi[10*n_vect+i];
+      eta[ 6*n_vect+i] += clover[31]*phi[11*n_vect+i];
+      eta[ 7*n_vect+i] += clover[32]*phi[ 8*n_vect+i];
+      eta[ 7*n_vect+i] += clover[33]*phi[ 9*n_vect+i];
+      eta[ 7*n_vect+i] += clover[34]*phi[10*n_vect+i];
+      eta[ 7*n_vect+i] += clover[35]*phi[11*n_vect+i];
+      eta[ 8*n_vect+i] += clover[36]*phi[ 9*n_vect+i];
+      eta[ 8*n_vect+i] += clover[37]*phi[10*n_vect+i];
+      eta[ 8*n_vect+i] += clover[38]*phi[11*n_vect+i];
+      eta[ 9*n_vect+i] += clover[39]*phi[10*n_vect+i];
+      eta[ 9*n_vect+i] += clover[40]*phi[11*n_vect+i];
+      eta[10*n_vect+i] += clover[41]*phi[11*n_vect+i];
+      eta[ 7*n_vect+i] += conj_PRECISION(clover[27])*phi[ 6*n_vect+i];
+      eta[ 8*n_vect+i] += conj_PRECISION(clover[28])*phi[ 6*n_vect+i];
+      eta[ 9*n_vect+i] += conj_PRECISION(clover[29])*phi[ 6*n_vect+i];
+      eta[10*n_vect+i] += conj_PRECISION(clover[30])*phi[ 6*n_vect+i];
+      eta[11*n_vect+i] += conj_PRECISION(clover[31])*phi[ 6*n_vect+i];
+      eta[ 8*n_vect+i] += conj_PRECISION(clover[32])*phi[ 7*n_vect+i];
+      eta[ 9*n_vect+i] += conj_PRECISION(clover[33])*phi[ 7*n_vect+i];
+      eta[10*n_vect+i] += conj_PRECISION(clover[34])*phi[ 7*n_vect+i];
+      eta[11*n_vect+i] += conj_PRECISION(clover[35])*phi[ 7*n_vect+i];
+      eta[ 9*n_vect+i] += conj_PRECISION(clover[36])*phi[ 8*n_vect+i];
+      eta[10*n_vect+i] += conj_PRECISION(clover[37])*phi[ 8*n_vect+i];
+      eta[11*n_vect+i] += conj_PRECISION(clover[38])*phi[ 8*n_vect+i];
+      eta[10*n_vect+i] += conj_PRECISION(clover[39])*phi[ 9*n_vect+i];
+      eta[11*n_vect+i] += conj_PRECISION(clover[40])*phi[ 9*n_vect+i];
+      eta[11*n_vect+i] += conj_PRECISION(clover[41])*phi[10*n_vect+i];
+    }
+  }
+ 
 #endif 

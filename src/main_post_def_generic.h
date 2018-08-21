@@ -32,12 +32,6 @@
 
   }
   
-  static inline void apply_operator_PRECISION_new( vector_PRECISION *output, vector_PRECISION *input, int n, gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading ) {
-
-    p->eval_operator( output, input, n, p->op, l, threading );
-
-  }
-  
   static inline void apply_operator_dagger_PRECISION( vector_PRECISION *output, vector_PRECISION *input, gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading ) {
 
 #ifdef HAVE_TM1p1

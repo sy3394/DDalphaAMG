@@ -84,7 +84,9 @@ int wilson_driver( vector_double *solution, vector_double *source, level_struct 
   for ( int i=0; i<100; i++ ) {
     double tmp_t = -MPI_Wtime();
 #endif
-  
+  vector_double_change_layout( &sol, &sol, _LV_SV_NV, no_threading );
+  vector_double_change_layout( &rhs, &rhs, _LV_SV_NV, no_threading );
+
   //vector_double_copy( &rhs, source, start, end, l );
   vector_double_copy_new( &rhs, source, l, threading );
   if ( g.method == -1 ) {
@@ -109,6 +111,9 @@ int wilson_driver( vector_double *solution, vector_double *source, level_struct 
   END_MASTER(threading)
 #endif
   
+  vector_double_change_layout( &sol, &sol, _NV_LV_SV, no_threading );
+  vector_double_change_layout( &rhs, &rhs, _NV_LV_SV, no_threading );
+
   return iter;
 }
 
@@ -151,6 +156,9 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 
   rhs_define( &source, l, threading );
   
+  vector_double_change_layout( &solution, &solution, _LV_SV_NV, no_threading );
+  vector_double_change_layout( &source, &source, _LV_SV_NV, no_threading );
+
   if(g.bc==2)
       apply_twisted_bc_to_vector_double( &source, &source, g.twisted_bc, l);
 
@@ -197,6 +205,9 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
     //norm = global_norm_double( &solution, 0, l->inner_vector_size, l, threading );
     printf0("solution vector %d norm: %le\n",i,norm[i]);
   }
+
+  vector_double_change_layout( &solution, &solution, _NV_LV_SV, no_threading );
+  vector_double_change_layout( &source, &source, _NV_LV_SV, no_threading );
 
   vector_double_free( &solution, l, threading );
   vector_double_free( &source, l, threading );

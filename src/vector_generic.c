@@ -182,14 +182,14 @@ void vector_PRECISION_real_scale_new( vector_PRECISION *z, vector_PRECISION *x, 
   if(thread == 0 && start != end) 
   PROF_PRECISION_START( _RS ); 
   
-  vector_PRECISION_change_layout( x, x, _LV_SV_NV, no_threading );
-  vector_PRECISION_change_layout( z, z, _LV_SV_NV, no_threading );
+  //vector_PRECISION_change_layout( x, x, _LV_SV_NV, no_threading );
+  //vector_PRECISION_change_layout( z, z, _LV_SV_NV, no_threading );
   for( i=start; i<end; i++)
     for( j=0; j<x->num_vect; j++)
       z->vector_buffer[i*x->num_vect+j] = r_alpha[j]*x->vector_buffer[i*x->num_vect+j];
 
-  vector_PRECISION_change_layout( x, x, _NV_LV_SV, no_threading );
-  vector_PRECISION_change_layout( z, z, _NV_LV_SV, no_threading );
+  //vector_PRECISION_change_layout( x, x, _NV_LV_SV, no_threading );
+  //vector_PRECISION_change_layout( z, z, _NV_LV_SV, no_threading );
 
   if(thread == 0 && start != end) 
   PROF_PRECISION_STOP( _RS, (double)(end-start)/(double)l->inner_vector_size ); 
@@ -235,14 +235,14 @@ void vector_PRECISION_copy_new( vector_PRECISION *z, vector_PRECISION *x, level_
   if(thread == 0)
     PROF_PRECISION_START( _CPY );
   
-  vector_PRECISION_change_layout( x, x, _LV_SV_NV, no_threading );
-  vector_PRECISION_change_layout( z, z, _LV_SV_NV, no_threading );
+  //vector_PRECISION_change_layout( x, x, _LV_SV_NV, no_threading );
+  //vector_PRECISION_change_layout( z, z, _LV_SV_NV, no_threading );
   for( i=start; i<end; i++)
     for( j=0; j<x->num_vect; j++)
       z->vector_buffer[i*x->num_vect+j] = x->vector_buffer[i*x->num_vect+j];
   
-  vector_PRECISION_change_layout( x, x, _NV_LV_SV, no_threading );
-  vector_PRECISION_change_layout( z, z, _NV_LV_SV, no_threading );
+  //vector_PRECISION_change_layout( x, x, _NV_LV_SV, no_threading );
+  //vector_PRECISION_change_layout( z, z, _NV_LV_SV, no_threading );
 
   if(thread == 0)
     PROF_PRECISION_STOP( _CPY, (double)(end-start)/(double)l->inner_vector_size );

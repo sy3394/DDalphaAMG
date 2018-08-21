@@ -1025,6 +1025,8 @@ void read_solver_parameters( FILE *in, level_struct *l ) {
   save_pt = &(g.downprop); g.downprop=1;
   read_parameter( &save_pt, "addDownPropagator:", "%d", 1, in, _DEFAULT_SET );
 #endif
+  save_pt = &(g.num_rhs_vect); g.num_rhs_vect=1;
+  read_parameter( &save_pt, "number of rhs vectors:", "%d", 1, in, _DEFAULT_SET );
   
   if ( g.randomize ) {
     srand( time( 0 ) + 1000*g.my_rank );
