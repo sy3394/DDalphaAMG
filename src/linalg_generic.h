@@ -113,6 +113,7 @@
  
   complex_PRECISION local_xy_over_xx_PRECISION( vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l  );
   void vector_PRECISION_plus( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l ); // z := x + y
+  void vector_PRECISION_plus_new( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, level_struct *l, struct Thread *threading );
   void vector_PRECISION_minus( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l ); // z := x - y
   void vector_PRECISION_minus_new( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, level_struct *l, struct Thread *threading );
   void vector_PRECISION_scale( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION alpha, int start, int end, level_struct *l ); // z := alpha*x

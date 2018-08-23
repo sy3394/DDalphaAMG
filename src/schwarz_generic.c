@@ -2208,6 +2208,79 @@ void trans_back_PRECISION( vector_double *out, vector_PRECISION *in, int *tt, le
 }
 
 
+void trans_PRECISION_new( vector_PRECISION *out, vector_double *in, int *tt, level_struct *l, struct Thread *threading ) {
+  
+  int i, j, k, index;
+  buffer_PRECISION out_pt = out->vector_buffer; buffer_double in_pt = in->vector_buffer;
+  int start = threading->start_site[l->depth];
+  int end   = threading->end_site[l->depth];
+  //compute_core_start_end(0, in->size, &start, &end, l, threading);
+
+  // this function seems to do some data reordering, barriers ensure that everything is in sync
+  SYNC_CORES(threading)
+  START_NO_HYPERTHREADS(threading)
+#ifdef HAVE_TM1p1
+  if( g.n_flavours == 2 )
+    for ( i=start; i<end; i++ ) {
+      index = tt[i];
+      out_pt = out->vector_buffer + 24*index;
+      in_pt  = in->vector_buffer + 24*i;
+      FOR24( *out_pt = (complex_PRECISION) *in_pt; out_pt++; in_pt++; )
+    }
+  else
+#endif
+  for ( i=start; i<end; i++ ) {
+    index = tt[i];
+    out_pt = out->vector_buffer + 12*index*in->num_vect;
+    in_pt  = in->vector_buffer + 12*i*in->num_vect;
+    for( k=0; k<12; k++)  
+      for( j=0; j<in->num_vect; j++){
+        *out_pt = (complex_PRECISION) *in_pt;
+        out_pt++;
+        in_pt++;
+      }
+  }
+  END_NO_HYPERTHREADS(threading)
+  SYNC_CORES(threading)
+}
+
+
+void trans_back_PRECISION_new( vector_double *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading ) {
+  
+  int i, j, k, index;
+  buffer_double out_pt = out->vector_buffer; buffer_PRECISION in_pt = in->vector_buffer;
+  int start = threading->start_site[l->depth];
+  int end   = threading->end_site[l->depth];
+  
+  // this function seems to do some data reordering, barriers ensure that everything is in sync
+  SYNC_CORES(threading)
+  START_NO_HYPERTHREADS(threading)
+#ifdef HAVE_TM1p1
+  if( g.n_flavours == 2 )
+    for ( i=start; i<end; i++ ) {
+      index = tt[i];
+      in_pt = in->vector_buffer + 24*index;
+      out_pt = out->vector_buffer + 24*i;
+      FOR24( *out_pt = (complex_double) *in_pt; out_pt++; in_pt++; )
+    }
+  else
+#endif
+  for ( i=start; i<end; i++ ) {
+    index = tt[i];
+    in_pt = in->vector_buffer + 12*index*in->num_vect;
+    out_pt = out->vector_buffer + 12*i*in->num_vect;
+    for( k=0; k<12; k++)
+      for( j=0; j<in->num_vect; j++){
+        *out_pt = (complex_double) *in_pt;
+        out_pt++;
+        in_pt++;
+      }
+  }
+  END_NO_HYPERTHREADS(threading)
+  SYNC_CORES(threading)
+}
+
+
 void schwarz_PRECISION_def( schwarz_PRECISION_struct *s, operator_double_struct *op, level_struct *l ) {
 
   schwarz_PRECISION_alloc( s, l );

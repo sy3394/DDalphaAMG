@@ -749,8 +749,9 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
                   if( vtmp > EPS_double && vtmp < vmin )
                     vmin=vtmp;
                 }
-              }
+              
 #endif
+              }
               if(mu%2)
                 j+=6;
             }
@@ -781,8 +782,9 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
                   if( vtmp > EPS_double && vtmp < vmin )
                     vmin=vtmp;
                 }
-              }
+              
 #endif
+              }
         }
       }
     }
@@ -1128,8 +1130,9 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
                   if( vtmp > EPS_double && vtmp < vmin )
                     vmin=vtmp;
                 }
-              }
+              
 #endif
+              }
               if(mu%2)
                 j+=6;
             }
@@ -1151,8 +1154,9 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
                   if( vtmp > EPS_double && vtmp < vmin )
                     vmin = vtmp;
                 }
-              }
+              
 #endif
+              }
         }
       }
     }

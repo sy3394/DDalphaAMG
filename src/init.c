@@ -157,11 +157,15 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
       g.p.op = &(g.op_double);
 #if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
 #ifdef HAVE_TM1p1
-      MALLOC( g.p.b, complex_double, 2*l->inner_vector_size );
-      MALLOC( g.p.x, complex_double, 2*l->inner_vector_size );
+      vector_double_alloc( &(g.p.b), _INNER, 2*g.num_rhs_vect, l, no_threading );
+      vector_double_alloc( &(g.p.x), _INNER, 2*g.num_rhs_vect, l, no_threading );
+      //MALLOC( g.p.b, complex_double, 2*l->inner_vector_size );
+      //MALLOC( g.p.x, complex_double, 2*l->inner_vector_size );
 #else
-      MALLOC( g.p.b, complex_double, l->inner_vector_size );
-      MALLOC( g.p.x, complex_double, l->inner_vector_size );
+      vector_double_alloc( &(g.p.b), _INNER, g.num_rhs_vect, l, no_threading );
+      vector_double_alloc( &(g.p.x), _INNER, g.num_rhs_vect, l, no_threading );
+      //MALLOC( g.p.b, complex_double, l->inner_vector_size );
+      //MALLOC( g.p.x, complex_double, l->inner_vector_size );
 #endif
 #endif
 #ifdef INIT_ONE_PREC
@@ -183,11 +187,15 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
       g.p.op = &(g.op_double);
 #if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
 #ifdef HAVE_TM1p1
-      MALLOC( g.p.b, complex_double, 2*l->inner_vector_size );
-      MALLOC( g.p.x, complex_double, 2*l->inner_vector_size );
+      vector_double_alloc( &(g.p.b), _INNER, 2*g.num_rhs_vect, l, no_threading );
+      vector_double_alloc( &(g.p.x), _INNER, 2*g.num_rhs_vect, l, no_threading );
+      //MALLOC( g.p.b, complex_double, 2*l->inner_vector_size );
+      //MALLOC( g.p.x, complex_double, 2*l->inner_vector_size );
 #else
-      MALLOC( g.p.b, complex_double, l->inner_vector_size );
-      MALLOC( g.p.x, complex_double, l->inner_vector_size );
+      vector_double_alloc( &(g.p.b), _INNER, g.num_rhs_vect, l, no_threading );
+      vector_double_alloc( &(g.p.x), _INNER, g.num_rhs_vect, l, no_threading );
+      //MALLOC( g.p.b, complex_double, l->inner_vector_size );
+      //MALLOC( g.p.x, complex_double, l->inner_vector_size );
 #endif
 #endif
 #ifdef INIT_ONE_PREC
@@ -367,11 +375,15 @@ void method_free( level_struct *l ) {
     fgmres_MP_struct_free( &(g.p_MP), l );
 #if defined (INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
 #ifdef HAVE_TM1p1
-    FREE( g.p.b, complex_double, 2*l->inner_vector_size );
-    FREE( g.p.x, complex_double, 2*l->inner_vector_size );
+    vector_double_free( &(g.p.b), l, no_threading );
+    vector_double_free( &(g.p.x), l, no_threading );
+    //FREE( g.p.b, complex_double, 2*l->inner_vector_size );
+    //FREE( g.p.x, complex_double, 2*l->inner_vector_size );
 #else
-    FREE( g.p.b, complex_double, l->inner_vector_size );
-    FREE( g.p.x, complex_double, l->inner_vector_size );
+    vector_double_free( &(g.p.b), l, no_threading );
+    vector_double_free( &(g.p.x), l, no_threading );
+    //FREE( g.p.b, complex_double, l->inner_vector_size );
+    //FREE( g.p.x, complex_double, l->inner_vector_size );
 #endif
 #endif
 #ifdef INIT_ONE_PREC

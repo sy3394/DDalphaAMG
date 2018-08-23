@@ -57,6 +57,8 @@ struct Thread;
   
   void trans_PRECISION( vector_PRECISION *out, vector_double *in, int *tt, level_struct *l, struct Thread *threading );
   void trans_back_PRECISION( vector_double *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading );
+  void trans_PRECISION_new( vector_PRECISION *out, vector_double *in, int *tt, level_struct *l, struct Thread *threading );
+  void trans_back_PRECISION_new( vector_double *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading );
   
   void schwarz_PRECISION_mvm_testfun( schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
   

@@ -165,7 +165,7 @@ void vector_PRECISION_real_scale( vector_PRECISION *z, vector_PRECISION *x, comp
 void vector_PRECISION_real_scale_new( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION *alpha, 
                                   int n, int opt, level_struct *l, struct Thread *threading ) { 
 
-  vector_PRECISION_check_comp( z, x );
+  //vector_PRECISION_check_comp( z, x );
 
   int i, j, start, end;
   PRECISION r_alpha[x->num_vect];

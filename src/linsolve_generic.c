@@ -229,8 +229,8 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   int start;
   int end;
 
-  //int j=-1, finish=0, iter=0, il, ol, res, n_vec=0;
-  int iter=0, il, ol, res, n_vect=g.num_rhs_vect, i, n_vec;
+  int j=-1, finish=0, iter=0, il, ol, res;
+  int n_vect=g.num_rhs_vect, i, n_vec;
   complex_PRECISION gamma0[n_vect];//gamma0 = 0;
   
   PRECISION beta[n_vect];//complex_PRECISION beta = 0;
@@ -256,8 +256,6 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   SYNC_MASTER_TO_ALL(threading)
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-  int j=-1, finish=0;
-  iter = 0;
   //compute_core_start_end(p->v_start+p->r.size*n_vec, p->v_end+p->r.size*n_vec, &start, &end, l, threading);
 
   SYNC_CORES(threading)
@@ -289,6 +287,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
 
     START_MASTER(threading)
     //p->gamma[0] = gamma0;
+    #pragma vector aligned
     for( i=0; i<n_vect; i++ )
       p->gamma[i] = gamma0[i];
     END_MASTER(threading);
@@ -349,9 +348,10 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
       if ( H_tot > n_vect*p->tol/10 ) {
         qr_update_PRECISION( p->H, p->s, p->c, p->gamma, j, l, threading );
         //gamma_jp1 = cabs( p->gamma[(j+1)] );
+        #pragma vector aligned
         for( i=0; i<n_vect; i++ )
           gamma_jp1[i] = cabs( p->gamma[(j+1)*n_vect+i] );
-        
+
 #if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
         if ( iter%10 == 0 || p->preconditioner != NULL || l->depth > 0 ) {
           START_MASTER(threading)
@@ -1135,6 +1135,7 @@ int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector
   process_multi_inner_product_PRECISION_new( j+1, tmp, V, w, l, threading );
   START_MASTER(threading)
   for( i=0; i<=j; i++ )
+    #pragma vector aligned
     for( n_vec=0; n_vec<n_vect; n_vec++ )
       buffer[i*n_vect+n_vec] = tmp[i*n_vect+n_vec];
   if ( g.num_processes > 1 ) {
@@ -1143,6 +1144,7 @@ int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector
     PROF_PRECISION_STOP( _ALLR, 1 );
   } else {
     for( i=0; i<=j; i++ )
+      #pragma vector aligned
       for( n_vec=0; n_vec<n_vect; n_vec++ )
         H[j][i*n_vect+n_vec] = buffer[i*n_vect+n_vec];
   }
@@ -1177,6 +1179,7 @@ int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector
   PRECISION tmp2[n_vect]; 
   global_norm_PRECISION_new( tmp2, w, l, threading );
   START_MASTER(threading)
+  #pragma vector aligned
   for( n_vec=0; n_vec<n_vect; n_vec++ )
     H[j][(j+1)*n_vect+n_vec] = tmp2[n_vec];
   END_MASTER(threading)
@@ -1219,27 +1222,34 @@ void qr_update_PRECISION( complex_PRECISION **H, complex_PRECISION *s,
   // update QR factorization
   // apply previous Givens rotation
   for ( i=0; i<j; i++ ) {
+    #pragma vector aligned
     for( n=0; n<n_vect; n++){
-      beta[n] = (-s[i*n_vect+n])*H[j][i*n_vect+n] + (c[i])*H[j][(i+1)*n_vect+n];
+      beta[n] = (-s[i*n_vect+n])*H[j][i*n_vect+n] + (c[i*n_vect+n])*H[j][(i+1)*n_vect+n];
       H[j][i*n_vect+n] = conj_PRECISION(c[i*n_vect+n])*H[j][i*n_vect+n] + conj_PRECISION(s[i*n_vect+n])*H[j][(i+1)*n_vect+n];
       H[j][(i+1)*n_vect+n] = beta[n];
     }
   }
   // compute current Givens rotation
-  for( n=0; n<n_vect; n++){
+  #pragma vector aligned
+  for( n=0; n<n_vect; n++)
     beta[n] = (complex_PRECISION) sqrt( NORM_SQUARE_PRECISION(H[j][j*n_vect+n]) + NORM_SQUARE_PRECISION(H[j][(j+1)*n_vect+n]) );
-    s[j*n_vect+n] = H[j][(j+1)*n_vect+n]/beta[n]; c[j*n_vect+n] = H[j][j*n_vect+n]/beta[n];
-  }
-  // update right column
-  for( n=0; n<n_vect; n++){
+  #pragma vector aligned
+  for( n=0; n<n_vect; n++)
+    s[j*n_vect+n] = H[j][(j+1)*n_vect+n]/beta[n]; 
+  #pragma vector aligned
+  for( n=0; n<n_vect; n++)
+    c[j*n_vect+n] = H[j][j*n_vect+n]/beta[n];
+   // update right column
+  for( n=0; n<n_vect; n++)
     gamma[(j+1)*n_vect+n] = (-s[j*n_vect+n])*gamma[j*n_vect+n];
+  for( n=0; n<n_vect; n++)
     gamma[j*n_vect+n] = conj_PRECISION(c[j*n_vect+n])*gamma[j*n_vect+n];
-  }
   // apply current Givens rotation
-  for( n=0; n<n_vect; n++){
+  #pragma vector aligned
+  for( n=0; n<n_vect; n++)
     H[j][j*n_vect+n] = beta[n];
+  for( n=0; n<n_vect; n++)
     H[j][(j+1)*n_vect+n] = 0;
-  }
   
   PROF_PRECISION_STOP( _SMALL1, 6*j+6 );
   

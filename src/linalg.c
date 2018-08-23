@@ -60,6 +60,30 @@ void process_multi_inner_product_MP( int count, complex_double *results, vector_
 
   PROF_float_STOP( _PIP, (double)(end-start)/(double)l->inner_vector_size, threading );
 }
+
+
+void process_multi_inner_product_MP_new( int count, complex_double *results, vector_float *phi,
+                                     vector_float *psi, level_struct *l, struct Thread *threading ) {
+
+  int start, end;
+  compute_core_start_end(0, psi->size, &start, &end, l, threading);
+  int thread = omp_get_thread_num();
+  if(thread == 0 && start != end)
+    PROF_float_START( _PIP, threading );
+  
+  int i, j;
+  for(int c=0; c<count*psi->num_vect; c++)
+    results[c] = 0.0;
+
+  for(int c=0; c<count; c++)
+    for ( i=start; i<end; i++ )
+      #pragma vector aligned
+      for( j=0; j<psi->num_vect; j++)
+        results[c*psi->num_vect+j] += (complex_double) conj_float(phi[c].vector_buffer[i*psi->num_vect+j])*psi->vector_buffer[i*psi->num_vect+j];
+
+  if(thread == 0 && start != end)
+    PROF_float_STOP( _PIP, (double)(end-start)/(double)l->inner_vector_size, threading );
+}
 #endif
 
 double global_norm_MP( vector_float *x, int start, int end, level_struct *l, struct Thread *threading ) {
@@ -108,4 +132,28 @@ double global_norm_MP( vector_float *x, int start, int end, level_struct *l, str
     PROF_float_STOP( _GIP, (double)(end-start)/(double)l->inner_vector_size, threading );
     return sqrt((double)local_alpha);
   }
+}
+
+void global_norm_MP_new( double *res, vector_float *x, level_struct *l, struct Thread *threading ) {
+
+  int start, end;
+  compute_core_start_end(0, x->size, &start, &end, l, threading);
+  int thread = omp_get_thread_num();
+  if(thread == 0 && start != end)
+    PROF_float_START( _GIP, threading );
+
+  int i, j;
+  for( j=0; j<x->num_vect; j++){
+    res[j]=0;
+  }
+ 
+  for( i=start; i<end; i++)
+    for( j=0; j<x->num_vect; j++){
+      res[j] += NORM_SQUARE_float(x->vector_buffer[i*x->num_vect+j]);
+    }
+  for( j=0; j<x->num_vect; j++){
+    res[j] = (double)sqrt((double)res[j]);
+  }
+  if(thread == 0 && start != end)
+    PROF_float_STOP( _GIP, (double)(end-start)/(double)l->inner_vector_size, threading );
 }

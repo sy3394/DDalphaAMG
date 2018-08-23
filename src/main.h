@@ -46,7 +46,7 @@
   #define HAVE_TM      // flag for enable twisted mass
   //#define HAVE_TM1p1   // flag for enable doublet for twisted mass
 
-  #undef INIT_ONE_PREC // flag undef for enabling additional features in the lib
+  #define INIT_ONE_PREC // flag undef for enabling additional features in the lib
   
   #define FOR2( e )  { e e }
   #define FOR3( e )  { e e e }
