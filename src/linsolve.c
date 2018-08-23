@@ -227,7 +227,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
          norm_r0[i]= creal(gamma0[i]);
      }
     }
-#if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
+/*#if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
     else {
       if ( p->dp.print && g.print > 0 ) {
         START_MASTER(threading)
@@ -238,7 +238,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
         END_MASTER(threading)
       }
     }
-#endif
+#endif*/
     trans_float_new( &(p->sp.V[0]), &(p->dp.r), l->s_float.op.translation_table, l, threading );
     //vector_float_real_scale( &(p->sp.V[0]), &(p->sp.V[0]), (float)(1/p->dp.gamma[0]), start, end, l ); // V[0] <- r / gamma_0
     for( i=0; i<n_vect; i++ )
@@ -483,19 +483,27 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
 
-  // orthogonalization
+  complex_float alpha[(j+1)*n_vect]; 
+  for( i=0; i<=j; i++ )
+    for( n_vec=0; n_vec<n_vect; n_vec++ )
+      alpha[i*n_vect+n_vec] = (complex_float) H[j][i*n_vect+n_vec];
+  for( i=0; i<=j; i++ )
+    vector_float_saxpy_new( w, w, &V[i], alpha, i, -1, l, threading );
+  /*// orthogonalization
   complex_float alpha[(j+1)*n_vect];
+ 
   for( i=0; i<=j; i++ )
     for( n_vec=0; n_vec<n_vect; n_vec++ )
       alpha[i*n_vect+n_vec] = (complex_float) -H[j][i*n_vect+n_vec];
   vector_float_multi_saxpy_new( w, V, alpha, 1, j+1, l, threading );
-  
+  */
   double tmp2[n_vect];
   global_norm_MP_new( tmp2, w, l, threading );
   START_MASTER(threading)
   #pragma vector aligned
   for( n_vec=0; n_vec<n_vect; n_vec++ )
     H[j][(j+1)*n_vect+n_vec] = tmp2[n_vec];
+
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
   
@@ -503,6 +511,7 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
   H_tot=0;
   for( i=0; i<n_vect; i++ )
     H_tot += cabs_double( H[j][(j+1)*n_vect+i] ); 
+  
   if ( H_tot > n_vect*1e-15 ){
     for( n_vec=0; n_vec<n_vect; n_vec++ )
       H_float[n_vec]= (complex_float) H[j][(j+1)*n_vect+n_vec];
@@ -593,8 +602,10 @@ void compute_solution_MP_new( vector_float *x, vector_float *V, complex_double *
   complex_float alpha[j*n_vect];
   for ( i=1; i<=j; i++ )
     for ( n=0; n<n_vect; n++)
-      alpha[(i-1)*n_vect+n] = (complex_float) y[i*n_vect+n];
-  vector_float_multi_saxpy_new( x, &V[1], alpha, 1, j, l, threading );
+      alpha[i*n_vect+n] = (complex_float) y[i*n_vect+n];
+  for ( i=1; i<=j; i++ )
+    vector_float_saxpy_new( x, x, &V[i], alpha, i, 1, l, threading );
+//vector_float_multi_saxpy_new( x, &V[1], alpha, 1, j, l, threading );
 
 }
 

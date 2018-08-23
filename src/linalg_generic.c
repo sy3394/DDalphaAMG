@@ -28,8 +28,6 @@
 #ifndef OPTIMIZED_LINALG_PRECISION
 complex_PRECISION global_inner_product_PRECISION( vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l, struct Thread *threading ) {
   
-  //vector_PRECISION_check_comp( phi, psi );
-
   PROF_PRECISION_START( _GIP, threading );
   complex_PRECISION local_alpha = 0, global_alpha = 0;
 
@@ -77,8 +75,6 @@ complex_PRECISION global_inner_product_PRECISION( vector_PRECISION *phi, vector_
 
 
 complex_PRECISION process_inner_product_PRECISION( vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l, struct Thread *threading ) {
-  
-  //vector_PRECISION_check_comp( phi, psi );
   
   PROF_PRECISION_START( _PIP, threading );
   int i;
@@ -172,19 +168,11 @@ void process_multi_inner_product_PRECISION_new( int count, complex_PRECISION *re
   for(int c=0; c<count*psi->num_vect; c++)
     results[c] = 0.0;
 
-  //vector_PRECISION_change_layout( psi, psi, _LV_SV_NV, no_threading );
-  //for(int c=0; c<count; c++)
-    //vector_PRECISION_change_layout( &phi[c], &phi[c], _LV_SV_NV, no_threading );
-
   for(int c=0; c<count; c++)
     for ( i=start; i<end; i++ )
       #pragma vector aligned
       for( j=0; j<psi->num_vect; j++)
         results[c*psi->num_vect+j] += conj_PRECISION(phi[c].vector_buffer[i*psi->num_vect+j])*psi->vector_buffer[i*psi->num_vect+j];
-
-  //vector_PRECISION_change_layout( psi, psi, _NV_LV_SV, no_threading );
-  //for(int c=0; c<count; c++)
-    //vector_PRECISION_change_layout( &phi[c], &phi[c], _NV_LV_SV, no_threading );
 
   if(thread == 0 && start != end)
     PROF_PRECISION_STOP( _PIP, (double)(end-start)/(double)l->inner_vector_size, threading );
@@ -195,8 +183,6 @@ void process_multi_inner_product_PRECISION_new( int count, complex_PRECISION *re
 
 complex_PRECISION local_xy_over_xx_PRECISION( vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l  ) {
   
-  //vector_PRECISION_check_comp( phi, psi );
-
   complex_PRECISION numerator = 0.0; PRECISION denominator = 0.0;
   
   VECTOR_FOR( int i=start, i<end, numerator += conj_PRECISION(phi->vector_buffer[i])*psi->vector_buffer[i]; denominator += NORM_SQUARE_PRECISION(phi->vector_buffer[i]), i++, l );
@@ -290,23 +276,25 @@ void global_norm_PRECISION_new( PRECISION *res, vector_PRECISION *x, level_struc
   int start, end;
   compute_core_start_end(0, x->size, &start, &end, l, threading);
   int thread = omp_get_thread_num();
+  if(thread == 0 && start != end)
+  PROF_PRECISION_START( _GIP, threading );
 
   int i, j;
   for( j=0; j<x->num_vect; j++){
     res[j]=0;
   }
  
-  //START_MASTER(threading)
-  //vector_PRECISION_change_layout( x, x, _LV_SV_NV, no_threading );
   for( i=start; i<end; i++)
     for( j=0; j<x->num_vect; j++){
       res[j] += NORM_SQUARE_PRECISION(x->vector_buffer[i*x->num_vect+j]);
     }
-  //vector_PRECISION_change_layout( x, x, _NV_LV_SV, no_threading ); 
+  
   for( j=0; j<x->num_vect; j++){
     res[j] = (PRECISION)sqrt((double)res[j]);
   }
-  //END_MASTER(threading)
+
+  if(thread == 0 && start != end)
+  PROF_PRECISION_STOP( _GIP, (double)(end-start)/(double)l->inner_vector_size, threading );
 }
 
 
@@ -363,17 +351,11 @@ void vector_PRECISION_minus_new( vector_PRECISION *z, vector_PRECISION *x, vecto
   if(thread == 0 && start != end)
   PROF_PRECISION_START( _LA2 );
 
-  //vector_PRECISION_change_layout( x, x, _LV_SV_NV, no_threading );
-  //vector_PRECISION_change_layout( y, y, _LV_SV_NV, no_threading );
-  //vector_PRECISION_change_layout( z, z, _LV_SV_NV, no_threading );
   for( i=start; i<end; i++)
     #pragma vector aligned
     for( j=0; j<x->num_vect; j++){
       z->vector_buffer[i*x->num_vect+j] = x->vector_buffer[i*x->num_vect+j] - y->vector_buffer[i*x->num_vect+j];
     }
-  //vector_PRECISION_change_layout( x, x, _NV_LV_SV, no_threading );
-  //vector_PRECISION_change_layout( y, y, _NV_LV_SV, no_threading );
-  //vector_PRECISION_change_layout( z, z, _NV_LV_SV, no_threading );
 
   if(thread == 0 && start != end)
   PROF_PRECISION_STOP( _LA2, (double)(end-start)/(double)l->inner_vector_size );
@@ -400,15 +382,11 @@ void vector_PRECISION_scale_new( vector_PRECISION *z, vector_PRECISION *x, compl
   if(thread == 0 && start != end)
   PROF_PRECISION_START( _LA6 );
 
-  //vector_PRECISION_change_layout( x, x, _LV_SV_NV, no_threading );
-  //vector_PRECISION_change_layout( z, z, _LV_SV_NV, no_threading );
   for( i=start; i<end; i++)
     #pragma vector aligned
     for( j=0; j<x->num_vect; j++){
       z->vector_buffer[i*x->num_vect+j] = alpha[k*x->num_vect+j]*x->vector_buffer[i*x->num_vect+j];
     }
-  //vector_PRECISION_change_layout( x, x, _NV_LV_SV, no_threading );
-  //vector_PRECISION_change_layout( z, z, _NV_LV_SV, no_threading );
 
   if(thread == 0 && start != end)
   PROF_PRECISION_STOP( _LA6, (double)(end-start)/(double)l->inner_vector_size );
@@ -466,9 +444,6 @@ void vector_PRECISION_saxpy_new( vector_PRECISION *z, vector_PRECISION *x, vecto
   if (thread == 0 && start != end )
   PROF_PRECISION_START( _LA8 );
 
-  //vector_PRECISION_change_layout( x, x, _LV_SV_NV, no_threading );
-  //vector_PRECISION_change_layout( y, y, _LV_SV_NV, no_threading );
-  //vector_PRECISION_change_layout( z, z, _LV_SV_NV, no_threading );
   if( sign == 1 )
     for( i=start; i<end; i++)
       #pragma vector aligned
@@ -480,9 +455,6 @@ void vector_PRECISION_saxpy_new( vector_PRECISION *z, vector_PRECISION *x, vecto
       for( j=0; j<x->num_vect; j++)
         z->vector_buffer[i*x->num_vect+j] = x->vector_buffer[i*x->num_vect+j] - alpha[k*x->num_vect+j]*y->vector_buffer[i*x->num_vect+j];
   
-  //vector_PRECISION_change_layout( x, x, _NV_LV_SV, no_threading );
-  //vector_PRECISION_change_layout( y, y, _NV_LV_SV, no_threading );
-  //vector_PRECISION_change_layout( z, z, _NV_LV_SV, no_threading );
 
   if( thread == 0 && start != end )
   PROF_PRECISION_STOP( _LA8, (double)(end-start)/(double)l->inner_vector_size );

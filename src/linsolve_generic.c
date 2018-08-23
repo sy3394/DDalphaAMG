@@ -235,7 +235,6 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   
   PRECISION beta[n_vect];//complex_PRECISION beta = 0;
 
-  //for( n_vec=0; n_vec<g.num_rhs_vect; n_vec++ )  {
   double H_tot;
   PRECISION norm_r0[n_vect], gamma_jp1[n_vect], gamma_tot, gamma0_real[n_vect], t0=0, t1=0;
   for( i=0; i<n_vect; i++ )  {
@@ -259,7 +258,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   //compute_core_start_end(p->v_start+p->r.size*n_vec, p->v_end+p->r.size*n_vec, &start, &end, l, threading);
 
   SYNC_CORES(threading)
-  for( ol=0; ol<p->num_restart && finish==0; ol++ )  {
+  for( ol=0; ol<p->num_restart && finish==0; ol++ ) {
     if( ol == 0 && p->initial_guess_zero ) {
       res = _NO_RES;
       //vector_PRECISION_copy( &(p->r), &(p->b), start, end, l );
@@ -343,8 +342,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
       H_tot=0;
       for( i=0; i<n_vect; i++ )
         H_tot += cabs( p->H[j][(j+1)*n_vect+i] );
-
-      //if ( cabs( p->H[j][j+1] ) > p->tol/10 ) {
+      //if ( cabs( p->H[j][j+1] ) > p->tol/10 )
       if ( H_tot > n_vect*p->tol/10 ) {
         qr_update_PRECISION( p->H, p->s, p->c, p->gamma, j, l, threading );
         //gamma_jp1 = cabs( p->gamma[(j+1)] );
@@ -365,7 +363,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
         for( i=0; i<n_vect; i++ )
           gamma_tot += gamma_jp1[i]/norm_r0[i];
 
-        //if( gamma_jp1/norm_r0 < p->tol || gamma_jp1/norm_r0 > 1E+5 ) { // if satisfied ... stop
+        //if( gamma_jp1/norm_r0 < p->tol || gamma_jp1/norm_r0 > 1E+5 )  // if satisfied ... stop
         if( gamma_tot < n_vect*p->tol || gamma_tot > n_vect*1E+5 ) {
           finish = 1;
           START_MASTER(threading)
@@ -458,8 +456,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
     START_MASTER(threading)
     if ( g.method != 6 ) prof_print( l );
     END_MASTER(threading)
-  }
-  //}  
+  }  
   return iter;
 }
 
@@ -1152,6 +1149,7 @@ int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector
   SYNC_MASTER_TO_ALL(threading)
   for( i=0; i<=j; i++ )
     vector_PRECISION_saxpy_new( w, w, &V[i], H[j], i, -1, l, threading );
+
 #ifdef REORTH
   // re-orthogonalization
   process_multi_inner_product_PRECISION_new( j+1, tmp, V, w, l, threading );
@@ -1182,6 +1180,7 @@ int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector
   #pragma vector aligned
   for( n_vec=0; n_vec<n_vect; n_vec++ )
     H[j][(j+1)*n_vect+n_vec] = tmp2[n_vec];
+ 
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
   

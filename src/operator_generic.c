@@ -423,7 +423,8 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
   global_norm_double_new( diff1, &vd[3], l, no_threading );
   global_norm_double_new( diff2, &vd[2], l, no_threading );
   
-  test0_PRECISION("depth: %d, correctness of schwarz PRECISION Dirac operator: %le\n", l->depth, diff1[n_vect-1]/diff2[n_vect-1] );
+  for(int i=0; i<n_vect; i++)
+    test0_PRECISION("depth: %d, correctness of schwarz PRECISION Dirac operator: %le\n", l->depth, diff1[i]/diff2[i] );
   END_LOCKED_MASTER(threading)
 
   if(threading->n_core > 1) {

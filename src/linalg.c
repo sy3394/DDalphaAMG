@@ -72,8 +72,9 @@ void process_multi_inner_product_MP_new( int count, complex_double *results, vec
     PROF_float_START( _PIP, threading );
   
   int i, j;
-  for(int c=0; c<count*psi->num_vect; c++)
-    results[c] = 0.0;
+  for(int c=0; c<count; c++)
+   for( j=0; j<psi->num_vect; j++) 
+     results[c*psi->num_vect+j] = 0.0;
 
   for(int c=0; c<count; c++)
     for ( i=start; i<end; i++ )
