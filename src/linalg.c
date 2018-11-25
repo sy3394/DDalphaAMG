@@ -71,16 +71,22 @@ void process_multi_inner_product_MP_new( int count, complex_double *results, vec
   if(thread == 0 && start != end)
     PROF_float_START( _PIP, threading );
   
-  int i, j;
+  int i, j, k;
   for(int c=0; c<count; c++)
-   for( j=0; j<psi->num_vect; j++) 
-     results[c*psi->num_vect+j] = 0.0;
+   for( j=0; j<psi->num_vect; j+=num_loop)
+     #pragma unroll
+     #pragma vector aligned
+     #pragma ivdep
+     for( k=0; k<num_loop; k++)
+       results[c*psi->num_vect+j+k] = 0.0;
 
   for(int c=0; c<count; c++)
     for ( i=start; i<end; i++ )
-      #pragma vector aligned
-      for( j=0; j<psi->num_vect; j++)
-        results[c*psi->num_vect+j] += (complex_double) conj_float(phi[c].vector_buffer[i*psi->num_vect+j])*psi->vector_buffer[i*psi->num_vect+j];
+      for( j=0; j<psi->num_vect; j+=num_loop)
+        #pragma unroll
+        #pragma vector aligned
+        for( k=0; k<num_loop; k++)
+          results[c*psi->num_vect+j+k] += (complex_double) conj_float(phi[c].vector_buffer[i*psi->num_vect+j+k])*psi->vector_buffer[i*psi->num_vect+j+k];
 
   if(thread == 0 && start != end)
     PROF_float_STOP( _PIP, (double)(end-start)/(double)l->inner_vector_size, threading );
@@ -143,18 +149,26 @@ void global_norm_MP_new( double *res, vector_float *x, level_struct *l, struct T
   if(thread == 0 && start != end)
     PROF_float_START( _GIP, threading );
 
-  int i, j;
-  for( j=0; j<x->num_vect; j++){
-    res[j]=0;
-  }
+  int i, j, k;
+  for( j=0; j<x->num_vect; j+=num_loop )
+    #pragma unroll
+    #pragma vector aligned
+    for( k=0; k<num_loop; k++ )
+      res[j+k]=0;
  
-  for( i=start; i<end; i++)
-    for( j=0; j<x->num_vect; j++){
-      res[j] += NORM_SQUARE_float(x->vector_buffer[i*x->num_vect+j]);
-    }
-  for( j=0; j<x->num_vect; j++){
-    res[j] = (double)sqrt((double)res[j]);
-  }
+  for( i=start; i<end; i++ )
+    for( j=0; j<x->num_vect; j+=num_loop )
+      #pragma unroll
+      #pragma vector aligned
+      for( k=0; k<num_loop; k++ )
+        res[j+k] += NORM_SQUARE_float(x->vector_buffer[i*x->num_vect+j+k]);
+
+  for( j=0; j<x->num_vect; j+=num_loop )
+    #pragma unroll
+    #pragma vector aligned
+    for( k=0; k<num_loop; k++ )
+      res[j+k] = (double)sqrt((double)res[j+k]);
+  
   if(thread == 0 && start != end)
     PROF_float_STOP( _GIP, (double)(end-start)/(double)l->inner_vector_size, threading );
 }

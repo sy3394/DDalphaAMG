@@ -228,12 +228,11 @@ void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operato
       while ( leta < leta_end )
         for( i=0; i<12; i++ ){
           for( j=0; j<n_vect; j++ ){
-            *leta = (*lphi)*((*clover)+(*tm_term));
+            *leta = (*lphi)*(*clover);
             leta++;
             lphi++;
           }
         clover++;
-        tm_term++;
         }
 /*#ifdef HAVE_TM1p1
     }
@@ -1613,6 +1612,42 @@ void apply_twisted_bc_to_vector_PRECISION( vector_PRECISION *eta, vector_PRECISI
           } else
 #endif
             { FOR12( *eta->vector_buffer = (*phi->vector_buffer)*twisted_bc; phi->vector_buffer++; eta->vector_buffer++; ) }
+        }
+      }
+    }
+  }
+}
+
+void apply_twisted_bc_to_vector_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, double *theta, level_struct *l) {
+  int t, z, y, x, i, j;
+  int n_vect=g.num_rhs_vect;
+  int *gl=l->global_lattice, sl[4];
+  double phase[4];
+  complex_double twisted_bc;
+  for (i=0; i<4; i++)
+    sl[i] = l->local_lattice[i]*g.my_coords[i];
+  
+  for (t=0; t<l->local_lattice[0]; t++) {
+    phase[T] = theta[T]*((double)sl[T]+t)/(double)gl[T];
+    for (z=0; z<l->local_lattice[1]; z++) {
+      phase[Z] = phase[T] + theta[Z]*((double)sl[Z]+z)/(double)gl[Z];
+      for (y=0; y<l->local_lattice[2]; y++) {
+        phase[Y] = phase[Z] + theta[Y]*((double)sl[Y]+y)/(double)gl[Y];
+        for (x=0; x<l->local_lattice[3]; x++) {
+          phase[X] = phase[Y] + theta[X]*((double)sl[X]+x)/(double)gl[X];
+          twisted_bc = exp(I*phase[X]);
+/*#ifdef HAVE_TM1p1
+          if( g.n_flavours == 2 ) {
+            FOR24( *eta->vector_buffer = (*phi->vector_buffer)*twisted_bc; phi->vector_buffer++; eta->vector_buffer++; );
+          } else
+#endif*/
+	  for (i=0; i<12; i++){
+	    for(j=0; j<n_vect; j++){
+              *eta->vector_buffer = (*phi->vector_buffer)*twisted_bc;
+	      phi->vector_buffer++;
+	      eta->vector_buffer++;
+            }
+          }
         }
       }
     }

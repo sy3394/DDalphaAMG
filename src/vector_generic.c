@@ -121,9 +121,9 @@ void vector_PRECISION_real_scale( vector_PRECISION *z, vector_PRECISION *x, comp
   
   if(z == x){
 #ifdef OPTIMIZE
-    PRECISION * restrict r_x = (PRECISION*)x->vector_buffer, r_alpha = creal_PRECISION(alpha);
+    PRECISION * restrict r_z = (PRECISION*)z->vector_buffer, r_alpha = creal_PRECISION(alpha);
 #else    
-    PRECISION *r_x = (PRECISION*)x->vector_buffer, r_alpha = creal_PRECISION(alpha); 
+    PRECISION *r_z = (PRECISION*)z->vector_buffer, r_alpha = creal_PRECISION(alpha); 
 #endif    
     int r_start = 2*start, r_end = 2*end;
  
@@ -134,7 +134,7 @@ void vector_PRECISION_real_scale( vector_PRECISION *z, vector_PRECISION *x, comp
       #pragma vector aligned
 #endif
       for(int j=0; j<PRECISION_LENGTH; j++)
-        r_x[i+j] = r_alpha*r_x[i+j];
+        r_z[i+j] = r_alpha*r_z[i+j];
   } else {
 #ifdef OPTIMIZE
     PRECISION * restrict r_z = (PRECISION*)z->vector_buffer, * restrict r_x = (PRECISION*)x->vector_buffer, r_alpha = creal_PRECISION(alpha);
@@ -167,27 +167,50 @@ void vector_PRECISION_real_scale_new( vector_PRECISION *z, vector_PRECISION *x, 
 
   //vector_PRECISION_check_comp( z, x );
 
-  int i, j, start, end;
+  int i, j, k, start, end;
   PRECISION r_alpha[x->num_vect];
 
   if(opt){
-    for( j=0; j<x->num_vect; j++)
-       r_alpha[j]=1.0/creal_PRECISION(alpha[n*x->num_vect+j]);
+    for( j=0; j<x->num_vect; j+=num_loop)
+       #pragma unroll
+       for( k=0; k<num_loop; k++)
+         r_alpha[j+k]=1.0/creal_PRECISION(alpha[n*x->num_vect+j+k]);
   }else{
-    for( j=0; j<x->num_vect; j++)
-       r_alpha[j]=creal_PRECISION(alpha[n*x->num_vect+j]);
+    for( j=0; j<x->num_vect; j+=num_loop)
+       #pragma unroll
+       for( k=0; k<num_loop; k++)
+         r_alpha[j+k]=creal_PRECISION(alpha[n*x->num_vect+j+k]);
   }
   compute_core_start_end(0, x->size, &start, &end, l, threading);
   int thread = omp_get_thread_num(); 
   if(thread == 0 && start != end) 
   PROF_PRECISION_START( _RS ); 
   
+  //PRECISION *restrict r_z = (PRECISION*)z->vector_buffer, *restrict r_x = (PRECISION*)x->vector_buffer;
+  
+  //for( i=start; i<end; i++)
+  //  for( j=0; j<x->num_vect; j++)
+  //    z->vector_buffer[i*x->num_vect+j] = r_alpha[j]*x->vector_buffer[i*x->num_vect+j];
+
   //vector_PRECISION_change_layout( x, x, _LV_SV_NV, no_threading );
   //vector_PRECISION_change_layout( z, z, _LV_SV_NV, no_threading );
-  for( i=start; i<end; i++)
-    for( j=0; j<x->num_vect; j++)
-      z->vector_buffer[i*x->num_vect+j] = r_alpha[j]*x->vector_buffer[i*x->num_vect+j];
-
+  if(z == x){
+    for( i=start; i<end; i++)
+      for( j=0; j<x->num_vect; j+=num_loop)
+        #pragma unroll
+        #pragma vector aligned
+        for( k=0; k<num_loop; k++)
+          z->vector_buffer[i*x->num_vect+j+k] = r_alpha[j+k]*z->vector_buffer[i*x->num_vect+j+k];
+  } else {
+  //  PRECISION * restrict r_z = (PRECISION*)z->vector_buffer, * restrict r_x = (PRECISION*)x->vector_buffer;
+    for( i=start; i<end; i++)
+      for( j=0; j<x->num_vect; j+=num_loop)
+        #pragma unroll
+        #pragma vector aligned
+        #pragma ivdep
+  	for( k=0; k<num_loop; k++)
+          z->vector_buffer[i*x->num_vect+j+k] = r_alpha[j+k]*x->vector_buffer[i*x->num_vect+j+k];
+  }
   //vector_PRECISION_change_layout( x, x, _NV_LV_SV, no_threading );
   //vector_PRECISION_change_layout( z, z, _NV_LV_SV, no_threading );
 
@@ -229,7 +252,8 @@ void vector_PRECISION_copy_new( vector_PRECISION *z, vector_PRECISION *x, level_
 
   if(z == x) return;
 
-  int i, j, start, end;
+  int i, j, k, start, end;
+  //PRECISION * restrict r_z = (PRECISION*)z->vector_buffer, * restrict r_x = (PRECISION*)x->vector_buffer;
   compute_core_start_end(0, x->size, &start, &end, l, threading);
   int thread = omp_get_thread_num();
   if(thread == 0)
@@ -237,9 +261,16 @@ void vector_PRECISION_copy_new( vector_PRECISION *z, vector_PRECISION *x, level_
   
   //vector_PRECISION_change_layout( x, x, _LV_SV_NV, no_threading );
   //vector_PRECISION_change_layout( z, z, _LV_SV_NV, no_threading );
+  //for( i=start; i<end; i++)
+  //  for( j=0; j<x->num_vect; j++)
+  //    z->vector_buffer[i*x->num_vect+j] = x->vector_buffer[i*x->num_vect+j];
   for( i=start; i<end; i++)
-    for( j=0; j<x->num_vect; j++)
-      z->vector_buffer[i*x->num_vect+j] = x->vector_buffer[i*x->num_vect+j];
+    for( j=0; j<x->num_vect; j+=num_loop)
+      #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
+      for( k=0; k<num_loop; k++)
+        z->vector_buffer[i*x->num_vect+j+k] = x->vector_buffer[i*x->num_vect+j+k];
   
   //vector_PRECISION_change_layout( x, x, _NV_LV_SV, no_threading );
   //vector_PRECISION_change_layout( z, z, _NV_LV_SV, no_threading );

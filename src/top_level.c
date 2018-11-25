@@ -71,7 +71,6 @@ void rhs_define( vector_double *rhs, level_struct *l, struct Thread *threading )
 int wilson_driver( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading ) {
   
   int iter = 0; //, start = threading->start_index[l->depth], end = threading->end_index[l->depth];
-  
   vector_double rhs = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.b:g.p.b;
   vector_double sol = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.x:g.p.x;
 
@@ -98,6 +97,7 @@ int wilson_driver( vector_double *solution, vector_double *source, level_struct 
   }
   //vector_double_copy( solution, &sol, start, end, l );
   vector_double_copy_new( solution, &sol, l, threading );
+  
 #ifdef WILSON_BENCHMARK
     tmp_t += MPI_Wtime();
     if ( tmp_t < t_min )
@@ -124,7 +124,8 @@ void solve( vector_double *solution, vector_double *source, level_struct *l, str
     vector_double rhs = g.mixed_precision==2?g.p_MP.dp.b:g.p.b;
     // this would yield different results if we threaded it, so we don't
     START_LOCKED_MASTER(threading)
-    vector_double_define_random( &rhs, 0, l->inner_vector_size, l );
+    //vector_double_define_random( &rhs, 0, l->inner_vector_size, l );
+    vector_double_define_random_new( &rhs, l, threading );
     scan_var( &(g.vt), l );
     END_LOCKED_MASTER(threading)
   } else {
@@ -160,7 +161,7 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
   vector_double_change_layout( &source, &source, _LV_SV_NV, no_threading );
 
   if(g.bc==2)
-      apply_twisted_bc_to_vector_double( &source, &source, g.twisted_bc, l);
+      apply_twisted_bc_to_vector_double_new( &source, &source, g.twisted_bc, l);
 
   global_norm_double_new( norm, &source, l, threading );
   for( int i=0; i<g.num_rhs_vect; i++ ){
@@ -181,7 +182,7 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 	solve( &solution, &source, l, threading );    
       
 	if(g.bc==2)
-	  apply_twisted_bc_to_vector_double( &solution, &solution, minus_twisted_bc, l);
+	  apply_twisted_bc_to_vector_double_new( &solution, &solution, minus_twisted_bc, l);
       
 	START_LOCKED_MASTER(threading)  
 	  printf0("\n\n+-------------------------- down --------------------------+\n\n");
@@ -198,7 +199,7 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
   solve( &solution, &source, l, threading );
 
   if(g.bc==2)
-    apply_twisted_bc_to_vector_double( &solution, &solution, minus_twisted_bc, l);
+    apply_twisted_bc_to_vector_double_new( &solution, &solution, minus_twisted_bc, l);
  
   global_norm_double_new( norm, &solution, l, threading );
   for( int i=0; i<g.num_rhs_vect; i++ ){

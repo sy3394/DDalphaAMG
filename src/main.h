@@ -32,6 +32,8 @@
 #ifndef MAIN_HEADER
   #define MAIN_HEADER
 
+  #define num_loop 1
+
   #define double_SIZE 64
   #define float_SIZE 32
   #define double_LENGTH SIMD_LENGTH/double_SIZE
@@ -403,6 +405,7 @@
     
     // number of rhs vectors (b) to be solved at the same time (hopefully)
     int num_rhs_vect;
+    
 
     complex_double **gamma;
     var_table vt;

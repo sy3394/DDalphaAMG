@@ -34,7 +34,7 @@
 
   typedef PRECISION complex complex_PRECISION;
   typedef PRECISION complex *config_PRECISION;
-  typedef PRECISION complex *buffer_PRECISION __attribute__ ((aligned (SIMD_LENGTH)));
+  typedef PRECISION complex *buffer_PRECISION;// __attribute__ ((aligned (SIMD_LENGTH)));
 
   typedef struct {
     buffer_PRECISION vector_buffer;
