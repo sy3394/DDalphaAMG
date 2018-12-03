@@ -116,6 +116,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       eta[0*n_vect+i+j]  = D[0]*phi[0*n_vect+i+j];
       eta[0*n_vect+i+j] += D[1]*phi[1*n_vect+i+j];
@@ -146,6 +148,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       eta[0*n_vect+i+j]  = conj_PRECISION(D[0])*phi[0*n_vect+i+j];
       eta[1*n_vect+i+j]  = conj_PRECISION(D[1])*phi[0*n_vect+i+j];
@@ -198,7 +202,9 @@
   static inline void prp_T_PRECISION_new( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt ) {
     int i, n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
-      //#pragma unroll
+      #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       prp_pt[0*n_vect+i+j] = l_pt[0*n_vect+i+j] -GAMMA_T_SPIN0_VAL*l_pt[3*GAMMA_T_SPIN0_CO*n_vect+i+j];
       prp_pt[1*n_vect+i+j] = l_pt[1*n_vect+i+j] -GAMMA_T_SPIN0_VAL*l_pt[(3*GAMMA_T_SPIN0_CO+1)*n_vect+i+j];
@@ -223,6 +229,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){  
       prn_pt[0*n_vect+i+j] = l_pt[0*n_vect+i+j] +GAMMA_T_SPIN0_VAL*l_pt[3*GAMMA_T_SPIN0_CO*n_vect+i+j];
       prn_pt[1*n_vect+i+j] = l_pt[1*n_vect+i+j] +GAMMA_T_SPIN0_VAL*l_pt[(3*GAMMA_T_SPIN0_CO+1)*n_vect+i+j];
@@ -253,6 +261,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       l_pt[ 0*n_vect+i+j] -= prp_su3_pt[0*n_vect+i+j];
       l_pt[ 1*n_vect+i+j] -= prp_su3_pt[1*n_vect+i+j];
@@ -289,6 +299,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       l_pt[ 0*n_vect+i+j] -= prn_su3_pt[0*n_vect+i+j];
       l_pt[ 1*n_vect+i+j] -= prn_su3_pt[1*n_vect+i+j];
@@ -318,6 +330,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){  
       prp_pt[0*n_vect+i+j] = l_pt[0*n_vect+i+j] -GAMMA_Z_SPIN0_VAL*l_pt[3*GAMMA_Z_SPIN0_CO*n_vect+i+j];
       prp_pt[1*n_vect+i+j] = l_pt[1*n_vect+i+j] -GAMMA_Z_SPIN0_VAL*l_pt[(3*GAMMA_Z_SPIN0_CO+1)*n_vect+i+j];
@@ -341,6 +355,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       prn_pt[0*n_vect+i+j] = l_pt[0*n_vect+i+j] +GAMMA_Z_SPIN0_VAL*l_pt[3*GAMMA_Z_SPIN0_CO*n_vect+i+j];
       prn_pt[1*n_vect+i+j] = l_pt[1*n_vect+i+j] +GAMMA_Z_SPIN0_VAL*l_pt[(3*GAMMA_Z_SPIN0_CO+1)*n_vect+i+j];
@@ -370,6 +386,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       l_pt[ 0*n_vect+i+j] -= prp_su3_pt[0*n_vect+i+j];
       l_pt[ 1*n_vect+i+j] -= prp_su3_pt[1*n_vect+i+j];
@@ -405,6 +423,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       l_pt[ 0*n_vect+i+j] -= prn_su3_pt[0*n_vect+i+j];
       l_pt[ 1*n_vect+i+j] -= prn_su3_pt[1*n_vect+i+j];
@@ -434,6 +454,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       prp_pt[0*n_vect+i+j] = l_pt[0*n_vect+i+j] -GAMMA_Y_SPIN0_VAL*l_pt[3*GAMMA_Y_SPIN0_CO*n_vect+i+j];
       prp_pt[1*n_vect+i+j] = l_pt[1*n_vect+i+j] -GAMMA_Y_SPIN0_VAL*l_pt[(3*GAMMA_Y_SPIN0_CO+1)*n_vect+i+j];
@@ -457,6 +479,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){  
       prn_pt[0*n_vect+i+j] = l_pt[0*n_vect+i+j] +GAMMA_Y_SPIN0_VAL*l_pt[3*GAMMA_Y_SPIN0_CO*n_vect+i+j];
       prn_pt[1*n_vect+i+j] = l_pt[1*n_vect+i+j] +GAMMA_Y_SPIN0_VAL*l_pt[(3*GAMMA_Y_SPIN0_CO+1)*n_vect+i+j];
@@ -486,6 +510,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       l_pt[ 0*n_vect+i+j] -= prp_su3_pt[0*n_vect+i+j];
       l_pt[ 1*n_vect+i+j] -= prp_su3_pt[1*n_vect+i+j];
@@ -521,6 +547,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       l_pt[ 0*n_vect+i+j] -= prn_su3_pt[0*n_vect+i+j];
       l_pt[ 1*n_vect+i+j] -= prn_su3_pt[1*n_vect+i+j];
@@ -550,6 +578,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       prp_pt[0*n_vect+i+j] = l_pt[0*n_vect+i+j] -GAMMA_X_SPIN0_VAL*l_pt[3*GAMMA_X_SPIN0_CO*n_vect+i+j];
       prp_pt[1*n_vect+i+j] = l_pt[1*n_vect+i+j] -GAMMA_X_SPIN0_VAL*l_pt[(3*GAMMA_X_SPIN0_CO+1)*n_vect+i+j];
@@ -573,6 +603,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       prn_pt[0*n_vect+i+j] = l_pt[0*n_vect+i+j] +GAMMA_X_SPIN0_VAL*l_pt[3*GAMMA_X_SPIN0_CO*n_vect+i+j];
       prn_pt[1*n_vect+i+j] = l_pt[1*n_vect+i+j] +GAMMA_X_SPIN0_VAL*l_pt[(3*GAMMA_X_SPIN0_CO+1)*n_vect+i+j];
@@ -602,6 +634,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       l_pt[ 0*n_vect+i+j] -= prp_su3_pt[0*n_vect+i+j];
       l_pt[ 1*n_vect+i+j] -= prp_su3_pt[1*n_vect+i+j];
@@ -637,6 +671,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){
       l_pt[ 0*n_vect+i+j] -= prn_su3_pt[0*n_vect+i+j];
       l_pt[ 1*n_vect+i+j] -= prn_su3_pt[1*n_vect+i+j];
@@ -1671,6 +1707,8 @@
     int n_vect = g.num_rhs_vect;
     for( int i=0; i<n_vect; i+=num_loop)
       #pragma unroll
+      #pragma vector aligned
+      #pragma ivdep
       for( int j=0; j<num_loop; j++){ 
        // diagonal
       eta[ 0*n_vect+i+j] = clover[ 0]*phi[ 0*n_vect+i+j];

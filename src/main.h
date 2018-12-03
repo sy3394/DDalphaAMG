@@ -32,7 +32,7 @@
 #ifndef MAIN_HEADER
   #define MAIN_HEADER
 
-  #define num_loop 1
+  #define num_loop 4
 
   #define double_SIZE 64
   #define float_SIZE 32

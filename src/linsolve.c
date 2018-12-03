@@ -623,6 +623,7 @@ void compute_solution_MP_new( vector_float *x, vector_float *V, complex_double *
   for ( i=j; i>=0; i-- ) {
     for ( n=0; n<n_vect; n+=num_loop )
       #pragma unroll
+      #pragma vector aligned
       #pragma ivdep
       for( m=0; m<num_loop; m++ )
         y[i*n_vect+n+m] = gamma[i*n_vect+n+m];

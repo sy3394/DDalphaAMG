@@ -200,7 +200,7 @@ void vector_PRECISION_real_scale_new( vector_PRECISION *z, vector_PRECISION *x, 
         #pragma unroll
         #pragma vector aligned
         for( k=0; k<num_loop; k++)
-          z->vector_buffer[i*x->num_vect+j+k] = r_alpha[j+k]*z->vector_buffer[i*x->num_vect+j+k];
+          z->vector_buffer[i*x->num_vect+j+k] *= r_alpha[j+k]; //*z->vector_buffer[i*x->num_vect+j+k];
   } else {
   //  PRECISION * restrict r_z = (PRECISION*)z->vector_buffer, * restrict r_x = (PRECISION*)x->vector_buffer;
     for( i=start; i<end; i++)

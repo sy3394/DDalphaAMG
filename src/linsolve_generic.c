@@ -1369,6 +1369,7 @@ void compute_solution_PRECISION_new( vector_PRECISION *x, vector_PRECISION *V, c
   for ( i=j; i>=0; i-- ) {
     for ( n=0; n<n_vect; n+=num_loop )
       #pragma unroll
+      #pragma vector aligned
       #pragma ivdep
       for( m=0; m<num_loop; m++ ) 
         y[i*n_vect+n+m] = gamma[i*n_vect+n+m];

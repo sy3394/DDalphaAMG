@@ -170,7 +170,7 @@ void clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PR
 void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, int start, int end,
                        level_struct *l, struct Thread *threading ) {
 
-  int nv = l->num_lattice_site_var, n_vect=g.num_rhs_vect, i, j;
+  int nv = l->num_lattice_site_var, n_vect=g.num_rhs_vect, i, j, k;
   buffer_PRECISION lphi = phi->vector_buffer+start*n_vect, leta = eta->vector_buffer+start*n_vect;
   buffer_PRECISION leta_end = eta->vector_buffer+end*n_vect;
 #ifdef PROFILING
@@ -214,25 +214,33 @@ void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operato
 #ifdef HAVE_TM
       if ( g.mu + g.mu_odd_shift != 0.0 || g.mu + g.mu_even_shift != 0.0 ) {
         while ( leta < leta_end )
-          for( i=0; i<12; i++ ){
-            for( j=0; j<n_vect; j++ ){
-	      *leta = (*lphi)*((*clover)+(*tm_term));
-	      leta++;
-	      lphi++;              
-            }
-          clover++;
-          tm_term++;
+          for( i=0; i<12; i++ ) {
+            for( j=0; j<n_vect; j+=num_loop )
+              #pragma unroll
+              #pragma vector aligned
+              #pragma ivdep
+              for( k=0; k<num_loop; k++ ) {
+	        *leta = (*lphi)*((*clover)+(*tm_term));
+	        leta++;
+	        lphi++;              
+              }
+            clover++;
+            tm_term++;
           }
       }// else
 #endif
       while ( leta < leta_end )
         for( i=0; i<12; i++ ){
-          for( j=0; j<n_vect; j++ ){
-            *leta = (*lphi)*(*clover);
-            leta++;
-            lphi++;
-          }
-        clover++;
+          for( j=0; j<n_vect; j+=num_loop ) 
+            #pragma unroll
+            #pragma vector aligned
+            #pragma ivdep
+            for( k=0; k<num_loop; k++ ) {
+              *leta = (*lphi)*(*clover);
+              leta++;
+              lphi++;
+            }
+          clover++;
         }
 /*#ifdef HAVE_TM1p1
     }
@@ -271,12 +279,16 @@ void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operato
         while ( leta < leta_end ) {
           site_clover_PRECISION_new( leta, lphi, clover );
           for( i=0; i<12; i++ ){
-            for( j=0; j<n_vect; j++ ){
-              *leta += (*lphi)*(*tm_term);
-              leta++;
-              lphi++;
-            }
-          tm_term++;
+            for( j=0; j<n_vect; j+=num_loop ) 
+              #pragma unroll
+              #pragma vector aligned
+              #pragma ivdep
+              for( k=0; k<num_loop; k++ )  {
+                *leta += (*lphi)*(*tm_term);
+                leta++;
+                lphi++;
+              }
+            tm_term++;
           }
           clover+=42;
         }
