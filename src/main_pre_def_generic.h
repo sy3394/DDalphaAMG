@@ -22,19 +22,9 @@
 #ifndef MAIN_PRE_DEF_PRECISION_HEADER
   #define MAIN_PRE_DEF_PRECISION_HEADER
 
-  #ifdef AVX
-    #define SIMD_LENGTH 128
-  #elif AVX2
-    #define SIMD_LENGTH 256
-  #elif AVX512
-    #define SIMD_LENGTH 512
-  #else
-    #define SIMD_LENGTH 128
-  #endif
-
   typedef PRECISION complex complex_PRECISION;
   typedef PRECISION complex *config_PRECISION;
-  typedef PRECISION complex *buffer_PRECISION;// __attribute__ ((aligned (SIMD_LENGTH)));
+  typedef PRECISION complex *buffer_PRECISION;
 
   typedef struct {
     buffer_PRECISION vector_buffer;
@@ -74,10 +64,6 @@
     vector_PRECISION *buffer;
     buffer_PRECISION prnT, prnZ, prnY, prnX, prpT, prpZ, prpY, prpX;
     comm_PRECISION_struct c;
-    OPERATOR_TYPE_PRECISION *D_vectorized;
-    OPERATOR_TYPE_PRECISION *D_transformed_vectorized;
-    OPERATOR_TYPE_PRECISION *clover_vectorized;
-    OPERATOR_TYPE_PRECISION *clover_oo_inv_vectorized;
 #ifdef HAVE_TM
     double mu, mu_odd_shift, mu_even_shift;
     config_PRECISION tm_term;
@@ -85,8 +71,6 @@
 #ifdef HAVE_TM1p1
     double epsbar, epsbar_ig5_odd_shift, epsbar_ig5_even_shift;
     config_PRECISION epsbar_term, clover_doublet_oo_inv;
-    OPERATOR_TYPE_PRECISION *clover_doublet_vectorized;
-    OPERATOR_TYPE_PRECISION *clover_doublet_oo_inv_vectorized;
 #endif
   } operator_PRECISION_struct;
   

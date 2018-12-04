@@ -33,11 +33,9 @@
   #define MAIN_HEADER
 
   #define num_loop 4
-
-  #define double_SIZE 64
-  #define float_SIZE 32
-  #define double_LENGTH SIMD_LENGTH/double_SIZE
-  #define float_LENGTH SIMD_LENGTH/float_SIZE
+ 
+ // #define vector_loop(k, instructions) _Pragma("unroll") _Pragma("vector aligned") _Pragma("ivdep")  for(k=0; k<num_loop; k++) { instructions } 
+  #define vector_loop(j, instructions) for( j=0; j<g.num_rhs_vect; ) {_Pragma("unroll") _Pragma("vector aligned") _Pragma("ivdep")  for(int jj = 0; jj<num_loop; jj++) { instructions  j++; }}  
 
   #define STRINGLENGTH 500
   
@@ -91,16 +89,6 @@
   #define abs_double fabs
   #define abs_float fabsf
   
-#ifdef SSE
-  #define MALLOC( variable, kind, length ) do{ if ( variable != NULL ) { \
-  printf0("malloc of \"%s\" failed: pointer is not NULL (%s:%d).\n", #variable, __FILE__, __LINE__ ); } \
-  if ( (length) > 0 ) { variable = (kind*) memalign( SIMD_LENGTH, sizeof(kind) * (length) ); } \
-  if ( variable == NULL && (length) > 0 ) { \
-  error0("malloc of \"%s\" failed: no memory allocated (%s:%d), current memory used: %lf GB.\n", \
-  #variable, __FILE__, __LINE__, g.cur_storage/1024.0 ); } \
-  g.cur_storage += (sizeof(kind) * (length))/(1024.0*1024.0); \
-  if ( g.cur_storage > g.max_storage ) g.max_storage = g.cur_storage; }while(0)
-#else
   #define MALLOC( variable, kind, length ) do{ if ( variable != NULL ) { \
   printf0("malloc of \"%s\" failed: pointer is not NULL (%s:%d).\n", #variable, __FILE__, __LINE__ ); } \
   if ( (length) > 0 ) { variable = (kind*) malloc( sizeof(kind) * (length) ); } \
@@ -109,7 +97,6 @@
   #variable, __FILE__, __LINE__, g.cur_storage/1024.0 ); } \
   g.cur_storage += (sizeof(kind) * (length))/(1024.0*1024.0); \
   if ( g.cur_storage > g.max_storage ) g.max_storage = g.cur_storage; }while(0)
-#endif
 
   #define FREE( variable, kind, length ) do{ if ( variable != NULL ) { \
   free( variable ); variable = NULL; g.cur_storage -= (sizeof(kind) * (length))/(1024.0*1024.0); } else { \
@@ -496,24 +483,8 @@
 // functions
 #include "clifford.h"
 
-#ifdef SSE
-#include "vectorization_dirac_float.h"
-#include "vectorization_dirac_double.h"
-#include "blas_vectorized.h"
-#include "sse_blas_vectorized.h"
-#include "sse_complex_float_intrinsic.h"
-#include "sse_complex_double_intrinsic.h"
-#include "sse_coarse_operator_float.h"
-#include "sse_coarse_operator_double.h"
-#include "sse_linalg_float.h"
-#include "sse_linalg_double.h"
-#include "sse_interpolation_float.h"
-#include "sse_interpolation_double.h"
-#else
-//no intrinsics
 #include "interpolation_float.h"
 #include "interpolation_double.h"
-#endif
 
 #include "data_float.h"
 #include "data_double.h"

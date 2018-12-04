@@ -198,20 +198,6 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
   MALLOC( s->local_minres_buffer[1], complex_PRECISION, svs );
   MALLOC( s->local_minres_buffer[2], complex_PRECISION, svs );
   
-#ifdef OPTIMIZED_NEIGHBOR_COUPLING_float
-  if ( l->depth == 0 ) {
-    MALLOC_HUGEPAGES( s->op.D_vectorized, PRECISION, 2*4*(2*l->vector_size-l->inner_vector_size), 4*SIMD_LENGTH_PRECISION );
-    MALLOC_HUGEPAGES( s->op.D_transformed_vectorized, PRECISION, 2*4*(2*l->vector_size-l->inner_vector_size), 4*SIMD_LENGTH_PRECISION );
-  }
-#endif
-#ifdef OPTIMIZED_SELF_COUPLING_PRECISION
-  if ( l->depth == 0 ) {
-    MALLOC_HUGEPAGES( s->op.clover_vectorized, PRECISION, 2*6*l->inner_vector_size, 4*SIMD_LENGTH_PRECISION );
-#ifdef HAVE_TM1p1
-    MALLOC_HUGEPAGES( s->op.clover_doublet_vectorized, PRECISION, 4*2*6*l->inner_vector_size, 4*SIMD_LENGTH_PRECISION );
-#endif
-  }
-#endif
 }
 
 
@@ -290,20 +276,6 @@ void schwarz_PRECISION_free( schwarz_PRECISION_struct *s, level_struct *l ) {
   s->local_minres_buffer[1] = NULL;
   s->local_minres_buffer[2] = NULL;
   
-#ifdef OPTIMIZED_NEIGHBOR_COUPLING_float
-  if ( l->depth == 0 ) {
-    FREE_HUGEPAGES( s->op.D_vectorized, PRECISION, 2*4*(2*l->vector_size-l->inner_vector_size) );
-    FREE_HUGEPAGES( s->op.D_transformed_vectorized, PRECISION, 2*4*(2*l->vector_size-l->inner_vector_size) );
-  }
-#endif
-#ifdef OPTIMIZED_SELF_COUPLING_PRECISION
-  if ( l->depth == 0 ) {
-    FREE_HUGEPAGES( s->op.clover_vectorized, PRECISION, 2*6*l->inner_vector_size );
-#ifdef HAVE_TM1p1
-    FREE_HUGEPAGES( s->op.clover_doublet_vectorized, PRECISION, 4*2*6*l->inner_vector_size );  
-#endif
-  }
-#endif
 }
 
 
@@ -742,17 +714,6 @@ void block_PRECISION_boundary_op( vector_PRECISION *eta, vector_PRECISION *phi, 
                                   schwarz_PRECISION_struct *s, level_struct *l ) {
   // k: number of current block
   int *bbl = s->block_boundary_length;
-#ifdef OPTIMIZED_NEIGHBOR_COUPLING_float
-  PRECISION *Dplus = s->op.D_vectorized;
-  PRECISION *Dminus = s->op.D_transformed_vectorized;
-  
-  for ( int mu=0; mu<4; mu++ ) {
-    boundary_plus_coupling_PRECISION( (PRECISION*)eta->vector_buffer, Dplus, (PRECISION*)phi->vector_buffer,
-                                              mu, bbl[2*mu], bbl[2*mu+1], s->block[k].bt, NULL );
-    boundary_minus_coupling_PRECISION( (PRECISION*)eta->vector_buffer, Dminus, (PRECISION*)phi->vector_buffer,
-                                               mu, bbl[2*mu+1], bbl[2*mu+2], s->block[k].bt, NULL );
-  }
-#else
   int i, mu, index, neighbor_index;
   config_PRECISION D_pt, D = s->op.D;
   buffer_PRECISION phi_pt, eta_pt;
@@ -988,7 +949,6 @@ void block_PRECISION_boundary_op( vector_PRECISION *eta, vector_PRECISION *phi, 
 #ifdef HAVE_TM1p1
   }
 #endif
-#endif
 }
 
 
@@ -996,17 +956,6 @@ void n_block_PRECISION_boundary_op( vector_PRECISION *eta, vector_PRECISION *phi
                                     schwarz_PRECISION_struct *s, level_struct *l ) {
   // k: number of current block
   int *bbl = s->block_boundary_length;
-#ifdef OPTIMIZED_NEIGHBOR_COUPLING_float
-  PRECISION *Dplus = s->op.D_vectorized;
-  PRECISION *Dminus = s->op.D_transformed_vectorized;
-  
-  for ( int mu=0; mu<4; mu++ ) {
-    boundary_nplus_coupling_PRECISION( (PRECISION*)eta->vector_buffer, Dplus, (PRECISION*)phi->vector_buffer,
-                                               mu, bbl[2*mu], bbl[2*mu+1], s->block[k].bt, NULL );
-    boundary_nminus_coupling_PRECISION( (PRECISION*)eta->vector_buffer, Dminus, (PRECISION*)phi->vector_buffer,
-                                                mu, bbl[2*mu+1], bbl[2*mu+2], s->block[k].bt, NULL );
-  }
-#else
   int i, mu, index, neighbor_index;
   config_PRECISION D_pt, D = s->op.D;
   buffer_PRECISION phi_pt, eta_pt;
@@ -1241,7 +1190,6 @@ void n_block_PRECISION_boundary_op( vector_PRECISION *eta, vector_PRECISION *phi
     } 
 #ifdef HAVE_TM1p1
   }
-#endif
 #endif 
 }
 
@@ -1251,33 +1199,6 @@ void coarse_block_PRECISION_boundary_op( vector_PRECISION *eta, vector_PRECISION
   // k: number of current block
   int *bbl = s->block_boundary_length, n = l->num_lattice_site_var;
 
-#ifdef OPTIMIZED_COARSE_NEIGHBOR_COUPLING_PRECISION
-  int column_offset = 2*SIMD_LENGTH_PRECISION*((l->num_parent_eig_vect+SIMD_LENGTH_PRECISION-1)/SIMD_LENGTH_PRECISION);
-  int vectorized_link_offset = 4*l->num_parent_eig_vect*column_offset;
-  
-  for ( int mu=0; mu<4; mu++ ) {
-    OPERATOR_TYPE_PRECISION *Dplus = s->op.D_vectorized + mu*vectorized_link_offset;
-    OPERATOR_TYPE_PRECISION *Dminus = s->op.D_transformed_vectorized + mu*vectorized_link_offset;
-    // plus mu direction
-    for ( int i=bbl[2*mu]; i<bbl[2*mu+1]; i+=2 ) {
-      int index = s->block[k].bt[i];
-      int neighbor_index = s->block[k].bt[i+1];
-      vector_PRECISION phi_pt, eta_pt;
-      phi_pt.vector_buffer = phi->vector_buffer + n*neighbor_index;
-      eta_pt.vector_buffer = eta->vector_buffer + n*index;
-      coarse_hopp_PRECISION_vectorized( &eta_pt, &phi_pt, Dplus + 4*vectorized_link_offset*index, l );
-    }
-    // minus mu direction
-    for ( int i=bbl[2*mu+1]; i<bbl[2*mu+2]; i+=2 ) {
-      int index = s->block[k].bt[i];
-      int neighbor_index = s->block[k].bt[i+1];
-      vector_PRECISION phi_pt, eta_pt;
-      phi_pt.vector_buffer = phi->vector_buffer + n*neighbor_index;
-      eta_pt.vector_buffer = eta->vector_buffer + n*index;
-      coarse_hopp_PRECISION_vectorized( &eta_pt, &phi_pt, Dminus + 4*vectorized_link_offset*neighbor_index, l );
-    }
-  }
-#else
   config_PRECISION D = s->op.D;
   int link_size = SQUARE(2*l->num_parent_eig_vect), site_size=4*link_size;
   
@@ -1303,7 +1224,6 @@ void coarse_block_PRECISION_boundary_op( vector_PRECISION *eta, vector_PRECISION
       coarse_daggered_hopp_PRECISION( &eta_pt, &phi_pt, D_pt, l );
     }
   }
-#endif
 }
 
 
@@ -1311,33 +1231,6 @@ void n_coarse_block_PRECISION_boundary_op( vector_PRECISION *eta, vector_PRECISI
                                            int k, schwarz_PRECISION_struct *s, level_struct *l ) {
   // k: number of current block
   int *bbl = s->block_boundary_length, n = l->num_lattice_site_var;
-#ifdef OPTIMIZED_COARSE_NEIGHBOR_COUPLING_PRECISION
-  int column_offset = 2*SIMD_LENGTH_PRECISION*((l->num_parent_eig_vect+SIMD_LENGTH_PRECISION-1)/SIMD_LENGTH_PRECISION);
-  int vectorized_link_offset = 4*l->num_parent_eig_vect*column_offset;
-  
-  for ( int mu=0; mu<4; mu++ ) {
-    OPERATOR_TYPE_PRECISION *Dplus = s->op.D_vectorized + mu*vectorized_link_offset;
-    OPERATOR_TYPE_PRECISION *Dminus = s->op.D_transformed_vectorized + mu*vectorized_link_offset;
-    // plus mu direction
-    for ( int i=bbl[2*mu]; i<bbl[2*mu+1]; i+=2 ) {
-      int index = s->block[k].bt[i];
-      int neighbor_index = s->block[k].bt[i+1];
-      vector_PRECISION phi_pt, eta_pt; 
-      phi_pt.vector_buffer = phi->vector_buffer + n*neighbor_index;
-      eta_pt.vector_buffer = eta->vector_buffer + n*index;
-      coarse_n_hopp_PRECISION_vectorized( &eta_pt, &phi_pt, Dplus + 4*vectorized_link_offset*index, l );
-    }
-    // minus mu direction
-    for ( int i=bbl[2*mu+1]; i<bbl[2*mu+2]; i+=2 ) {
-      int index = s->block[k].bt[i];
-      int neighbor_index = s->block[k].bt[i+1];
-      vector_PRECISION phi_pt, eta_pt; 
-      phi_pt.vector_buffer = phi->vector_buffer + n*neighbor_index;
-      eta_pt.vector_buffer = eta->vector_buffer + n*index;
-      coarse_n_hopp_PRECISION_vectorized( &eta_pt, &phi_pt, Dminus + 4*vectorized_link_offset*neighbor_index, l );
-    }
-  }  
-#else
   int link_size = SQUARE(2*l->num_parent_eig_vect), site_size=4*link_size;
   config_PRECISION D = s->op.D;
   
@@ -1363,7 +1256,6 @@ void n_coarse_block_PRECISION_boundary_op( vector_PRECISION *eta, vector_PRECISI
       coarse_n_daggered_hopp_PRECISION( &eta_pt, &phi_pt, D_pt, l );
     }
   }
-#endif
 }
 
 

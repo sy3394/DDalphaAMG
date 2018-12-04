@@ -29,12 +29,8 @@ void operator_PRECISION_init( operator_PRECISION_struct *op ) {
   op->backward_neighbor_table = NULL;
   op->translation_table = NULL;
   op->D = NULL;
-  op->D_vectorized = NULL;
-  op->D_transformed_vectorized = NULL;
   op->clover = NULL;
   op->clover_oo_inv = NULL;
-  op->clover_vectorized = NULL;
-  op->clover_oo_inv_vectorized = NULL;
   op->m0 = 0;
 #ifdef HAVE_TM
   op->mu = 0;
@@ -49,8 +45,6 @@ void operator_PRECISION_init( operator_PRECISION_struct *op ) {
   op->epsbar_ig5_odd_shift = 0;
   op->epsbar_term = NULL;
   op->clover_doublet_oo_inv = NULL;
-  op->clover_doublet_vectorized = NULL;
-  op->clover_doublet_oo_inv_vectorized = NULL;
 #endif
   
   for ( int mu=0; mu<4; mu++ )
@@ -144,8 +138,6 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
   MALLOC( op->translation_table, int, l->num_inner_lattice_sites );
 
   if ( type == _SCHWARZ && l->depth == 0 && g.odd_even ) {
-#ifndef OPTIMIZED_SELF_COUPLING_PRECISION
-
     if( g.csw ) {
 #ifdef HAVE_TM //we use LU here
       MALLOC( op->clover_oo_inv, complex_PRECISION, 72*(l->num_inner_lattice_sites/2+1) );
@@ -155,15 +147,6 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
     }
 #ifdef HAVE_TM1p1
     MALLOC( op->clover_doublet_oo_inv, complex_PRECISION, 12*12*2*(l->num_inner_lattice_sites/2+1) );
-#endif
-
-#else
-    if( g.csw )
-      MALLOC_HUGEPAGES( op->clover_oo_inv_vectorized, PRECISION, 144*(l->num_inner_lattice_sites/2+1), 4*SIMD_LENGTH_PRECISION );
-#ifdef HAVE_TM1p1
-    MALLOC_HUGEPAGES( op->clover_doublet_oo_inv_vectorized, PRECISION, 2*2*144*(l->num_inner_lattice_sites/2+1), 4*SIMD_LENGTH_PRECISION );
-#endif
-
 #endif
   }  
 
@@ -224,8 +207,6 @@ void operator_PRECISION_free( operator_PRECISION_struct *op, const int type, lev
   FREE( op->tm_term, complex_PRECISION, block_site_size*l->num_inner_lattice_sites );
 #endif
   if ( type == _SCHWARZ && l->depth == 0 && g.odd_even ) {
-#ifndef OPTIMIZED_SELF_COUPLING_PRECISION
-
     if( g.csw ) {
 #ifdef HAVE_TM //we use LU here
       FREE( op->clover_oo_inv, complex_PRECISION, 72*(l->num_inner_lattice_sites/2+1) );
@@ -235,15 +216,6 @@ void operator_PRECISION_free( operator_PRECISION_struct *op, const int type, lev
     }
 #ifdef HAVE_TM1p1
     FREE( op->clover_doublet_oo_inv, complex_PRECISION, 12*12*2*(l->num_inner_lattice_sites/2+1) );
-#endif
-
-#else
-    if( g.csw )
-      FREE_HUGEPAGES( op->clover_oo_inv_vectorized, PRECISION, 144*(l->num_inner_lattice_sites/2+1) );
-#ifdef HAVE_TM1p1
-    FREE_HUGEPAGES( op->clover_doublet_oo_inv_vectorized, PRECISION, 2*2*144*(l->num_inner_lattice_sites/2+1) );
-#endif
-
 #endif
   }  
 
@@ -338,45 +310,9 @@ void operator_PRECISION_set_couplings( operator_PRECISION_struct *op, level_stru
 }
 
 void operator_PRECISION_set_neighbor_couplings( operator_PRECISION_struct *op, level_struct *l ) {
-
-#ifdef OPTIMIZED_NEIGHBOR_COUPLING_PRECISION
-  int i, n = 2*l->num_lattice_sites - l->num_inner_lattice_sites;
-
-  for ( i=0; i<n; i++ ) {
-    PRECISION *D_vectorized = op->D_vectorized + 96*i;
-    PRECISION *D_transformed_vectorized = op->D_transformed_vectorized + 96*i;
-    complex_PRECISION *D_pt = op->D + 36*i;
-    for ( int mu=0; mu<4; mu++ )
-      set_PRECISION_D_vectorized( D_vectorized+24*mu, D_transformed_vectorized+24*mu, D_pt+9*mu );
-  }
-#endif
-
 }
 
 void operator_PRECISION_set_self_couplings( operator_PRECISION_struct *op, level_struct *l ) {
-
-#ifdef OPTIMIZED_SELF_COUPLING_PRECISION
-  int i, n = l->num_inner_lattice_sites;
-  
-  if ( g.csw != 0 )
-    for ( i=0; i<n; i++ ) {
-      PRECISION *clover_vectorized_pt = op->clover_vectorized + 144*i;
-      config_PRECISION clover_pt = op->clover + 42*i;
-      sse_set_clover_PRECISION( clover_vectorized_pt, clover_pt );
-#ifdef HAVE_TM1p1
-      PRECISION *clover_doublet_vectorized_pt = op->clover_doublet_vectorized + 288*i;
-      sse_set_clover_doublet_PRECISION( clover_doublet_vectorized_pt, clover_pt );
-#endif
-#ifdef HAVE_TM
-      config_PRECISION tm_term_pt = op->tm_term + 12*i;
-      sse_add_diagonal_clover_PRECISION( clover_vectorized_pt, tm_term_pt );
-#ifdef HAVE_TM1p1
-      sse_add_diagonal_clover_doublet_PRECISION( clover_doublet_vectorized_pt, tm_term_pt );
-#endif
-#endif
-    }
-#endif
-  
 }
 
 void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {

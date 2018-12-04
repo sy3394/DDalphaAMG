@@ -21,7 +21,6 @@
 
 #include "main.h"
 
-#ifndef OPTIMIZED_LINALG_float
 void process_multi_inner_product_MP( int count, complex_double *results, vector_float *phi,
                                      vector_float *psi, int start, int end, level_struct *l,
                                      struct Thread *threading ) {
@@ -91,7 +90,6 @@ void process_multi_inner_product_MP_new( int count, complex_double *results, vec
   if(thread == 0 && start != end)
     PROF_float_STOP( _PIP, (double)(end-start)/(double)l->inner_vector_size, threading );
 }
-#endif
 
 double global_norm_MP( vector_float *x, int start, int end, level_struct *l, struct Thread *threading ) {
   

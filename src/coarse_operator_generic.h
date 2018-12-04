@@ -22,13 +22,10 @@
 #ifndef COARSE_OPERATOR_PRECISION_HEADER
   #define COARSE_OPERATOR_PRECISION_HEADER
 
-  #include "blas_vectorized.h"
-
   struct Thread;
   
   void coarse_operator_PRECISION_alloc( level_struct *l );
   void coarse_operator_PRECISION_free( level_struct *l );
-  void coarse_operator_PRECISION_free_vectorized( operator_PRECISION_struct *op, level_struct *l );
   void coarse_operator_PRECISION_setup( vector_PRECISION *V, level_struct *l );
   void coarse_operator_PRECISION_setup_finalize( level_struct *l, struct Thread *threading );
   void coarse_operator_PRECISION_set_couplings( operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );

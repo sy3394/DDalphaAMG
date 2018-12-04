@@ -1103,13 +1103,6 @@ void validate_parameters( int ls, level_struct *l ) {
   int i;
   int mu;
 
-#ifdef SSE
-  if ( !g.odd_even )
-    warning0("The SSE implementation is based on the odd-even preconditioned code.\
-    \n         Switch on odd-even preconditioning in the input file.\n");
-  ASSERT( g.odd_even );
-#endif
-  
   if ( g.method == 5 && g.interpolation != 0 ) {
     warning0("Multigrid with BiCGstab smoothing is not supported.\n         Switching to FGMRES preconditioned with BiCGstab (g.interpolation=0).\n");
     g.interpolation = 0;
@@ -1133,14 +1126,6 @@ void validate_parameters( int ls, level_struct *l ) {
       ASSERT( DIVIDES( g.block_lattice[i][mu], g.local_lattice[i][mu] ) );
       ASSERT( DIVIDES( g.global_lattice[i][mu]/g.global_lattice[i+1][mu], g.local_lattice[i][mu] ) ); 
       ASSERT( DIVIDES( g.block_lattice[i][mu], g.global_lattice[i][mu]/g.global_lattice[i+1][mu] ) );
-#ifdef SSE
-      if ( g.block_lattice[i][mu] != g.global_lattice[i][mu]/g.global_lattice[i+1][mu] )
-        warning0("when using SSE, Schwarz block size and aggregate size have to match.\n");
-      ASSERT( g.block_lattice[i][mu] == g.global_lattice[i][mu]/g.global_lattice[i+1][mu] );
-      // it works everywhere but we have some problem with the vector size.
-      // TODO: check all vectora allocated with size l->inner_vector_size
-      ASSERT( g.num_eig_vect[i] % SIMD_LENGTH_float == 0 );
-#endif
     }
     
   if ( g.odd_even ) {
@@ -1179,10 +1164,6 @@ void validate_parameters( int ls, level_struct *l ) {
 
   //LIST OF CASES WHICH SHOULD WORK, BUT DO NOT (TODO)
 
-#ifdef SSE
-  ASSERT( g.mixed_precision );
-#endif
-  
   //TODO: Could work without, but you need to fix the setup phase.    
   for ( i=0; i<g.num_levels-2; i++ )
     ASSERT( g.num_eig_vect[i] <= g.num_eig_vect[i+1] );

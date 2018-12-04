@@ -51,37 +51,6 @@ void negative_sendrecv_PRECISION( vector_PRECISION *phi, const int mu, comm_PREC
 }
 
 
-void negative_sendrecv_PRECISION_vectorized( complex_PRECISION *phi, const int mu, comm_PRECISION_struct *c,
-                                             level_struct *l, int count, complex_PRECISION *buffer ) {
-  // send dir = -1
-  if( l->global_splitting[mu] > 1 ) {
-
-    int i, j, num_boundary_sites = c->num_boundary_sites[2*mu+1], boundary_start,
-        *boundary_table = c->boundary_table[2*mu+1], n = l->num_lattice_site_var;
-
-    complex_PRECISION *tmp_pt;
-    complex_PRECISION *buffer_pt;
-
-    boundary_start = l->num_inner_lattice_sites;
-    for ( i=0; i<mu; i++ )
-      boundary_start += c->num_boundary_sites[2*i];
-
-    buffer_pt = buffer;
-
-    for ( i=0; i<num_boundary_sites; i++ ) {
-      tmp_pt = phi + count*n*boundary_table[i];
-      for ( j=0; j<count*n; j++, buffer_pt++, tmp_pt++ )
-        *buffer_pt = *tmp_pt;
-    }
-
-    MPI_Irecv( phi+count*n*boundary_start, count*n*num_boundary_sites, MPI_COMPLEX_PRECISION,
-               l->neighbor_rank[2*mu], 2*mu+1, g.comm_cart, &(c->rreqs[2*mu+1]) );
-    MPI_Isend( buffer, count*n*num_boundary_sites, MPI_COMPLEX_PRECISION,
-               l->neighbor_rank[2*mu+1], 2*mu+1, g.comm_cart, &(c->sreqs[2*mu+1]) );
-  }
-}
-
-
 void negative_wait_PRECISION( const int mu, comm_PRECISION_struct *c, level_struct *l ) {
  
   if( l->global_splitting[mu] > 1 ) {
