@@ -173,7 +173,7 @@ void vector_PRECISION_real_scale_new( vector_PRECISION *z, vector_PRECISION *x, 
         #pragma vector aligned
         #pragma ivdep
   	for( k=0; k<num_loop; k++)*/
-      vector_loop(j, z->vector_buffer[i*x->num_vect+j] = r_alpha[j]*x->vector_buffer[i*x->num_vect+j];)
+      vector_loop(j, x->num_vect, z->vector_buffer[i*x->num_vect+j] = r_alpha[j]*x->vector_buffer[i*x->num_vect+j];)
   }
   //vector_PRECISION_change_layout( x, x, _NV_LV_SV, no_threading );
   //vector_PRECISION_change_layout( z, z, _NV_LV_SV, no_threading );
