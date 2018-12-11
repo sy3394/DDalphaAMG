@@ -34,8 +34,7 @@
 
   #define num_loop 4
  
-  #define vector_loop(j, jmax, instructions) for( j=0; j<jmax; ) {_Pragma("unroll") _Pragma("vector aligned") _Pragma("ivdep")  for(int jj = 0; jj<num_loop; jj++) { instructions  j++; }}  
-  #define vector_loop2(j, jmax, jj, instructions) for( j=0; j<jmax; ) {_Pragma("unroll") _Pragma("vector aligned") _Pragma("ivdep")  for( jj = 0; jj<num_loop; jj++) { instructions; }} 
+  #define VECTOR_LOOP(j, jmax, jj, instructions) for( j=0; j<jmax; j+=num_loop) {_Pragma("unroll") _Pragma("vector aligned") _Pragma("ivdep") for( jj=0; jj<num_loop; jj++) { instructions; }} 
 
   #define STRINGLENGTH 500
   
