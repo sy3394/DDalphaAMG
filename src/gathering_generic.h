@@ -16,7 +16,9 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * checked:11/30/2019
+ * not changed from sbacchio
+ * checked: 12/08/2019
  */
 
 #ifndef GATHERING_PRECISION_HEADER
@@ -27,8 +29,10 @@
   void gathering_PRECISION_free( gathering_PRECISION_struct *gs, level_struct *l );
   
   void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_struct *in, level_struct *l );
-  void vector_PRECISION_gather( vector_PRECISION *gath, vector_PRECISION *dist, level_struct *l );
-  void vector_PRECISION_distribute( vector_PRECISION *dist, vector_PRECISION *gath, level_struct *l );
+//  void vector_PRECISION_gather( vector_PRECISION *gath, vector_PRECISION *dist, level_struct *l );
+  void vector_PRECISION_gather_new( vector_PRECISION *gath, vector_PRECISION *dist, level_struct *l );
+//  void vector_PRECISION_distribute( vector_PRECISION *dist, vector_PRECISION *gath, level_struct *l );
+  void vector_PRECISION_distribute_new( vector_PRECISION *dist, vector_PRECISION *gath, level_struct *l );
   
   void distribution_PRECISION_next_level_test( level_struct *l );
   

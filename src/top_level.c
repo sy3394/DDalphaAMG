@@ -16,10 +16,16 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/29/2019
+ * changed from sbacchio
+ * checked: 12/05/2019
+ * 1st cleanup:12/19/2019
  */
 
 #include "main.h"
+
+static int wilson_driver( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading );
+static void solve( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading );
 
 void rhs_define( vector_double *rhs, level_struct *l, struct Thread *threading ) {
   
@@ -27,23 +33,26 @@ void rhs_define( vector_double *rhs, level_struct *l, struct Thread *threading )
   if(threading->thread != 0)
     return;
 
-  //int start = threading->start_index[l->depth];
-  //int end = threading->end_index[l->depth];
+  int j, jj;
+  int start = threading->start_index[l->depth];
+  int end = threading->end_index[l->depth];
 
+  rhs->num_vect_now = g.num_rhs_vect;
   if ( g.rhs == 0 ) {
     //vector_double_define( rhs, 1, start, end, l );
-    vector_double_define_new( rhs, 1, l, threading );
+    vector_double_define_new( rhs, 1, start, end, l );
     START_MASTER(threading)
     if ( g.print > 0 ) printf0("rhs = ones\n");
     END_MASTER(threading)
   } else if ( g.rhs == 1 )  {
     //vector_double_define( rhs, 0, start, end, l );
-    vector_double_define_new( rhs, 0, l, threading );
+    vector_double_define_new( rhs, 0, start, end, l );
     if ( g.my_rank == 0 ) {
       START_LOCKED_MASTER(threading)
       //rhs->vector_buffer[0] = 1.0;
-      for ( int i=0; i<rhs->num_vect; i++ )
-        rhs->vector_buffer[i*(rhs->size)] = 1.0;
+      //for ( int i=0; i<rhs->num_vect; i++ )
+        //rhs->vector_buffer[i*(rhs->size)] = 1.0;
+      VECTOR_LOOP( j, rhs->num_vect_now, jj, rhs->vector_buffer[j+jj] = 1.0; )
       END_LOCKED_MASTER(threading)
     }
     START_MASTER(threading)
@@ -53,94 +62,34 @@ void rhs_define( vector_double *rhs, level_struct *l, struct Thread *threading )
     // this would yield different results if we threaded it, so we don't
     START_LOCKED_MASTER(threading)
     //vector_double_define_random( rhs, 0, l->inner_vector_size, l );
-    vector_double_define_random_new( rhs, l, threading );
+    vector_double_define_random_new( rhs, 0, l->inner_vector_size, l );
     END_LOCKED_MASTER(threading)
     START_MASTER(threading)
     if ( g.print > 0 ) printf0("rhs = random\n");
     END_MASTER(threading)
   } else if ( g.rhs == 3 ) {
     //vector_double_define( rhs, 0, start, end, l );
-    vector_double_define_new( rhs, 0, l, threading );
+    vector_double_define_new( rhs, 0, start, end, l );
+    if ( g.print > 0 ) printf0("rhs = 0's\n");
   } else {
     ASSERT( g.rhs >= 0 && g.rhs <= 4 );
   }
     
 }
 
-
-int wilson_driver( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading ) {
-  
-  int iter = 0; //, start = threading->start_index[l->depth], end = threading->end_index[l->depth];
-  vector_double rhs = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.b:g.p.b;
-  vector_double sol = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.x:g.p.x;
-
-#ifdef WILSON_BENCHMARK
-  START_MASTER(threading)
-  prof_init( l );
-  END_MASTER(threading)
-  double t = -MPI_Wtime();
-  double t_min = 1000;
-  for ( int i=0; i<100; i++ ) {
-    double tmp_t = -MPI_Wtime();
-#endif
-  vector_double_change_layout( &sol, &sol, _LV_SV_NV, no_threading );
-  vector_double_change_layout( &rhs, &rhs, _LV_SV_NV, no_threading );
-
-  //vector_double_copy( &rhs, source, start, end, l );
-  vector_double_copy_new( &rhs, source, l, threading );
-  if ( g.method == -1 ) {
-    cgn_double( &(g.p), l, threading );
-  } else if ( g.mixed_precision == 2 ) {
-    iter = fgmres_MP( &(g.p_MP), l, threading );
-  } else {
-    iter = fgmres_double( &(g.p), l, threading );
-  }
-  //vector_double_copy( solution, &sol, start, end, l );
-  vector_double_copy_new( solution, &sol, l, threading );
-  
-#ifdef WILSON_BENCHMARK
-    tmp_t += MPI_Wtime();
-    if ( tmp_t < t_min )
-      t_min = tmp_t;
-  }
-  t +=MPI_Wtime();
-  START_MASTER(threading)
-  printf0("average over 100 solves: %lf seconds\n", t/100 );
-  printf0("minimum out of 100 solves: %lf seconds\n", t_min );
-  prof_print( l );
-  END_MASTER(threading)
-#endif
-  
-  vector_double_change_layout( &sol, &sol, _NV_LV_SV, no_threading );
-  vector_double_change_layout( &rhs, &rhs, _NV_LV_SV, no_threading );
-
-  return iter;
-}
-
-
-void solve( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading ) {
-  
-  if ( g.vt.evaluation ) {
-    vector_double rhs = g.mixed_precision==2?g.p_MP.dp.b:g.p.b;
-    // this would yield different results if we threaded it, so we don't
-    START_LOCKED_MASTER(threading)
-    //vector_double_define_random( &rhs, 0, l->inner_vector_size, l );
-    vector_double_define_random_new( &rhs, l, threading );
-    scan_var( &(g.vt), l );
-    END_LOCKED_MASTER(threading)
-  } else {
-    wilson_driver( solution, source, l, threading );
-  }
-}
-
-
 void solve_driver( level_struct *l, struct Thread *threading ) {
   
   vector_double solution, source;
   double minus_twisted_bc[4], norm[g.num_rhs_vect];
   
-  vector_double_init( &solution );
-  vector_double_init( &source );
+  vector_double_init( &solution ); solution.num_vect_now = g.num_rhs_vect;//!!!!!!!
+  vector_double_init( &source ); source.num_vect_now = g.num_rhs_vect;//!!!!!!!
+  vector_double_alloc( &solution, _INNER, g.num_rhs_vect, l, threading );
+  vector_double_alloc( &source, _INNER, g.num_rhs_vect, l, threading );
+  rhs_define( &source, l, threading ); 
+  solution.num_vect_now = g.num_rhs_vect;
+  //vector_double_change_layout( &solution, &solution, _NVEC_INNER, no_threading );
+  //vector_double_change_layout( &source, &source, _NVEC_INNER, no_threading );
  
   if(g.bc==2)
     for ( int i=0; i<4; i++ )
@@ -152,18 +101,11 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
     printf0("inverting doublet operator\n");
   }
 #endif
-  vector_double_alloc( &solution, _INNER, g.num_rhs_vect, l, threading );
-  vector_double_alloc( &source, _INNER, g.num_rhs_vect, l, threading );
-
-  rhs_define( &source, l, threading );
-  
-  vector_double_change_layout( &solution, &solution, _LV_SV_NV, no_threading );
-  vector_double_change_layout( &source, &source, _LV_SV_NV, no_threading );
 
   if(g.bc==2)
       apply_twisted_bc_to_vector_double_new( &source, &source, g.twisted_bc, l);
 
-  global_norm_double_new( norm, &source, l, threading );
+  global_norm_double_new( norm, &source, 0, l->inner_vector_size, l, threading );
   for( int i=0; i<g.num_rhs_vect; i++ ){
     //norm = global_norm_double( &source, 0, l->inner_vector_size, l, threading );
     printf0("source vector %d norm: %le\n",i,norm[i]);
@@ -201,14 +143,21 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
   if(g.bc==2)
     apply_twisted_bc_to_vector_double_new( &solution, &solution, minus_twisted_bc, l);
  
-  global_norm_double_new( norm, &solution, l, threading );
+  global_norm_double_new( norm, &solution, 0, l->inner_vector_size, l, threading );
   for( int i=0; i<g.num_rhs_vect; i++ ){
     //norm = global_norm_double( &solution, 0, l->inner_vector_size, l, threading );
     printf0("solution vector %d norm: %le\n",i,norm[i]);
   }
 
-  vector_double_change_layout( &solution, &solution, _NV_LV_SV, no_threading );
-  vector_double_change_layout( &source, &source, _NV_LV_SV, no_threading );
+  vector_double_change_layout( &solution, &solution, _NVEC_OUTER, no_threading );
+  vector_double_change_layout( &source, &source, _NVEC_OUTER, no_threading );
+
+  FILE *f;
+  f = fopen("DDsol.out","w");
+  for ( int jj=0;jj<g.num_rhs_vect; jj++)
+    for ( int jjj=0; jjj<solution.size; jjj++)
+      fprintf(f,"vec_%d[%d] = %g %g\n", jj,jjj,creal_double(solution.vector_buffer[jj*solution.size+jjj]),cimag_double(solution.vector_buffer[jj*solution.size+jjj]));
+  fclose(f);
 
   vector_double_free( &solution, l, threading );
   vector_double_free( &source, l, threading );
@@ -219,3 +168,68 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 #endif
 }
 
+static void solve( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading ) {
+  
+  if ( g.vt.evaluation ) {//?????
+    vector_double rhs = g.mixed_precision==2?g.p_MP.dp.b:g.p.b;
+    // this would yield different results if we threaded it, so we don't
+    START_LOCKED_MASTER(threading)
+    //vector_double_define_random( &rhs, 0, l->inner_vector_size, l );
+    vector_double_define_random_new( &rhs, 0, l->inner_vector_size, l ); rhs.num_vect_now = g.num_rhs_vect;
+    scan_var( &(g.vt), l );
+    END_LOCKED_MASTER(threading)
+  } else {
+    wilson_driver( solution, source, l, threading );
+  }
+}
+
+static int wilson_driver( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading ) {
+  
+  int iter = 0, start = threading->start_index[l->depth], end = threading->end_index[l->depth];
+  vector_double rhs = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.b:g.p.b; rhs.num_vect_now = g.num_rhs_vect;//!!!!!!! 
+  vector_double sol = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.x:g.p.x; sol.num_vect_now = g.num_rhs_vect;//!!!!!!! 
+
+#ifdef WILSON_BENCHMARK
+  START_MASTER(threading)
+  prof_init( l );
+  END_MASTER(threading)
+  double t = -MPI_Wtime();
+  double t_min = 1000;
+  for ( int i=0; i<100; i++ ) {
+    double tmp_t = -MPI_Wtime();
+#endif
+    //vector_double_change_layout( &sol, &sol, _NVEC_INNER, no_threading );
+    //vector_double_change_layout( &rhs, &rhs, _NVEC_INNER, no_threading );
+  printf("wilson_driver\n");//debug!!!!!
+  //vector_double_copy( &rhs, source, start, end, l );
+  vector_double_copy_new( &rhs, source, start, end, l );
+  if ( g.method == -1 ) {
+    cgn_double( &(g.p), l, threading );
+  } else if ( g.mixed_precision == 2 ) {
+    iter = fgmres_MP( &(g.p_MP), l, threading );
+  } else {
+    printf("wil: %d %d %d\n",g.p.b.num_vect_now, g.num_vect_now,g.mixed_precision==2 && g.method >= 0);
+    iter = fgmres_double( &(g.p), l, threading );
+    printf("wil2: %d %d\n",g.p.b.num_vect_now, g.num_vect_now);
+  }
+  //vector_double_copy( solution, &sol, start, end, l );
+  vector_double_copy_new( solution, &sol, start, end, l );
+  
+#ifdef WILSON_BENCHMARK
+    tmp_t += MPI_Wtime();
+    if ( tmp_t < t_min )
+      t_min = tmp_t;
+  }
+  t +=MPI_Wtime();
+  START_MASTER(threading)
+  printf0("average over 100 solves: %lf seconds\n", t/100 );
+  printf0("minimum out of 100 solves: %lf seconds\n", t_min );
+  prof_print( l );
+  END_MASTER(threading)
+#endif
+  
+    //vector_double_change_layout( &sol, &sol, _NVEC_OUTER, no_threading );
+    //vector_double_change_layout( &rhs, &rhs, _NVEC_OUTER, no_threading );
+
+  return iter;
+}

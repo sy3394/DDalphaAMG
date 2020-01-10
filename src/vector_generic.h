@@ -16,7 +16,10 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * new file from sbacchio
+ * checked:12/06/2019
+ * 1sr cleanup: 12/18/2019
  */
 
 #ifndef VECTOR_PRECISION_HEADER
@@ -27,16 +30,30 @@
   void vector_PRECISION_init( vector_PRECISION *vec );
   void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect, level_struct *l, struct Thread *threading );
   void vector_PRECISION_free( vector_PRECISION *vec, level_struct *l, Thread *threading);
-  void vector_PRECISION_define( vector_PRECISION *phi, complex_PRECISION value, int start, int end, level_struct *l );
-  void vector_PRECISION_define_new( vector_PRECISION *phi, complex_PRECISION value, level_struct *l, struct Thread *threading );
-  void vector_PRECISION_real_scale( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION alpha,
-                                    int start, int end, level_struct *l );
+
+  void vector_PRECISION_define_new( vector_PRECISION *phi, complex_PRECISION value, int start, int end, level_struct *l );
+  void set_boundary_PRECISION_new( vector_PRECISION *phi, complex_PRECISION alpha, level_struct *l, struct Thread *threading );
+  void vector_PRECISION_define_random_new( vector_PRECISION *phi, int start, int end, level_struct *l ); 
+
+void vector_PRECISION_duplicate( vector_PRECISION *z, vector_PRECISION *x, int start, level_struct *l );
+void vector_PRECISION_copy_new2( vector_PRECISION *z, vector_PRECISION *x, int loc, int dir,  level_struct *l );
+  void vector_PRECISION_copy_new( vector_PRECISION *z, vector_PRECISION *x, int start, int end, level_struct *l );
+  void vector_PRECISION_scale_new( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION *alpha, int k, int start, int end, level_struct *l );
   void vector_PRECISION_real_scale_new( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION *alpha,
-                                  int n, int opt, level_struct *l, struct Thread *threading );
-  void vector_PRECISION_copy( vector_PRECISION *z, vector_PRECISION *x, int start, int end, level_struct *l ); // z := x
-  void vector_PRECISION_copy_new( vector_PRECISION *z, vector_PRECISION *x, level_struct *l, struct Thread *threading );
+					int n, int opt, int start, int end, level_struct *l );
+
+  void vector_PRECISION_plus_new( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l );
+  void vector_PRECISION_minus_new( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l );
+  void vector_PRECISION_saxpy_new( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, complex_PRECISION *alpha, int k, int sign, int start, int end, level_struct *l );
+  void vector_PRECISION_multi_saxpy_new( vector_PRECISION *z, vector_PRECISION *V, complex_PRECISION *alpha,
+					 int sign, int count, level_struct *l, struct Thread *threading );
+
   void vector_PRECISION_check_comp( vector_PRECISION *vec1, vector_PRECISION *vec2 );
   void vector_PRECISION_change_layout( vector_PRECISION *vec_out, vector_PRECISION *vec_in, const int layout, struct Thread *threading );
+  void trans_PRECISION_new( vector_PRECISION *out, vector_double *in, int *tt, level_struct *l, struct Thread *threading );
+  void trans_back_PRECISION_new( vector_double *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading );
+
   void vector_PRECISION_test_routine( level_struct *l, struct Thread *threading );
-  
+  void free_alloc_PRECISION( level_struct *l, int n_v_old, int n_v_new ); 
+
 #endif

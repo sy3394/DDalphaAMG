@@ -16,7 +16,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * minor change from sbacchio
+ * checked:12/04/2019
+ * glanced over:12/18/2019
+ * confirmed:not changed much from milla:0102/2020
  */
 
 #include "main.h"
@@ -27,8 +31,10 @@ void interpolation_PRECISION_struct_init( interpolation_PRECISION_struct *is ) {
   is->agg_boundary_index[T] = NULL;
   is->agg_boundary_neighbor[T] = NULL;
   is->operator = NULL;
-  is->test_vector = NULL;
-  is->interpolation = NULL;
+  //is->test_vector = NULL;
+  //is->interpolation = NULL;
+  vector_PRECISION_init(&(is->test_vector_vec));
+  vector_PRECISION_init(&(is->interpolation_vec));
   is->eigenvalues = NULL;
   vector_PRECISION_init(&(is->tmp));
   is->bootstrap_vector = NULL;
@@ -42,13 +48,15 @@ void coarsening_index_table_PRECISION_alloc( interpolation_PRECISION_struct *is,
   
   is->num_agg = 1;
   for ( mu=0; mu<4; mu++ ) {
-    agg_split[mu] = l->local_lattice[mu]/l->coarsening[mu];
-    agg_size[mu] = l->coarsening[mu];
-    is->num_agg *= agg_split[mu];
+    agg_split[mu] = l->local_lattice[mu]/l->coarsening[mu]; // #aggregates in a local lattice
+    agg_size[mu] = l->coarsening[mu];                       // dims of each aggregate
+    is->num_agg *= agg_split[mu];                           // total #aggregates in a local lattice
   }
 
   count[T]=&t; count[Z]=&z; count[Y]=&y; count[X]=&x;
   for ( mu=0; mu<4; mu++ ) {
+#ifdef USE_LEGACY
+    //count[T]=&t; count[Z]=&z; count[Y]=&y; count[X]=&x;//my porposal
     i = 0; j = 0;
     for ( d0=0; d0<agg_split[T]; d0++ )
       for ( c0=0; c0<agg_split[Z]; c0++ )
@@ -71,6 +79,17 @@ void coarsening_index_table_PRECISION_alloc( interpolation_PRECISION_struct *is,
     // number of lattice sites in local volume
     // that have a neighbor site in mu-direction which belongs to a different aggregate
     is->agg_boundary_length[mu] = j;
+#else
+    int k=1;//can be moved or use another already defind var!!!!!!!!
+    for(int nu=0;nu<4;nu++) if(nu!=mu) k *= l->local_lattice[nu];
+    //printf("coarsening_index_table_PRECISION_alloc:i,j,i_t,j_t=%d %d %d %d\n",i,j,(agg_size[mu]-1)*k*agg_split[mu],k*agg_split[mu]);
+    // number of lattice sites in local volume
+    // that have a neighbor site in mu-direction which belongs to the same aggregate
+    is->agg_length[mu] = (agg_size[mu]-1)*k*agg_split[mu];
+    // number of lattice sites in local volume
+    // that have a neighbor site in mu-direction which belongs to a different aggregate
+    is->agg_boundary_length[mu] = k*agg_split[mu];
+#endif
   }
   
   // index table for contributions to the self couplings of the coarse operator
@@ -121,13 +140,13 @@ void coarsening_index_table_PRECISION_define( interpolation_PRECISION_struct *is
       *neighbor = s->op.neighbor_table;
     
   for ( mu=0; mu<4; mu++ ) {
-    agg_split[mu] = l->local_lattice[mu]/l->coarsening[mu];
-    agg_size[mu] = l->coarsening[mu];
-    block_split[mu] = l->coarsening[mu]/l->block_lattice[mu];
-    block_size[mu] = l->block_lattice[mu];
+    agg_split[mu] = l->local_lattice[mu]/l->coarsening[mu];   // #aggregates
+    agg_size[mu] = l->coarsening[mu];                         // dims of an aggregate
+    block_split[mu] = l->coarsening[mu]/l->block_lattice[mu]; // #blocks in an aggregate
+    block_size[mu] = l->block_lattice[mu];                    // dims of a block
   }
 
-  stride = (l->depth==0)?4:5; offset = (l->depth==0)?0:1;
+  stride = (l->depth==0)?4:5; offset = (l->depth==0)?0:1; // See define_nt_bt_tt in data_layout.c
   count[T]=&t; count[Z]=&z; count[Y]=&y; count[X]=&x;
   // filling index tables according to the schwarz operator layout
   for ( mu=0; mu<4; mu++ ) {
@@ -136,23 +155,28 @@ void coarsening_index_table_PRECISION_define( interpolation_PRECISION_struct *is
     index_dir = is->agg_index[mu];
     boundary_index_dir = is->agg_boundary_index[mu];
     boundary_neighbor_index_dir = is->agg_boundary_neighbor[mu];
-    
+
+    // visit each site in local lattice in the Schwarz order (index: iter_index -> Scwarz_index)
+    //  i: counts the inner pos mu aggregate boundary sites in the order encountered
+    //  j: counts the other sites
+    // for each aggregate
     for ( d0=0; d0<agg_split[T]; d0++ )
       for ( c0=0; c0<agg_split[Z]; c0++ )
         for ( b0=0; b0<agg_split[Y]; b0++ )
           for ( a0=0; a0<agg_split[X]; a0++ )
-            
+            // for each block in the aggregate
             for ( d1=d0*block_split[T]; d1<(d0+1)*block_split[T]; d1++ )
               for ( c1=c0*block_split[Z]; c1<(c0+1)*block_split[Z]; c1++ )
                 for ( b1=b0*block_split[Y]; b1<(b0+1)*block_split[Y]; b1++ )
                   for ( a1=a0*block_split[X]; a1<(a0+1)*block_split[X]; a1++ )
-                    
+                    // for each site in the block
                     for ( t=d1*block_size[T]; t<(d1+1)*block_size[T]; t++ )
                       for ( z=c1*block_size[Z]; z<(c1+1)*block_size[Z]; z++ )
                         for ( y=b1*block_size[Y]; y<(b1+1)*block_size[Y]; y++ )
                           for ( x=a1*block_size[X]; x<(a1+1)*block_size[X]; x++ )
-                            
+                            // if the neighbor in the pos mu dir in the adjacent aggregate
                             if ( (*(count[mu])+1) % agg_size[mu] != 0 ) {
+			      // set is->agg_index[mu]: i counts these sites in Schwarz order (table_dim = l->local_lattice[mu]+2)
                               index_dir[i] = site_index( t, z, y, x, table_dim, index_table );
                               i++;
                             } else {

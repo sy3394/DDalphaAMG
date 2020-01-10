@@ -16,9 +16,20 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * checked:11/30/2019
+ * changed from sbacchio: took out SSE part
+ * glanced over: 12/08/2019
+ * glanced over:12/18/2019
+ * confirmed: not modified from milla:01/03/2020
  */
- 
+
+/*
+  Description: Define Gamma Matrices in various bases using macros.
+  
+  CLIFFORD_BASIS contains information about the basis of choice.
+  GAMMA_i_SPINs_CO, with i=T,Z,Y,X and s=0,..3, specifies the non-zero entry of sth column of Gamma_i.
+  GAMMA_i_SPINs_VAL is the value of the entry specified by GAMMA_i_SPINs_CO.
+ */ 
 #ifndef CLIFFORD_HEADER
   #define CLIFFORD_HEADER
   // assertion: gamma5 = (+/-) diag( 1, 1, -1, -1 )

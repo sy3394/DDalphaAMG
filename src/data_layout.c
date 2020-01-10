@@ -16,11 +16,16 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * checked: 11/29/2019
+ * not changed from sbacchio
+ * glanced over: 12/08/2019
+ * glanced over:12/19/2019
+ * confirmed: not changed from milla:01/02/2020
  */
 
 #include "main.h"
 
+// Compute volume of local lattice and size of local vectors
 void data_layout_init( level_struct *l ) {
   
   int i, j;
@@ -127,7 +132,9 @@ void define_eot( int *eot, int *N, level_struct *l ) {
     le[mu] = ls[mu] + l->local_lattice[mu];
   }
   
-  i = 0;
+  // eot: local_lex_index -> iter_index
+  i = 0; 
+  // visit even sites in the local lexicographical order
   for ( t=0; t<le[T]; t++ )
     for ( z=0; z<le[Z]; z++ )
       for ( y=0; y<le[Y]; y++ )
@@ -136,7 +143,7 @@ void define_eot( int *eot, int *N, level_struct *l ) {
             eot[ lex_index( t, z, y, x, N ) ] = i;
             i++;
           }
-          
+  // visit odd sites in the local lexicographical order
   for ( t=0; t<le[T]; t++ )
     for ( z=0; z<le[Z]; z++ )
       for ( y=0; y<le[Y]; y++ )
@@ -145,11 +152,11 @@ void define_eot( int *eot, int *N, level_struct *l ) {
             eot[ lex_index( t, z, y, x, N ) ] = i;
             i++;
           }
-                  
+  // visit outer boundary sites in pos dir
   for ( mu=0; mu<4; mu++ ) {
     ls[mu] = le[mu];
     le[mu]++;
-    
+    // first go over even sites
     for ( t=ls[T]; t<le[T]; t++ )
       for ( z=ls[Z]; z<le[Z]; z++ )
         for ( y=ls[Y]; y<le[Y]; y++ )
@@ -158,7 +165,7 @@ void define_eot( int *eot, int *N, level_struct *l ) {
               eot[ lex_index( t, z, y, x, N ) ] = i;
               i++;
             }
-            
+    // then go over odd sites
     for ( t=ls[T]; t<le[T]; t++ )
       for ( z=ls[Z]; z<le[Z]; z++ )
         for ( y=ls[Y]; y<le[Y]; y++ )
@@ -184,16 +191,19 @@ void define_eo_bt( int **bt, int *eot, int *n_ebs, int *n_obs, int *n_bs, int *N
   
   for ( mu=0; mu<4; mu++ )
     oe_offset += (l->local_lattice[mu]*(g.my_coords[mu]/l->comm_offset[mu]))%2;
-  oe_offset = oe_offset%2;
+  oe_offset = oe_offset%2;//???????
   
   for ( mu=0; mu<4; mu++ ) {
     bt_mu = bt[2*mu];
-    bs = 1;
+    bs = 1; 
     le[mu] = 1;
     for ( nu=0; nu<4; nu++ )
-      bs *= le[nu];
+      bs *= le[nu]; // size (#sites) in the boundary in the mu dir
      
-    i = 0;
+    // define negative boundary table (bt[2*mu]: iter_index -> eot_index)                                                                                       
+    //   go over each negative boundaries (mu:0->3)                                                                                                                                
+    //   i: counts #even boundary sites in the mu dir
+    i = 0; 
     for ( t=0; t<le[T]; t++ )
       for ( z=0; z<le[Z]; z++ )
         for ( y=0; y<le[Y]; y++ )
@@ -202,9 +212,12 @@ void define_eo_bt( int **bt, int *eot, int *n_ebs, int *n_obs, int *n_bs, int *N
               bt_mu[i] = site_index( t, z, y, x, N, eot );
               i++;
             }
-    n_ebs[2*mu] = i;
-    n_ebs[2*mu+1] = i;
+    n_ebs[2*mu] = i;   // #even boundary sites in the pos mu dir
+    n_ebs[2*mu+1] = i; // #even boundary sites in the neg mu dir
     
+    // define negative boundary table for communication (bt[2*mu+1]: iter_index -> eot_index)                                                                                       
+    //   go over each negative boundaries (mu:0->3)                                                                                                                                
+    //   i: counts neg inner boundary sites   
     for ( t=0; t<le[T]; t++ )
       for ( z=0; z<le[Z]; z++ )
         for ( y=0; y<le[Y]; y++ )
@@ -214,10 +227,10 @@ void define_eo_bt( int **bt, int *eot, int *n_ebs, int *n_obs, int *n_bs, int *N
               i++;
             }
             
-    n_obs[2*mu] = i - n_ebs[2*mu];
-    n_obs[2*mu+1] = i - n_ebs[2*mu+1];
-    n_bs[2*mu] = i;
-    n_bs[2*mu+1] = i;
+    n_obs[2*mu] = i - n_ebs[2*mu];     // #odd boundary sites in the pos mu dir 
+    n_obs[2*mu+1] = i - n_ebs[2*mu+1]; // #odd boundary sites in the neg mu dir
+    n_bs[2*mu] = i;                    // #total boundary sites in the pos mu dir
+    n_bs[2*mu+1] = i;                  // #total boundary sites in the neg mu dir
     le[mu] = l->local_lattice[mu];
   }
 }
@@ -229,7 +242,7 @@ void define_nt_bt_tt( int *nt, int *backward_nt, int **bt, int *tt, int *it, int
 * Defines neighbor table (for the application of the entire operator), negative 
 * inner boundary table (for communication) and translation table (for translation 
 * to lexicographical site ordnering).
-* - int *nt: neighbor table
+* - int *nt: neighbor table 
 * - int **bt: boundary table
 * - int *tt: translation table
 * - int *it: index table
@@ -248,7 +261,9 @@ void define_nt_bt_tt( int *nt, int *backward_nt, int **bt, int *tt, int *it, int
     l_en[mu] = le[mu];
   }
   
-  // define neighbor table
+  // define neighbor table for each site in the local lattice (nt: it_index+mu -> it_index of neighbor in the pos mu dir; ignoring offset)
+  //   stride: for each site, we have four neighbors in pos dirs (mu)
+  //   offset: but if depth>0, we also store iter_index of the site as well at the beggining
   stride = (l->depth==0)?4:5; offset = (l->depth==0)?0:1;
   for ( t=ls[T]; t<le[T]; t++ )
     for ( z=ls[Z]; z<le[Z]; z++ )
@@ -263,7 +278,9 @@ void define_nt_bt_tt( int *nt, int *backward_nt, int **bt, int *tt, int *it, int
           nt[stride*pos+offset+X] = site_index( t, z, y, (gs[X]>1)?x+1:(x+1)%le[X], dt, it ); // X dir
         }
 
-  // define backward neighbor table
+  // define backward neighbor table for each site in the local lattice (nt: it_index+mu -> it_index of neighbor in the neg mu dir; ignoring offset)
+  //   stride: for each site, we have four neighbors in pos dirs (mu)  
+  //   offset: but if depth>0, we also store iter_index of the site as well at the beggining 
   stride = (l->depth==0)?4:5; offset = (l->depth==0)?0:1;
   for ( t=ls[T]; t<le[T]; t++ )
     for ( z=ls[Z]; z<le[Z]; z++ )
@@ -280,7 +297,9 @@ void define_nt_bt_tt( int *nt, int *backward_nt, int **bt, int *tt, int *it, int
         
   if ( bt != NULL ) {
     for ( mu=0; mu<4; mu++ ) {
-      // define negative boundary table for communication
+      // define negative boundary table for communication (bt[2*mu+1]: iter_index -> it_index)
+      //   go over each negative boundaries (mu:0->3)
+      //   i: counts neg inner boundary sites
       l_en[mu] = l_st[mu]+1;
       bt_mu = bt[2*mu+1];
       i = 0;
@@ -293,7 +312,9 @@ void define_nt_bt_tt( int *nt, int *backward_nt, int **bt, int *tt, int *it, int
             }
       l_en[mu] = le[mu];
       
-      // define positive boundary table for communication (if desired)
+      // define positive boundary table for communication (if desired) (bt[2*mu]: iter_index -> it_index)
+      //   go over each positive boundaries (mu:0->3)
+      //   i: counts pos inner boundary sites 
       if ( bt[2*mu] != bt[2*mu+1] ) {
         l_st[mu] = le[mu]-1;
         bt_mu = bt[2*mu];
@@ -310,8 +331,7 @@ void define_nt_bt_tt( int *nt, int *backward_nt, int **bt, int *tt, int *it, int
     }
   }
   
-  // define layout translation table
-  // for translation to lexicographical site ordering
+  // define layout translation table (tt: local_lex_index -> it_index)
   if ( tt != NULL ) {
     i = 0;
     for ( t=0; t<l->local_lattice[T]; t++ )

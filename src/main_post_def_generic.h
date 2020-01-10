@@ -16,7 +16,8 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * checked:11/30/2019
+ * changed from sbacchio
  */
 
 #ifndef MAIN_POST_DEF_PRECISION_HEADER
@@ -40,7 +41,7 @@
     } else
 #endif
       {
-        gamma5_PRECISION( &(l->vbuf_PRECISION[6]), input, l, threading );
+        gamma5_PRECISION_new( &(l->vbuf_PRECISION[6]), input, l, threading );
 #ifdef HAVE_TM
         //TODO: change_mu_sign_PRECISION( p->op, l, threading );
 #endif
@@ -54,7 +55,7 @@
     } else
 #endif
       {
-        gamma5_PRECISION( output, &(l->vbuf_PRECISION[7]), l, threading );
+        gamma5_PRECISION_new( output, &(l->vbuf_PRECISION[7]), l, threading );
 #ifdef HAVE_TM
         //TODO: change_mu_sign_PRECISION( p->op, l, threading );
 #endif
@@ -74,5 +75,5 @@
       fflush(0);
     }
   }
-  
+
 #endif

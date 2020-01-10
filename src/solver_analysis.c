@@ -16,14 +16,17 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * changed from sbacchio
+ * glanced over: 12/08/2019
+ * 1st cleanup:12/18/2019
  */
 
 #include "main.h"
 
-
-void test_routine( level_struct *l, struct Thread *threading ) {
-
+void test_routine_new( level_struct *l, struct Thread *threading ) {
+  int tmp = g.num_vect_now;
+  g.num_vect_now=g.num_rhs_vect;
   if ( g.method >= 0 ) {
     START_MASTER(threading)
     g.test = 0;
@@ -42,12 +45,12 @@ void test_routine( level_struct *l, struct Thread *threading ) {
     END_MASTER(threading)
     if ( g.mixed_precision ) {
       operator_float_test_routine( &(l->s_float.op), l, threading );
-      if ( g.method > 0 && g.method < 4 ) schwarz_float_mvm_testfun( &(l->s_float), l, threading );
-      if ( g.method > 0 && g.method < 4 && g.odd_even ) block_oddeven_float_test( l, threading );
+      if ( g.method > 0 && g.method < 4 ) schwarz_float_mvm_testfun_new( &(l->s_float), l, threading );
+      if ( g.method > 0 && g.method < 4 && g.odd_even ) block_oddeven_float_test_new( l, threading );
     } else {
       operator_double_test_routine( &(l->s_double.op), l, threading );
-      if ( g.method > 0 && g.method < 4 ) schwarz_double_mvm_testfun( &(l->s_double), l, threading );
-      if ( g.method > 0 && g.method < 4 && g.odd_even ) block_oddeven_double_test( l, threading );
+      if ( g.method > 0 && g.method < 4 ) schwarz_double_mvm_testfun_new( &(l->s_double), l, threading );
+      if ( g.method > 0 && g.method < 4 && g.odd_even ) block_oddeven_double_test_new( l, threading );
     }
     
  /*   if ( g.mixed_precision )
@@ -57,9 +60,9 @@ void test_routine( level_struct *l, struct Thread *threading ) {
 */
     if ( g.interpolation && g.method > 0 ) {
       if ( g.mixed_precision )
-        coarse_operator_float_test_routine( l, threading );
+        coarse_operator_float_test_routine_new( l, threading );
       else
-        coarse_operator_double_test_routine( l, threading );
+        coarse_operator_double_test_routine_new( l, threading );
     }
     START_MASTER(threading)
     if (g.test < 1e-5)
@@ -69,8 +72,9 @@ void test_routine( level_struct *l, struct Thread *threading ) {
     printf0("\n");
     END_MASTER(threading)
   }
-
-
+            error0("STOP\n");
+  g.num_vect_now=tmp;
+/*
 #ifdef HAVE_TM1p1
   if( g.n_flavours==1 &&
       (g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0) ) {
@@ -117,7 +121,7 @@ void test_routine( level_struct *l, struct Thread *threading ) {
     }
   }
 #endif
-
+*/
 }
 
 

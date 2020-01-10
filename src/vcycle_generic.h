@@ -16,7 +16,10 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * checled:11/30/2019
+ * changed from sbacchio
+ * checked: 12/08/2019
+ * 1st cleanup:12/18/2019
  */
 
 #ifndef VCYCLE_PRECISION_HEADER
@@ -32,10 +35,10 @@
   #include "threading.h"
   #include "solver_analysis.h"
 
-  void smoother_PRECISION( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRECISION *eta,
-                           int n, const int res, level_struct *l, struct Thread *threading );
-    
-  void vcycle_PRECISION( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRECISION *eta,
-                         int res, level_struct *l, struct Thread *threading );
+
+  void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRECISION *eta,
+			     int res, level_struct *l, struct Thread *threading );
+
+  void vcycle_timing_PRECISION( int n, level_struct *l, struct Thread *threading );
   
 #endif

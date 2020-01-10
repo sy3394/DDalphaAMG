@@ -16,23 +16,24 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * checked:11/30/2019
+ * not changed from sbacchio
+ * checked: 12/09/2019
+ * 1st cleanup:12/18/2019
  */
 
 #ifndef INIT_PRECISION_HEADER
   #define INIT_PRECISION_HEADER
 
-struct Thread;
+  struct Thread;
   
   void prof_PRECISION_init( level_struct *l );
   double prof_PRECISION_print( level_struct *l );
-  
+
+  void level_PRECISION_init( level_struct *l );
   void fine_level_PRECISION_alloc( level_struct *l );
   void fine_level_PRECISION_free( level_struct *l );
   void next_level_PRECISION_setup( level_struct *l );
   void next_level_PRECISION_free( level_struct *l );
-  void level_PRECISION_init( level_struct *l );
-  
-  void vcycle_timing_PRECISION( int n, level_struct *l, struct Thread *threading );
 
 #endif

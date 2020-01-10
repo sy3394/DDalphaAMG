@@ -16,121 +16,54 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * checked:11/30/2019: change #differing #vectors
+ * changed from sbacchio
+ * checked:12/03/2019
+ * 1st cleanup: 12/18/2019
  */
 
 #include "main.h"
 
-void process_multi_inner_product_MP( int count, complex_double *results, vector_float *phi,
-                                     vector_float *psi, int start, int end, level_struct *l,
-                                     struct Thread *threading ) {
 
-  PROF_float_START( _PIP, threading );
-  int i;
-  for(int c=0; c<count; c++)
-    results[c] = 0.0;
-
-  int thread_start;
-  int thread_end;
-
-  SYNC_CORES(threading)
- 
-  compute_core_start_end_custom(start, end, &thread_start, &thread_end, l, threading, 12);
-  for(int c=0; c<count; c++) {
-    for ( i=thread_start; i<thread_end; ) {
-      FOR12( results[c] += (complex_double) conj_float(phi[c].vector_buffer[i])*psi->vector_buffer[i]; i++; )
-    }
-  }
-
-  START_NO_HYPERTHREADS(threading)
-  ((complex_double **)threading->workspace)[threading->core] = results;
-  END_NO_HYPERTHREADS(threading)
-  // master sums up all results
-  SYNC_CORES(threading)
-  START_MASTER(threading)
-  for(int c=0; c<count; c++)
-    for(int i=1; i<threading->n_core; i++)
-      ((complex_double **)threading->workspace)[0][c] += ((complex_double **)threading->workspace)[i][c];
-  END_MASTER(threading)
-  // all threads need the result of the norm
-  SYNC_MASTER_TO_ALL(threading)
-  for(int c=0; c<count; c++)
-    results[c] = ((complex_double **)threading->workspace)[0][c];
-
-  PROF_float_STOP( _PIP, (double)(end-start)/(double)l->inner_vector_size, threading );
-}
-
-
+// results <- (phi's, psi) processwise 
+// assume resutls have phi->num_vect_now fields 
 void process_multi_inner_product_MP_new( int count, complex_double *results, vector_float *phi,
-                                     vector_float *psi, level_struct *l, struct Thread *threading ) {
+					 vector_float *psi, level_struct *l, struct Thread *threading ) {
+  /*****************************************
+   * Assume: each vector set in phi contains the same #used vectors as in psi
+   * Input:
+   *  int count: #basis vectors to be multiplied
+   *  vector_float *phi: array of basis vectors
+   *  vector_float *psi: a vector multiplying each basis vector in the array
+   * Output:
+   *  complex_double *results: stores the inner products (count x psi->num_vect_now) of each vector in the basis phi and the given vector psi on each process
+   *****************************************/
 
   int start, end;
   compute_core_start_end(0, psi->size, &start, &end, l, threading);
   int thread = omp_get_thread_num();
-  if(thread == 0 && start != end)
+  if ( thread == 0 && start != end)
     PROF_float_START( _PIP, threading );
   
-  int i, j, jj;
-  for(int c=0; c<count; c++)
-   VECTOR_LOOP(j, psi->num_vect, jj, results[c*psi->num_vect+j+jj] = 0.0;)
+  int c, i, j, jj, nvec = psi->num_vect_now;
+  for ( c=0; c<count; c++)
+   VECTOR_LOOP(j, nvec, jj, results[c*nvec+j+jj] = 0.0;)
 
-  for(int c=0; c<count; c++)
+  for ( c=0; c<count; c++ ) {
+    if ( phi[c].num_vect_now != psi->num_vect_now )
+      error0("process_multi_inner_product_MP: phi[%d]->num_vect_now != psi->num_vect_now \n",c);
     for ( i=start; i<end; i++ )
-      VECTOR_LOOP(j, psi->num_vect, jj, results[c*psi->num_vect+j+jj] += (complex_double) conj_float(phi[c].vector_buffer[i*psi->num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj];)
-  
+      VECTOR_LOOP(j, nvec, jj, results[c*nvec+j+jj] += (complex_double) conj_float(phi[c].vector_buffer[i*phi[c].num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj])//;printf("pMP: %g ",creal_double(results[c*nvec+j+jj]));)
+  }
+
   if(thread == 0 && start != end)
     PROF_float_STOP( _PIP, (double)(end-start)/(double)l->inner_vector_size, threading );
 }
 
-double global_norm_MP( vector_float *x, int start, int end, level_struct *l, struct Thread *threading ) {
-  
-  PROF_float_START( _GIP, threading );
-  
-  int i;
-  double local_alpha = 0, global_alpha = 0;
-
-  int thread_start;
-  int thread_end;
-  compute_core_start_end(start, end, &thread_start, &thread_end, l, threading);
-  
-  SYNC_CORES(threading)
-  for ( i=thread_start; i<thread_end; )
-    FOR12( local_alpha += (complex_double) NORM_SQUARE_float(x->vector_buffer[i]); i++; )
-
-  // sum over cores
-  START_NO_HYPERTHREADS(threading)
-  ((double *)threading->workspace)[threading->core] = local_alpha;
-  END_NO_HYPERTHREADS(threading)
-  // master sums up all results
-  SYNC_CORES(threading)
-  START_MASTER(threading)
-  for(int i=1; i<threading->n_core; i++)
-    ((double *)threading->workspace)[0] += ((double *)threading->workspace)[i];
-  local_alpha = ((double *)threading->workspace)[0];
-  END_MASTER(threading)
-
-  if ( g.num_processes > 1 ) {
-    START_MASTER(threading)
-    PROF_double_START( _ALLR );
-    MPI_Allreduce( &local_alpha, &global_alpha, 1, MPI_double, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_float.level_comm );
-    PROF_double_STOP( _ALLR, 1 );
-    ((double *)threading->workspace)[0] = global_alpha;
-    END_MASTER(threading)
-    // all threads need the result of the norm
-    SYNC_MASTER_TO_ALL(threading)
-    global_alpha = ((double *)threading->workspace)[0];
-    PROF_float_STOP( _GIP, (double)(end-start)/(double)l->inner_vector_size, threading );
-    return sqrt((double)global_alpha);
-  } else {
-    // all threads need the result of the norm
-    SYNC_MASTER_TO_ALL(threading)
-    local_alpha = ((double *)threading->workspace)[0];
-    PROF_float_STOP( _GIP, (double)(end-start)/(double)l->inner_vector_size, threading );
-    return sqrt((double)local_alpha);
-  }
-}
-
 void global_norm_MP_new( double *res, vector_float *x, level_struct *l, struct Thread *threading ) {
+  /*********************
+   * res <- norms of vectors in x: contains x->num_vect_now elements
+   ********************/
 
   int start, end;
   compute_core_start_end(0, x->size, &start, &end, l, threading);
@@ -138,13 +71,39 @@ void global_norm_MP_new( double *res, vector_float *x, level_struct *l, struct T
   if(thread == 0 && start != end)
     PROF_float_START( _GIP, threading );
 
-  int i, j, jj;
-  VECTOR_LOOP(j, x->num_vect, jj, res[j+jj]=0;)
+  int i, j, jj, nvec = x->num_vect_now;
+  double global_alpha[nvec];
+  VECTOR_LOOP(j, nvec, jj, res[j+jj]=0;)
   
   for( i=start; i<end; i++ )
-    VECTOR_LOOP(j, x->num_vect, jj, res[j+jj] += NORM_SQUARE_float(x->vector_buffer[i*x->num_vect+j+jj]);)
+    VECTOR_LOOP(j, nvec, jj, res[j+jj] += NORM_SQUARE_float(x->vector_buffer[i*x->num_vect+j+jj]);)
+
+  // communication  -------------------------------------
+  // sum over cores: be careful about overflow of workspace!!!!!!!! also potential problem using res directly
+  START_NO_HYPERTHREADS(threading)
+  VECTOR_LOOP(j, nvec, jj, ((double *)threading->workspace)[threading->core*nvec+j+jj] = res[j+jj];)
+  END_NO_HYPERTHREADS(threading)
+  // master sums up all results
+  SYNC_CORES(threading)
+  START_MASTER(threading)
+  for ( i=1; i<threading->n_core; i++)
+    VECTOR_LOOP(j, nvec, jj, ((double *)threading->workspace)[0*nvec+j+jj] += ((double *)threading->workspace)[i*nvec+j+jj];)
+  END_MASTER(threading)
+  SYNC_MASTER_TO_ALL(threading)
+  VECTOR_LOOP(j, nvec, jj, res[j+jj] = ((double *)threading->workspace)[0*nvec+j+jj];)
+  if ( g.num_processes > 1 ) {
+    START_MASTER(threading)
+    PROF_double_START( _ALLR );
+    MPI_Allreduce( res, global_alpha, nvec, MPI_double, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_float.level_comm );
+    PROF_double_STOP( _ALLR, 1 );
+    VECTOR_LOOP(j, nvec, jj, ((double *)threading->workspace)[0*nvec+j+jj] = global_alpha[j+jj];)
+    END_MASTER(threading)
+    // all threads need the result of the norm
+    SYNC_MASTER_TO_ALL(threading)
+    VECTOR_LOOP(j, nvec, jj, res[j+jj] = ((double *)threading->workspace)[0*nvec+j+jj];)
+  }
   
-  VECTOR_LOOP(j, x->num_vect, jj, res[j+jj] = (double)sqrt((double)res[j+jj]);)
+  VECTOR_LOOP(j, nvec, jj, res[j+jj] = (double)sqrt((double)res[j+jj]);)
   
   if(thread == 0 && start != end)
     PROF_float_STOP( _GIP, (double)(end-start)/(double)l->inner_vector_size, threading );

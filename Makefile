@@ -1,9 +1,10 @@
 # --- COMPILER ----------------------------------------
 CC = mpiicc 
-
+#intel mpiicc
+#gnu mpicc
 # --- CFLAGS -----------------------------------------
-CFLAGS_gnu = -std=gnu99 -Wall -pedantic -O3 -ffast-math -msse4.2 -fopenmp 
-CFLAGS_intel = -std=gnu99 -Wall -pedantic -O3  -xHOST -qopenmp 
+CFLAGS_gnu = -std=gnu99 -Wall -pedantic -O3 -ffast-math -msse4.2 -fopenmp -g3
+CFLAGS_intel = -std=gnu99 -Wall -pedantic -O3 -xAVX -qopenmp -g3
 CFLAGS = $(CFLAGS_intel)
 
 # --- DO NOT CHANGE -----------------------------------
@@ -38,16 +39,22 @@ DEP = $(patsubst %.c,%.dep,$(GSRC))
 # H5LIB=-lhdf5 -lz
 
 # --- FLAGS FOR LIME ---------------------------------
-LIMEFLAGS=-DHAVE_LIME -I$(LIMEDIR)/include
-LIMELIB= -L$(LIMEDIR)/lib -llime
+LIMEDIR=/home/syamamoto/src/c-lime/install
+LIMEFLAGS=-DHAVE_LIME -I${LIMEDIR}/include
+LIMELIB= -L${LIMEDIR}/lib -llime
+
+# --- FLAGS FOR EFENCE --------------------------------- 
+EFENCEDIR=/home/syamamoto/src/electric-fence
+EFENCEFLAGS=-I${EFENCEDIR}
+EFENCELIB= -L${EFENCEDIR} -lefence
 
 # Available flags:
 # -DPARAMOUTPUT -DTRACK_RES -DFGMRES_RESTEST -DPROFILING
 # -DSINGLE_ALLREDUCE_ARNOLDI
 # -DCOARSE_RES -DSCHWARZ_RES -DTESTVECTOR_ANALYSIS -DDEBUG
-OPT_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) $(H5FLAGS) -DPARAMOUTPUT -DTRACK_RES -DSSE -DOPENMP
-DEVEL_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) -DDEBUG -DPARAMOUTPUT -DTRACK_RES -DFGMRES_RESTEST -DPROFILING -DCOARSE_RES -DSCHWARZ_RES -DTESTVECTOR_ANALYSIS -DSSE -DOPENMP
-
+# -DOPTIMIZE -DSSE -DAVX -DAVX2 -DAVX512
+OPT_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) $(H5FLAGS) ${EFENCEFLAGS} -DPARAMOUTPUT -DTRACK_RES -DOPENMP -DDEBUG -DUSE_LEGACY
+DEVEL_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) ${EFENCEFLAGS} -DDEBUG -DPARAMOUTPUT -DTRACK_RES -DFGMRES_RESTEST -DPROFILING -DCOARSE_RES -DSCHWARZ_RES -DTESTVECTOR_ANALYSIS -DOPENMP
 
 all: execs library exec-tests
 execs: $(BINDIR)/DDalphaAMG $(BINDIR)/DDalphaAMG_devel
@@ -61,7 +68,7 @@ install: copy
 .SECONDARY:
 
 $(BINDIR)/DDalphaAMG : $(OBJ)
-	$(CC) $(OPT_VERSION_FLAGS) -o $@ $(OBJ) $(H5LIB) $(LIMELIB) -lm
+	$(CC) $(OPT_VERSION_FLAGS) -o $@ $(OBJ) $(H5LIB) $(LIMELIB) ${EFENCELIB} -lm
 
 DDalphaAMG : $(BINDIR)/DDalphaAMG
 	ln -sf $(BINDIR)/$@ $@
@@ -96,6 +103,9 @@ $(BUILDDIR)/%.o: $(GSRCDIR)/%.c $(SRCDIR)/*.h
 
 $(BUILDDIR)/%_devel.o: $(GSRCDIR)/%.c $(SRCDIR)/*.h
 	$(CC) -g $(DEVEL_VERSION_FLAGS) -c $< -o $@
+
+$(BUILDDIR)/%.optrpt: $(GSRCDIR)/%.c $(SRCDIR)/*.h
+        $(CC) $(OPT_VERSION_FLAGS) -qopt-report=3 -c $< 
 
 $(GSRCDIR)/%.h: $(SRCDIR)/%.h $(firstword $(MAKEFILE_LIST))
 	cp $< $@

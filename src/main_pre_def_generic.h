@@ -16,7 +16,8 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * checked: 11/29/2019
+ * changed from sbacchio
  */
 
 #ifndef MAIN_PRE_DEF_PRECISION_HEADER
@@ -29,15 +30,17 @@
   typedef struct {
     buffer_PRECISION vector_buffer;
     int num_vect;
+    int num_vect_now;
     int layout;
     int type;
     int size;
+    int start, end;
     struct level_struct *l;
   } vector_PRECISION;
 
   typedef struct {
     int length[8], *boundary_table[8], max_length[4],
-        comm_start[8], in_use[8], offset, comm,
+      comm_start[8], in_use[8], offset, comm, num_vect,
         num_even_boundary_sites[8], num_odd_boundary_sites[8],
         num_boundary_sites[8];
     buffer_PRECISION buffer[8];
@@ -45,20 +48,23 @@
   } comm_PRECISION_struct;
   
   typedef struct {
-    int ilde, dist_local_lattice[4], dist_inner_lattice_sites,
+    int ilde, //?????????
+      dist_local_lattice[4],    // dims of a local coarsened lattice?????
+      dist_inner_lattice_sites, // #local lattice inner sites of a coarsened lattice
         *permutation, *gather_list, gather_list_length;
-    vector_PRECISION buffer, transfer_buffer;
+    vector_PRECISION buffer, transfer_buffer;// buffer is used in gather routines
     MPI_Request *reqs;
     MPI_Group level_comm_group;
     MPI_Comm level_comm;
   } gathering_PRECISION_struct;
   
-  typedef struct {
+typedef struct {//operator column major?????? no!!!!
     double m0;
     config_PRECISION D, clover, clover_oo_inv;
     config_PRECISION odd_proj; //identity on the odd sites
     int oe_offset, self_coupling, num_even_sites, num_odd_sites,
-        *index_table, *neighbor_table, *translation_table, table_dim[4],
+      *index_table, pr_num_vect,
+        *neighbor_table, *translation_table, table_dim[4],
         *backward_neighbor_table,
         table_mod_dim[4], *config_boundary_table[4];
     vector_PRECISION *buffer;
@@ -81,7 +87,7 @@
     operator_PRECISION_struct *op;
     PRECISION tol;
     int num_restart, restart_length, timing, print, kind,
-      initial_guess_zero, layout, v_start, v_end;
+      initial_guess_zero, layout, v_start, v_end, num_vect;
     long int total_storage;
     void (*preconditioner)();
     void (*eval_operator)();
@@ -89,13 +95,15 @@
   
   typedef struct {
     operator_PRECISION_struct op;
-    vector_PRECISION buf1, buf2, buf3, buf4, buf5;
+    vector_PRECISION buf[5];//buf1, buf2, buf3, buf4, buf5;//!!!!!!!!!
     vector_PRECISION oe_buf[4];
     buffer_PRECISION local_minres_buffer[3];
-    int block_oe_offset, *index[4], dir_length[4], num_blocks, num_colors,
+    int block_oe_offset, *index[4],  dir_length[4], num_blocks, //# blocks within a local lattice
+      num_colors, // # colors used to color/partition the local lattice in SAP
         dir_length_even[4], dir_length_odd[4], *oe_index[4],
         num_block_even_sites, num_block_odd_sites, num_aggregates,
-        block_vector_size, num_block_sites, block_boundary_length[9],
+      block_vector_size, num_block_sites, // # sites in each block in a local lattice
+      block_boundary_length[9],
         **block_list, *block_list_length;
     block_struct *block;
   } schwarz_PRECISION_struct;
@@ -103,7 +111,7 @@
   typedef struct {
     int num_agg, *agg_index[4], agg_length[4], *agg_boundary_index[4],
         *agg_boundary_neighbor[4], agg_boundary_length[4], num_bootstrap_vect;
-    vector_PRECISION *test_vector, *interpolation, *bootstrap_vector, tmp;
+    vector_PRECISION *bootstrap_vector, tmp, test_vector_vec, interpolation_vec;//*test_vector, *interpolatio
     complex_PRECISION *operator, *eigenvalues, *bootstrap_eigenvalues;
   } interpolation_PRECISION_struct;
   

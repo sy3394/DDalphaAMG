@@ -16,7 +16,10 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * not changed from sbacchio
+ * glanced over: 12/08/2019
+ * glanced over:12/19/2019
  */
 
 #ifndef DATA_LAYOUT_HEADER

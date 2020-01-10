@@ -16,7 +16,10 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * checked:11/30/2019
+ * changed from sbacchio
+ * checked: 12/09/2019
+ * glanced over:12/18/2019
  */
 
 #include "main.h"
@@ -576,11 +579,12 @@ void write_header_mg( FILE **file, double *lambda, char* vector_type, int n, lev
   fprintf( *file, "</header>\n" );
 }
 
+// can be used only to extract eigenvectors from a file
 #ifndef HAVE_HDF5
 void vector_io( double *phi, char *filename, const int mode, level_struct *l ) {
   
-  int t, z, y, x, *gl=l->global_lattice, *ll=l->local_lattice, bar_size = 24*ll[X], desired_rank;
-  double *phi_pt = phi, t0, t1, norm;
+  int t, z, y, x, *gl=l->global_lattice, *ll=l->local_lattice, bar_size = 24*ll[X]*l->num_eig_vect, desired_rank;//!!!!!!
+  double *phi_pt = phi, t0, t1; double norm[l->num_eig_vect];
   FILE* file = NULL;
   MPI_Request sreq, rreq;
   confbuffer_struct buffer[2];
@@ -718,8 +722,10 @@ void vector_io( double *phi, char *filename, const int mode, level_struct *l ) {
   }
   vector_double phi_vec;
   phi_vec.vector_buffer = (buffer_double) phi; 
-  norm = global_norm_double( &phi_vec, 0, l->inner_vector_size, l, no_threading );
-  printf0("norm: %e\n", norm );
+  phi_vec.num_vect = l->num_eig_vect;//by assumption
+  phi_vec.num_vect_now = l->num_eig_vect;//by assumption
+  global_norm_double_new( norm, &phi_vec, 0, l->inner_vector_size, l, no_threading );
+  for (int j=0; j<l->num_eig_vect; j++ ) printf0("norm[%d]: %e\n", j, norm[j] );
   printf0("...done (%lf seconds)\n\n", t1-t0 ); 
 }
 #else
@@ -751,7 +757,7 @@ void vector_io( double *phi, char *filename, const int mode, level_struct *l ) {
     l_size[i] = ll[i];
   }
   g_start[4] = l_start[4] = 0; 
-  g_size[4] = l_size[4] = 24; // spin * color * re/im
+  g_size[4] = l_size[4] = 24*l->num_eig_vect; // spin * color * re/im * #eigvectors
 
   // create a memspace:
   memspace = H5Screate_simple(5, l_size, NULL);
@@ -781,7 +787,7 @@ void vector_io( double *phi, char *filename, const int mode, level_struct *l ) {
     printf0("writing hdf5 file \"%s\"... ", filename);
 
     // write_header_mg( file_id, NULL, filename, 1, l );
-    printf0("write_header_mg for g.method != 6 not implemented in HDF5!");
+    //printf0("write_header_mg for g.method != 6 not implemented in HDF5!");
     
     if(dset_ex == 0)
     {
@@ -823,11 +829,11 @@ void vector_io( double *phi, char *filename, const int mode, level_struct *l ) {
 }
 #endif
 
-
+// can be only used to extract eigenvectors from a file
 #ifndef HAVE_HDF5
 void vector_io_single_file( double *psi, double *lambda, char *filename, const int mode, int n, char *vector_type, level_struct *l ) {
   
-  int t, z, y, x, *gl=l->global_lattice, *ll=l->local_lattice, bar_size = 24*ll[X], desired_rank, j;
+  int t, z, y, x, *gl=l->global_lattice, *ll=l->local_lattice, bar_size = 24*ll[X]*n, desired_rank, j;//3x4x2(color*spin*complex)???
   double t0, t1;
   double *phi_pt = NULL;
   double *phi = NULL;
@@ -867,12 +873,12 @@ void vector_io_single_file( double *psi, double *lambda, char *filename, const i
       FREE( cur_line, char, STRINGLENGTH );
     }
     
-    for ( j=0; j<n; j++ ) {
+    //        for ( j=0; j<n; j++ ) {//!!!!!
       if ( g.my_rank == 0 ) {
         ASSERT( fread( buffer_pt->data, sizeof(double), bar_size, file ) );
       }
 
-      phi=(double *) (&(l->x));
+      phi=(double *) (&(l->x.vector_buffer));
       phi_pt=phi;
       for ( t=0; t<gl[T]; t++ )
         for ( z=0; z<gl[Z]; z++ )
@@ -909,15 +915,17 @@ void vector_io_single_file( double *psi, double *lambda, char *filename, const i
             }
       if ( psi == NULL ) {
         if ( g.mixed_precision )
-          trans_float(&(l->is_float.test_vector[j]), &(l->x), l->s_float.op.translation_table, l, no_threading);
+          trans_float_new(&(l->is_float.test_vector_vec), &(l->x), l->s_float.op.translation_table, l, no_threading);
         else
-          trans_double(&(l->is_double.test_vector[j]), &(l->x), l->s_double.op.translation_table, l, no_threading);
+          trans_double_new(&(l->is_double.test_vector_vec), &(l->x), l->s_double.op.translation_table, l, no_threading);
       } else {
 	vector_double psi_vec;
-	psi_vec.vector_buffer = ((buffer_double) psi) + j*l->inner_vector_size;
-        vector_double_copy( &psi_vec, &(l->x), 0, l->inner_vector_size, l );
+	psi_vec.vector_buffer = ((buffer_double) psi);
+	psi_vec.num_vect = n;//by assumption
+	psi_vec.num_vect_now = n;//by assumption
+        vector_double_copy_new( &psi_vec, &(l->x), 0, l->inner_vector_size, l );
       }
-    }
+      //	}//END:for ( j=0; j<n; j++ ) {
   } else if ( mode == _WRITE ) {
     
     if ( g.my_rank == 0 ) {
@@ -926,19 +934,21 @@ void vector_io_single_file( double *psi, double *lambda, char *filename, const i
     }
 
     printf0("writing file \"%s\" ...\n", filename );
-    
-    for ( j=0; j<n; j++ ){
+
+    //    for ( j=0; j<n; j++ ){
       if ( psi == NULL ) {
         if ( g.mixed_precision )
-          trans_back_float( &(l->x), &(l->is_float.test_vector[j]), l->s_float.op.translation_table, l, no_threading );
+          trans_back_float_new( &(l->x), &(l->is_float.test_vector_vec), l->s_float.op.translation_table, l, no_threading );
         else
-          trans_back_double( &(l->x), &(l->is_double.test_vector[j]), l->s_double.op.translation_table, l, no_threading );
+          trans_back_double_new( &(l->x), &(l->is_double.test_vector_vec), l->s_double.op.translation_table, l, no_threading );
       } else {
 	vector_double psi_vec;
-	psi_vec.vector_buffer = ((complex_double*)psi)+j*l->inner_vector_size;
-        vector_double_copy( &(l->x), &psi_vec, 0, l->inner_vector_size, l );
+	psi_vec.vector_buffer = ((complex_double*)psi);
+	psi_vec.num_vect = n;//by assumption!!!
+	psi_vec.num_vect_now = n;//by assumption!!!
+        vector_double_copy_new( &(l->x), &psi_vec, 0, l->inner_vector_size, l );
       }
-      phi=(double *)(&(l->x));
+      phi=(double *)(&(l->x.vector_buffer));
       phi_pt=phi;
       for ( t=0; t<gl[T]; t++ )
         for ( z=0; z<gl[Z]; z++ )
@@ -984,7 +994,7 @@ void vector_io_single_file( double *psi, double *lambda, char *filename, const i
         #endif
         fwrite( buffer_pt->data, sizeof(double), bar_size, file );
       }
-    }
+      //    }//END:for ( j=0; j<n; j++ ){//!!!!!!!
   } else
     ASSERT( mode == _READ || mode == _WRITE );
 

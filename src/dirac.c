@@ -16,79 +16,15 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * changed from sbacchio
+ * glanced over: it was a minor change: 12/03/2019
+ * glanced over: 12/08/2019
+ * glanced over:12/18/2019
+ * confirmed: simple reordering of functions from milla
  */
 
 #include "main.h"
-
-void compute_clover_term ( SU3_storage U, level_struct *l ) {
-  int i, j, t, z, y, x, mu, nu;
-  operator_double_struct *op = &(g.op_double);
-
-  op->m0 = g.m0;
-  
-  for ( mu=0; mu<4; mu++ )  
-    op->oe_offset += (l->local_lattice[mu]*(g.my_coords[mu]/l->comm_offset[mu]))%2;
-  op->oe_offset = op->oe_offset%2;
-  
-  for ( i=0,t=0; t<l->local_lattice[T]; t++ )
-    for ( z=0; z<l->local_lattice[Z]; z++ )
-      for ( y=0; y<l->local_lattice[Y]; y++ )
-        for ( x=0; x<l->local_lattice[X]; x++ ){
-          if((t+z+y+x+op->oe_offset)%2) { //odd
-            FOR12(op->odd_proj[i] = 1; i++;);
-          } else {
-            FOR12(op->odd_proj[i] = _COMPLEX_double_ZERO; i++;);
-          }
-        }
-  
-#ifdef HAVE_TM
-  if ( g.mu + g.mu_even_shift == 0 && g.mu + g.mu_odd_shift == 0 )
-    buffer_double_define( op->tm_term, _COMPLEX_double_ZERO, 0, l->inner_vector_size, l );
-  else
-    tm_term_double_setup( g.mu, g.mu_even_shift, g.mu_odd_shift, op, l, no_threading );  
-#endif
-
-#ifdef HAVE_TM1p1
-  if ( g.epsbar == 0 && g.epsbar_ig5_even_shift == 0 && g.epsbar_ig5_odd_shift == 0 ) 
-    buffer_double_define( op->epsbar_term, _COMPLEX_double_ZERO, 0, l->inner_vector_size, l );
-  else
-    epsbar_term_double_setup( g.epsbar, g.epsbar_ig5_even_shift, g.epsbar_ig5_odd_shift, op, l, no_threading );  
-#endif
-
-  // generate clover term
-  if ( g.csw != 0.0 ) {
-    spin_alloc( 4, 4 );
-    spin_define();
-    complex_double *Qstore = NULL;
-    mat_alloc( &Qstore, 3 );
-    
-    j = 42*l->num_inner_lattice_sites;
-    for ( i=0; i<j; i++ )
-      op->clover[i] = 0;
-    i = 0;
-    for ( t=1; t<l->local_lattice[T]+1; t++ )
-      for ( z=1; z<l->local_lattice[Z]+1; z++ )
-        for ( y=1; y<l->local_lattice[Y]+1; y++ )
-          for ( x=1; x<l->local_lattice[X]+1; x++ ) {
-            // diagonal including the shift
-            for ( j=0; j<12; j++)
-              op->clover[42*i+j] = 4+op->m0;
-            
-            for ( mu=0; mu<4; mu++ )
-              for ( nu=mu+1; nu<4; nu++ ) {
-                Qdiff( Qstore, mu, nu, t, z, y, x, U );
-                set_clover( Qstore, mu, nu, i, op->clover );
-              }
-              i++;
-          }
-    
-    mat_free( &Qstore, 3 );
-    spin_free( 4, 4 );
-  } else {
-    buffer_double_define( op->clover, 4+op->m0, 0, l->inner_vector_size, l );
-  }
-}
 
 void dirac_setup( config_double hopp, level_struct *l ) {
 
@@ -424,6 +360,76 @@ void set_clover( complex_double *Qstore, int mu, int nu, int index, config_doubl
       
   mat_free( &gamma_mu_gamma_nu, 4 );
   mat_free( &tmp, 12 );
+}
+
+
+void compute_clover_term ( SU3_storage U, level_struct *l ) {
+  int i, j, t, z, y, x, mu, nu;
+  operator_double_struct *op = &(g.op_double);
+
+  op->m0 = g.m0;
+  
+  for ( mu=0; mu<4; mu++ )  
+    op->oe_offset += (l->local_lattice[mu]*(g.my_coords[mu]/l->comm_offset[mu]))%2;
+  op->oe_offset = op->oe_offset%2;
+  
+  for ( i=0,t=0; t<l->local_lattice[T]; t++ )
+    for ( z=0; z<l->local_lattice[Z]; z++ )
+      for ( y=0; y<l->local_lattice[Y]; y++ )
+        for ( x=0; x<l->local_lattice[X]; x++ ){
+          if((t+z+y+x+op->oe_offset)%2) { //odd
+            FOR12(op->odd_proj[i] = 1; i++;);
+          } else {
+            FOR12(op->odd_proj[i] = _COMPLEX_double_ZERO; i++;);
+          }
+        }
+  
+#ifdef HAVE_TM
+  if ( g.mu + g.mu_even_shift == 0 && g.mu + g.mu_odd_shift == 0 )
+    buffer_double_define( op->tm_term, _COMPLEX_double_ZERO, 0, l->inner_vector_size, l );
+  else
+    tm_term_double_setup( g.mu, g.mu_even_shift, g.mu_odd_shift, op, l, no_threading );  
+#endif
+
+#ifdef HAVE_TM1p1
+  if ( g.epsbar == 0 && g.epsbar_ig5_even_shift == 0 && g.epsbar_ig5_odd_shift == 0 ) 
+    buffer_double_define( op->epsbar_term, _COMPLEX_double_ZERO, 0, l->inner_vector_size, l );
+  else
+    epsbar_term_double_setup( g.epsbar, g.epsbar_ig5_even_shift, g.epsbar_ig5_odd_shift, op, l, no_threading );  
+#endif
+
+  // generate clover term
+  if ( g.csw != 0.0 ) {
+    spin_alloc( 4, 4 );
+    spin_define();
+    complex_double *Qstore = NULL;
+    mat_alloc( &Qstore, 3 );
+    
+    j = 42*l->num_inner_lattice_sites;
+    for ( i=0; i<j; i++ )
+      op->clover[i] = 0;
+    i = 0;
+    for ( t=1; t<l->local_lattice[T]+1; t++ )
+      for ( z=1; z<l->local_lattice[Z]+1; z++ )
+        for ( y=1; y<l->local_lattice[Y]+1; y++ )
+          for ( x=1; x<l->local_lattice[X]+1; x++ ) {
+            // diagonal including the shift
+            for ( j=0; j<12; j++)
+              op->clover[42*i+j] = 4+op->m0;
+            
+            for ( mu=0; mu<4; mu++ )
+              for ( nu=mu+1; nu<4; nu++ ) {
+                Qdiff( Qstore, mu, nu, t, z, y, x, U );
+                set_clover( Qstore, mu, nu, i, op->clover );
+              }
+              i++;
+          }
+    
+    mat_free( &Qstore, 3 );
+    spin_free( 4, 4 );
+  } else {
+    buffer_double_define( op->clover, 4+op->m0, 0, l->inner_vector_size, l );
+  }
 }
 
 
@@ -817,7 +823,7 @@ void finalize_operator_update( level_struct *l, struct Thread *threading ) {
          
 #ifdef DEBUG
   if (l->depth == 0) 
-    test_routine( l, threading );
+    test_routine_new( l, threading );
 #endif
 
 }

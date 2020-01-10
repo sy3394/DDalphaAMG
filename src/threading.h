@@ -16,16 +16,66 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * checked:11/30/2019
+ * not changed from sbacchio
+ * glanced over: 12/08/2019
+ */
+
+/*
+  Description:
+  The header file for threading functionality.
  */
 
 #ifndef THREADING_H
-#define THREADING_H
+   #define THREADING_H
+
+struct level_struct;
+
+struct common_thread_data
+{
+    void (*barrier)(int);                // barrier among cores
+    void (*thread_barrier)(void *, int); // barrier among hyperthreads on a core
+    // *common* workspace for *all* threads
+    // sometimes threads need to exchange data, they can use this
+    char *workspace;
+};
+
+void init_common_thread_data(struct common_thread_data *common);
+
+// holds information relevant for specific core/thread
+typedef struct Thread
+{
+  int core;   // core id
+  int n_core; // total # cores
+  // for SMT/hyperthreading: threads per core (1-4 on KNC)
+  int thread;   // thread id
+  int n_thread; // total # threads
+
+  /* level_struct.num_inner_lattice_sites is split among cores
+     These variables define start and end site for this specific *core* (not thread)
+     but num_inner_lattice_sites depends on the level.
+     Use level_struct.depth as index */
+  int start_site[4];
+  int end_site[4];
+  int n_site[4];
+  // index = site*num_lattice_site_var = inner_vector_size
+  int start_index[4];
+  int end_index[4];
+  int n_index[4];
+
+  void (*barrier)(int);                // barrier among cores
+  void (*thread_barrier)(void *, int); // barrier among hyperthreads on a core
+  void *thread_barrier_data;
+  
+  // *common* workspace for *all* threads
+  // sometimes threads need to exchange data, they can use this
+  char *workspace;
+} Thread;
 
 
-#ifdef FLAT_OMP
+/* flat omp: does not distinguish between threads over cores and hyperthreads within a core */
+#ifdef FLAT_OMP 
 
-// flat omp: do not distinguish between threads on cores and hyperthreads
 #define CORE_BARRIER(threading) \
     do { \
     threading->thread_barrier(threading->thread_barrier_data, threading->core/60); \
@@ -38,9 +88,9 @@
     threading->thread_barrier(threading->thread_barrier_data, threading->core/60); \
     } while(0)
 
+/* nested omp: first splits into cores.  Then, each core splits into hyperthreads (like DD preconditioner) */
 #else
 
-// nested omp: split into cores, each core splits into hyperthreads (like DD preconditioner)
 #define CORE_BARRIER(threading) \
     do { \
         threading->barrier(threading->core); \
@@ -65,9 +115,9 @@
 #define END_UNTHREADED_FUNCTION(threading) \
     CORE_BARRIER(threading);
 
-// only one thread (master) will execute the code section between
-// START_LOCKED_MASTER and END_LOCKED_MASTER, and it is protected by barriers
-// among cores to prevent data races
+/* Only one thread (master) will execute the code section between
+   START_LOCKED_MASTER and END_LOCKED_MASTER, and it is protected by barriers
+   among cores to prevent data races */
 #define START_LOCKED_MASTER(threading) \
     if(threading->thread == 0) \
         CORE_BARRIER(threading); \
@@ -77,6 +127,7 @@
     if(threading->thread == 0) \
         CORE_BARRIER(threading);
 
+// I prefer the name IS_MASTER
 #define MASTER(threading) \
     if(threading->core + threading->thread == 0)
 #define START_MASTER(threading) \
@@ -115,52 +166,6 @@ static inline int omp_get_num_threads( void ) {
 }
 #endif
 
-struct level_struct;
-
-struct common_thread_data
-{
-    // barrier among cores
-    void (*barrier)(int);
-    // barrier among hyperthreads on a core
-    void (*thread_barrier)(void *, int);
-    // *common* workspace for *all* threads
-    // sometimes threads need to exchange data, they can use this
-    char *workspace;
-};
-
-void init_common_thread_data(struct common_thread_data *common);
-
-// holds information relevant for specific core/thread
-typedef struct Thread
-{
-    int core;
-    int n_core;
-    // for SMT/hyperthreading: threads per core (1-4 on KNC)
-    int thread;
-    int n_thread;
-
-    // level_struct.num_inner_lattice_sites is split among cores
-    // these variables define start and end site for this specific *core* (not thread)
-    // but num_inner_lattice_sites depends on the level
-    // use level_struct.depth as index
-    int start_site[4];
-    int end_site[4];
-    int n_site[4];
-    // index = site*num_lattice_site_var = inner_vector_size
-    int start_index[4];
-    int end_index[4];
-    int n_index[4];
-
-    // barrier among cores
-    void (*barrier)(int);
-    // barrier among hyperthreads on a core
-    void (*thread_barrier)(void *, int);
-    void *thread_barrier_data;
-
-    // *common* workspace for *all* threads
-    // sometimes threads need to exchange data, they can use this
-    char *workspace;
-} Thread;
 
 void setup_threading(struct Thread *threading, struct common_thread_data *common, struct level_struct *l);
 /* external means the caller gives us all info about threads, and is responsible to later set a proper barrier */
@@ -169,8 +174,8 @@ void setup_threading_external(struct Thread *threading, struct common_thread_dat
 void update_threading(struct Thread *threading, struct level_struct *l);
 void setup_no_threading(struct Thread *no_threading, struct level_struct *l);
 
-// computes start and end indices for a core inside an array
-// puts zero for other hyperthreads
+/* computes start and end indices for a core inside an array
+   puts zero for other hyperthreads */
 void compute_core_start_end(int start, int end, int *core_start, int *core_end,
         struct level_struct *l, struct Thread *threading);
 void compute_core_start_end_custom(int start, int end, int *core_start, int *core_end,

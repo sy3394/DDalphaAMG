@@ -16,7 +16,9 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * not changed from sbacchio
+ * glanced over: 12/04/2019
  */
 
 #ifndef GHOST_HEADER

@@ -16,13 +16,15 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * matched:11/29/2019: need to update handling of different #vectors
+ * changed from sbacchio
+ * checked:12/05/2019:def of gs->buffer needs to be done properly; need clearer understanding of dist and gath (parent and offset too)
  */
 
 #include "main.h"
 
 void gathering_PRECISION_next_level_init( gathering_PRECISION_struct *gs, level_struct *l ) {
-  
+  // note: input gs is at the next level
   int mu;
   
   gs->permutation = NULL;
@@ -31,31 +33,37 @@ void gathering_PRECISION_next_level_init( gathering_PRECISION_struct *gs, level_
   vector_PRECISION_init(&(gs->buffer));
   vector_PRECISION_init(&(gs->transfer_buffer));
   
+  // num_processes_dir could be reduced by a factor comm_offset from the top level when going to the next_level
+  // Then, one process (master process?) take care of calculation on sites on gs->gather_list_length many processes,
+  // some of which correspond to the sites originating from other processes now idle at the next_level
   gs->dist_inner_lattice_sites = 1;
   gs->gather_list_length = 1;
   for ( mu=0; mu<4; mu++ ) {
-    gs->dist_local_lattice[mu] = l->local_lattice[mu] / l->coarsening[mu];
-    gs->dist_inner_lattice_sites *= gs->dist_local_lattice[mu];
-    gs->gather_list_length *= l->next_level->local_lattice[mu] / gs->dist_local_lattice[mu];
+    gs->dist_local_lattice[mu] = l->local_lattice[mu] / l->coarsening[mu]; // dims of local lattice at the next level if none of the processes are turned off
+    gs->dist_inner_lattice_sites *= gs->dist_local_lattice[mu];            // #sites of local lattice at the next level if none of the processes are turned off 
+    gs->gather_list_length *= l->next_level->local_lattice[mu] / gs->dist_local_lattice[mu]; // #processes in a group (parent and child at the next level)
   }
 }
-
 
 void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l ) {
   
   // define data merging
   // define data gathering permutation
-  int i, mu, current_rank, offset, offset_sum,
-       process_coords[4] = {0,0,0,0}, parent_coords[4] = {0,0,0,0}, *process_list = NULL;
+  int i, mu, current_rank, offset, offset_sum, nvect = (g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//!!!!!!!!!
+  int process_coords[4] = {0,0,0,0}, parent_coords[4] = {0,0,0,0}, *process_list = NULL;
+  // for sites in the child processes
   MALLOC( process_list, int, l->num_processes );
 #ifdef HAVE_TM1p1
-  MALLOC( gs->transfer_buffer.vector_buffer, complex_PRECISION, 2 * gs->dist_inner_lattice_sites * l->num_lattice_site_var );
+  MALLOC( gs->transfer_buffer.vector_buffer, complex_PRECISION, 2 * gs->dist_inner_lattice_sites * l->num_lattice_site_var * nvect ); //what about buffer? see below
 #else
-  MALLOC( gs->transfer_buffer.vector_buffer, complex_PRECISION, gs->dist_inner_lattice_sites * l->num_lattice_site_var );
+  MALLOC( gs->transfer_buffer.vector_buffer, complex_PRECISION, gs->dist_inner_lattice_sites * l->num_lattice_site_var * nvect );
 #endif  
+  gs->transfer_buffer.num_vect = nvect;
+  gs->transfer_buffer.size = gs->dist_inner_lattice_sites * l->num_lattice_site_var;
 
   l->idle = 0;
   i = 0;
+  // go over each process 
   for ( process_coords[T]=0; process_coords[T]<g.process_grid[T]; process_coords[T]++ )
     for ( process_coords[Z]=0; process_coords[Z]<g.process_grid[Z]; process_coords[Z]++ )
       for ( process_coords[Y]=0; process_coords[Y]<g.process_grid[Y]; process_coords[Y]++ )
@@ -63,13 +71,15 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
 
           g.Cart_rank( g.comm_cart, process_coords, &current_rank );
 
+	  // find out if the current process is a parent rank or its child
           offset_sum = 0;
           for ( mu=0; mu<4; mu++ ) {
-            offset = process_coords[mu] % l->comm_offset[mu];
-            parent_coords[mu] = process_coords[mu] - offset;
+            offset = process_coords[mu] % l->comm_offset[mu]; // processes grouped into l->comm_offset[mu] processes in the mu dir
+            parent_coords[mu] = process_coords[mu] - offset;  // and the first one in the group becomes the parent
             offset_sum+=offset;
           }
-          // get parent rank
+          // if the current rank is a child process, put the current rank idle
+	  //   if #process in dir has not changed in going deeper, comm_offset==1(default) and each rank is its own parent rank
           if ( current_rank == g.my_rank ) {
             g.Cart_rank( g.comm_cart, parent_coords, &(l->parent_rank) );
             // find out if current process is supposed to idle
@@ -96,34 +106,40 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
     MALLOC( gs->permutation, int, l->num_inner_lattice_sites );
     MALLOC( gs->reqs, MPI_Request, gs->gather_list_length );
 #ifdef HAVE_TM1p1
-    vector_PRECISION_alloc( &(gs->buffer), _INNER, 2, l, no_threading );
+    vector_PRECISION_alloc( &(gs->buffer), _INNER, 2*nvect, l, no_threading );//*gs->gather_list_length!!!!!
 #else
-    vector_PRECISION_alloc( &(gs->buffer), _INNER, 1, l, no_threading );
+    vector_PRECISION_alloc( &(gs->buffer), _INNER, 1*nvect, l, no_threading );//*gs->gather_list_length!!!!!
 #endif
+    gs->buffer.num_vect = nvect; //*gs->gather_list_length!!!!!!!!!!!
+
+    //---- define gs->permutation, gs->gather_list
     MALLOC( field1, int, l->num_inner_lattice_sites );
     MALLOC( field2, int, l->num_inner_lattice_sites );
     
     for ( mu=0; mu<4; mu++ ) {
-      block_size[mu] = gs->dist_local_lattice[mu];
-      merge[mu] = l->local_lattice[mu] / block_size[mu];
+      block_size[mu] = gs->dist_local_lattice[mu];       // dims of local lattice on each process in the family
+      merge[mu] = l->local_lattice[mu] / block_size[mu]; // dims of Cartesian block of the family of processes
     }
-    
+
     // process wise linearly ordered, process blocks linearly ordered
     // ---> completely linearly ordered
+    // field1: local_lex_index -> blockwise lexicographical index
+    //  visit each site on each process and each site on the process lexicographically
     count[0]=&d0; count[1]=&c0; count[2]=&b0; count[3]=&a0;
     i=0; j=0;
+    // for each process in the family (parent and its children)
     for ( d0=0; d0<merge[T]; d0++)
       for ( c0=0; c0<merge[Z]; c0++)
         for ( b0=0; b0<merge[Y]; b0++ )
           for ( a0=0; a0<merge[X]; a0++ ) {
-            // determine list off processes for gathering and distribution data
+            // determine list of processes for gathering and distribution data
             for ( mu=0; mu<4; mu++ )
               process_coords[mu] = g.my_coords[mu] + *(count[mu]) * (l->comm_offset[mu]/merge[mu]);
 
             g.Cart_rank( g.comm_cart, process_coords, gs->gather_list + j );
 
             j++;
-            
+            // for each site on the process
             for ( t=d0*block_size[T]; t<(d0+1)*block_size[T]; t++ )
               for ( z=c0*block_size[Z]; z<(c0+1)*block_size[Z]; z++ )
                 for ( y=b0*block_size[Y]; y<(b0+1)*block_size[Y]; y++ )
@@ -136,25 +152,29 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
     
     // completely linearly ordered ----> aggregate wise, Schwarz block wise and
     // within Schwarz blocks again linearly
+    // field2: local_lex_index -> Scwarz_index (if l->level != 0) and local_lex_index (if l->level == 0)
+    //  visit each site in the local lattice (wchich includes sites coming from child processes)
+    //  in the Schwarz order not at the bottom and lexicographically at the bottom????
     if ( l->level > 0 ) {
       
       for ( mu=0; mu<4; mu++ ) {
-        agg_split[mu] = l->local_lattice[mu]/l->coarsening[mu];
-        block_split[mu] = l->coarsening[mu]/l->block_lattice[mu];
-        block_size[mu] = l->block_lattice[mu];
+        agg_split[mu] = l->local_lattice[mu]/l->coarsening[mu];   // #aggregates in the local lattice in the mu dir
+        block_split[mu] = l->coarsening[mu]/l->block_lattice[mu]; // #blocks in the block in the mu dir
+        block_size[mu] = l->block_lattice[mu];                    // dims of blocks
       }
       
       i = 0;
+      // for each aggregate
       for ( d0=0; d0<agg_split[T]; d0++ )
         for ( c0=0; c0<agg_split[Z]; c0++ )
           for ( b0=0; b0<agg_split[Y]; b0++ )
             for ( a0=0; a0<agg_split[X]; a0++ )
-              
+              // for each block in the aggregate
               for ( d1=d0*block_split[T]; d1<(d0+1)*block_split[T]; d1++ )
                 for ( c1=c0*block_split[Z]; c1<(c0+1)*block_split[Z]; c1++ )
                   for ( b1=b0*block_split[Y]; b1<(b0+1)*block_split[Y]; b1++ )
                     for ( a1=a0*block_split[X]; a1<(a0+1)*block_split[X]; a1++ )
-                      
+                      // for each site in the block
                       for ( t=d1*block_size[T]; t<(d1+1)*block_size[T]; t++ )
                         for ( z=c1*block_size[Z]; z<(c1+1)*block_size[Z]; z++ )
                           for ( y=b1*block_size[Y]; y<(b1+1)*block_size[Y]; y++ )
@@ -172,6 +192,7 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
         oe_offset = oe_offset%2;
         
         i=0;
+	// for each even sites in the local lattice
         for ( t=0; t<le[T]; t++ )
           for ( z=0; z<le[Z]; z++ )
             for ( y=0; y<le[Y]; y++ )
@@ -180,7 +201,7 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
                   field2[ lex_index( t, z, y, x, le ) ] = i;
                   i++;
                 }
-                
+	// for each odd sites in the local lattice  
         for ( t=0; t<le[T]; t++ )
           for ( z=0; z<le[Z]; z++ )
             for ( y=0; y<le[Y]; y++ )
@@ -191,12 +212,13 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
                 }
                         
       } else {
+	// for each sites in the local lattice  
         for ( i=0; i<l->num_inner_lattice_sites; i++ )
           field2[i] = i;
       }
     }      
     
-    // build the composition
+    // build the permutation table blockwise_lex_index to Scwarz_index
     for ( i=0; i<l->num_inner_lattice_sites; i++ )
       gs->permutation[ field1[i] ] = field2[i];
     
@@ -208,6 +230,8 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
 
 void gathering_PRECISION_free( gathering_PRECISION_struct *gs, level_struct *l ) {
   
+  int nvect = gs->transfer_buffer.num_vect;//g.num_vect_now;
+
   if ( !l->idle ) {
     FREE( gs->gather_list, int, gs->gather_list_length );
     FREE( gs->permutation, int, l->num_inner_lattice_sites );
@@ -218,12 +242,11 @@ void gathering_PRECISION_free( gathering_PRECISION_struct *gs, level_struct *l )
   MPI_Comm_free( &(gs->level_comm) );
   MPI_Group_free( &(gs->level_comm_group) );
 #ifdef HAVE_TM1p1
-  FREE( gs->transfer_buffer.vector_buffer, complex_PRECISION, 2 * gs->dist_inner_lattice_sites * l->num_lattice_site_var );
+  FREE( gs->transfer_buffer.vector_buffer, complex_PRECISION, 2 * gs->dist_inner_lattice_sites * l->num_lattice_site_var * nvect );
 #else
-  FREE( gs->transfer_buffer.vector_buffer, complex_PRECISION, gs->dist_inner_lattice_sites * l->num_lattice_site_var );
+  FREE( gs->transfer_buffer.vector_buffer, complex_PRECISION, gs->dist_inner_lattice_sites * l->num_lattice_site_var * nvect );
 #endif
 }
-
 
 void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_struct *in, level_struct *l ) {
   
@@ -397,13 +420,9 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
   l->dummy_p_PRECISION.op = out;
   l->dummy_p_PRECISION.v_start = 0;
   l->dummy_p_PRECISION.v_end = l->inner_vector_size;
-  
-  if ( g.method == 6 )
-    l->dummy_p_PRECISION.eval_operator = g5D_apply_coarse_operator_PRECISION;
-  else
-    l->dummy_p_PRECISION.eval_operator = apply_coarse_operator_PRECISION;
+  l->dummy_p_PRECISION.eval_operator = apply_coarse_operator_PRECISION_new;
 }
-
+/*
 void vector_PRECISION_gather( vector_PRECISION *gath, vector_PRECISION *dist, level_struct *l ) {
   
   int send_size = l->gs_PRECISION.dist_inner_lattice_sites * l->num_lattice_site_var;
@@ -434,8 +453,59 @@ void vector_PRECISION_gather( vector_PRECISION *gath, vector_PRECISION *dist, le
         gath->vector_buffer[ t*pi[i] + j ] = buffer.vector_buffer[ t*i + j ];
   }  
 }
+*/
+// if aggregate exists over ranks???
+// when #process decreases in going deeper???!!! Then, gather entries needed to do restriction from other ranks to the parent, and parent hold phi_c entries
+// otherwise, simply gath <- dist after reordering
+// gather entries from other ranks to the parent rank
+// used in restriction
+void vector_PRECISION_gather_new( vector_PRECISION *gath, vector_PRECISION *dist, level_struct *l ) {
+  /*************************
+   * Input:
+   *   vector_PRECISION *dist: vectors to be sent to the parent rank
+   * Output:
+   *   vector_PRECISION *gath: vectors from other ranks gathered
+   * note: need to send all vectors in dist irrespective of how many are currently used as the data are consecutive
+   ************************/
 
+  int nvect = dist->num_vect_now, nvect_dist = dist->num_vect, nvect_gath = gath->num_vect;
+  int send_size = l->gs_PRECISION.dist_inner_lattice_sites * l->num_lattice_site_var;//dist_inner_lattice_sites == next_levelinner_lattice_sites???
 
+  if ( l->gs_PRECISION.buffer.num_vect < nvect_dist )
+    error0("vector_PRECISION_gather: potential memory overflow\n");
+  printf0("gath: %d %d %d\n",g.my_rank,l->parent_rank,nvect);
+  if ( g.my_rank != l->parent_rank ) {
+    MPI_Send( dist->vector_buffer, send_size*nvect_dist, MPI_COMPLEX_PRECISION, l->parent_rank, g.my_rank, g.comm_cart );
+  } else {
+    int i, j, jj, jjj;
+    int n =l->gs_PRECISION.gather_list_length;
+    int s =l->num_inner_lattice_sites;
+    int t =l->num_lattice_site_var;
+    int *pi = l->gs_PRECISION.permutation;
+    vector_PRECISION buffer = l->gs_PRECISION.buffer;
+    //    printf("gath2:%d %d %d\n",n,s,t);
+    PROF_PRECISION_START( _GD_COMM );//!!!!!!! buffer could overflow
+    for ( i=1; i<n; i++ )//store recieved data from the second chank gathered from child processes
+      MPI_Irecv( buffer.vector_buffer+i*send_size*nvect_dist, send_size*nvect_dist, MPI_COMPLEX_PRECISION, l->gs_PRECISION.gather_list[i],
+                 l->gs_PRECISION.gather_list[i], g.comm_cart, &(l->gs_PRECISION.reqs[i]) );
+    PROF_PRECISION_STOP( _GD_COMM, n-1 );
+
+    for ( i=0; i<send_size; i++ )//copy the data at the parent rank into the first chank of buffer
+      VECTOR_LOOP(jj, nvect_dist, jjj, buffer.vector_buffer[i*nvect_dist+jj+jjj] = dist->vector_buffer[i*nvect_dist+jj+jjj];)
+
+    PROF_PRECISION_START( _GD_IDLE );
+    for ( i=1; i<n; i++ )
+      MPI_Wait( &(l->gs_PRECISION.reqs[i]), MPI_STATUS_IGNORE );
+    PROF_PRECISION_STOP( _GD_IDLE, n-1 );
+    // permute data according to desired data layout for parent process
+    //    printf("gath3:%d %d %d\n",n,s,t);
+    for ( i=0; i<s; i++ )
+      for ( j=0; j<t; j++ )
+        VECTOR_LOOP(jj, nvect, jjj, gath->vector_buffer[ (t*pi[i] + j)*nvect_gath+jj+jjj ] = buffer.vector_buffer[ (t*i + j)*nvect_dist+jj+jjj ];)// printf("ga: %g ",creal_PRECISION(gath->vector_buffer[ (t*pi[i] + j)*nvect_gath+jj+jjj ]));)
+  }
+}
+
+/*
 void vector_PRECISION_distribute( vector_PRECISION *dist, vector_PRECISION *gath, level_struct *l ) {
   
   int send_size = l->gs_PRECISION.dist_inner_lattice_sites * l->num_lattice_site_var;
@@ -464,5 +534,57 @@ void vector_PRECISION_distribute( vector_PRECISION *dist, vector_PRECISION *gath
     for ( i=1; i<n; i++ )
       MPI_Wait( &(l->gs_PRECISION.reqs[i]), MPI_STATUS_IGNORE );
     PROF_PRECISION_STOP( _GD_IDLE, n-1 );
+  }  
+}
+*/
+// if aggregate exists over ranks???
+// when #process decreases in going deeper???!!!  Then, distribute entries to other ranks, and each rank computes entries of interpolated phi belonging to the rank
+// otherwise, simply dist <- gath after reordering
+// distribute from the parent rank to other ranks
+// used in inerpolation
+void vector_PRECISION_distribute_new( vector_PRECISION *dist, vector_PRECISION *gath, level_struct *l ) {
+    /*************************
+     * Description: send values on the sites also belongin to the child processes from the parent process
+     * Input:
+     *   vector_PRECISION *gath: vectors to be sent around other ranks
+     * Output:
+     *   vector_PRECISION *dist: vectors from other ranks gathered
+     * note: need to send all vectors in dist irrespective of how many are currently used as the data are consecutive
+     ************************/
+
+  int nvec = dist->num_vect_now, nvec_dist = dist->num_vect, nvec_gath = gath->num_vect;//nvec:tmp fix as dist contains MIN!!!!!!!
+  int send_size = l->gs_PRECISION.dist_inner_lattice_sites * l->num_lattice_site_var;
+  
+  if ( l->gs_PRECISION.buffer.num_vect < nvec_dist || nvec_dist < nvec )//???????
+    error0("vector_PRECISION_gather: potential memory overflow\n");
+
+  if ( g.my_rank != l->parent_rank ) {// if I am a child 
+    MPI_Recv( dist->vector_buffer, send_size*nvec_dist, MPI_COMPLEX_PRECISION, l->parent_rank, g.my_rank, g.comm_cart, MPI_STATUS_IGNORE );//!!!!
+  } else { //if I am a parent
+    int i, j, jj, jjj;
+    int n_p =l->gs_PRECISION.gather_list_length;
+    int n_s =l->num_inner_lattice_sites;
+    int n_i =l->num_lattice_site_var;
+    int *pi = l->gs_PRECISION.permutation;
+    vector_PRECISION buffer = l->gs_PRECISION.buffer;
+    // permute data according to desired distributed data layout and store them in buffer
+    for ( i=0; i<n_s; i++ )
+      for ( j=0; j<n_i; j++ )
+        VECTOR_LOOP(jj, nvec, jjj, buffer.vector_buffer[ (n_i*i+j)*nvec_dist+jj+jjj ] = gath->vector_buffer[ (n_i*pi[i]+j)*nvec_gath+jj+jjj ];)//!!!!
+    
+    // send buffer from the second chank
+    PROF_PRECISION_START( _GD_COMM );
+    for ( i=1; i<n_p; i++ ) // n = Prod_mu l->next_level->local_lattice[mu]???
+      MPI_Isend( buffer.vector_buffer+i*send_size*nvec_dist, send_size*nvec_dist, MPI_COMPLEX_PRECISION, l->gs_PRECISION.gather_list[i], //!!!!
+                 l->gs_PRECISION.gather_list[i], g.comm_cart, &(l->gs_PRECISION.reqs[i]) );
+    PROF_PRECISION_STOP( _GD_COMM, n_p-1 );
+    // reflect reordering in the local chank
+    for ( i=0; i<send_size; i++ )
+      VECTOR_LOOP(jj, nvec, jjj, dist->vector_buffer[i*nvec_dist+jj+jjj] = buffer.vector_buffer[i*nvec_dist+jj+jjj];)//!!!
+    
+    PROF_PRECISION_START( _GD_IDLE );
+    for ( i=1; i<n_p; i++ )
+      MPI_Wait( &(l->gs_PRECISION.reqs[i]), MPI_STATUS_IGNORE );
+    PROF_PRECISION_STOP( _GD_IDLE, n_p-1 );
   }  
 }

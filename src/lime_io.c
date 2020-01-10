@@ -16,7 +16,10 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * not changed from sacchio
+ * glanced over: 12/09/2019 (inserted comments) thsese functions are not multiple rhs enabled.
+ * glanced over:12/18/2019
  */
 
 #include "main.h"
@@ -330,6 +333,9 @@ void lime_read_conf( double *input_data, char *input_name, double *conf_plaq ) {
         
 }
 
+// if I multiply bar_size by #vectors(need to think how to get this number)
+// I can read multiple vectors in a one call if we assume #vectors is the fastest index
+// As of now, it reads a single vector
 void lime_read_vector( double *phi, char *filename ) {
   
   #ifdef HAVE_LIME
@@ -440,6 +446,9 @@ void lime_read_vector( double *phi, char *filename ) {
         #endif
 }
 
+// if I multiply bar_size by #vectors(need to think how to get this number)
+// I can write multiple vectors in a one call if we assume #vectors is the fastest index
+// As of now, it writes a single vector
 void lime_write_vector( double *phi, char *filename ) {
   
   #ifdef HAVE_LIME

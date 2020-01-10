@@ -16,7 +16,10 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * checked:11/30/2019
+ * not changed from sbacchio
+ * glanced over: 12/05/2019
+ * glanced over:12/18/2019
  */
 
 #include "main.h"
@@ -27,6 +30,22 @@ void var_table_init( var_table *t ) {
   t->iterator = NULL;
   t->p = NULL;
   t->p_end = NULL;
+}
+
+
+void var_table_free( var_table *t ) {
+  
+  if ( t->entry != NULL ) {
+    t->iterator = t->entry;
+    
+    while( t->entry->next != NULL ) {
+      t->iterator = t->entry->next;
+      FREE( t->entry, var_table_entry, 1 );
+      t->entry = t->iterator;
+    }
+    FREE( t->entry, var_table_entry, 1 );
+    t->iterator = NULL;
+  }
 }
 
 
@@ -49,22 +68,6 @@ void var_table_insert( var_table *t, var_table_entry e ) {
 }
 
 
-void var_table_free( var_table *t ) {
-  
-  if ( t->entry != NULL ) {
-    t->iterator = t->entry;
-    
-    while( t->entry->next != NULL ) {
-      t->iterator = t->entry->next;
-      FREE( t->entry, var_table_entry, 1 );
-      t->entry = t->iterator;
-    }
-    FREE( t->entry, var_table_entry, 1 );
-    t->iterator = NULL;
-  }
-}
-
-
 void scan_var( var_table *t, level_struct *l ) {
   
   t->iterator = t->entry;
@@ -79,9 +82,9 @@ void scan_var( var_table *t, level_struct *l ) {
     error0("unable to scan variable \"%s\"\n", t->scan_var );
   } else {
     if ( strcmp( t->iterator->datatype,"int" ) == 0 )
-      SCAN_VAR( t->iterator->pt, int, t->start_val, t->end_val, t->step_size, t->multiplicative, t->iterator->name, l );
+      SCAN_VAR( t->iterator->pt, int, t->start_val, t->end_val, t->step_size, t->multiplicative, t->iterator->name, l )//!!!!!!!!
     else
-      SCAN_VAR( t->iterator->pt, double, t->start_val, t->end_val, t->step_size, t->multiplicative, t->iterator->name, l );
+      SCAN_VAR( t->iterator->pt, double, t->start_val, t->end_val, t->step_size, t->multiplicative, t->iterator->name, l )//!!!!!!!1
   }
   
   plot_table( t );

@@ -16,13 +16,16 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied: 11/30/2019
+ * changed from sbacchio
+ * checked: 12/08/2019
+ * 1st cleanup:12/19/2019
  */
 
 #ifndef DATA_PRECISION_HEADER
   #define DATA_PRECISION_HEADER
   
   void buffer_PRECISION_define( complex_PRECISION *phi, complex_PRECISION value, int start, int end, level_struct *l );
-  void vector_PRECISION_define_random( vector_PRECISION *phi, int start, int end, level_struct *l );
-  void vector_PRECISION_define_random_new( vector_PRECISION *phi, level_struct *l, struct Thread *threading ); 
+  void buffer_PRECISION_copy( complex_PRECISION *z, complex_PRECISION *x, int start, int end, level_struct *l ); // z := x
+
 #endif

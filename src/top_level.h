@@ -16,7 +16,10 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * changed from sbacchio
+ * glanced over:12/08/2019
+ * changed: 12/19/2019
  */
 
 #ifndef TOP_LEVEL_HEADER
@@ -25,8 +28,8 @@
 struct Thread;
   
   void rhs_define( vector_double *rhs, level_struct *l, struct Thread *threading );
-  int wilson_driver( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading );
-  void solve( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading );
+//  int wilson_driver( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading );
+//  void solve( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading );
   void solve_driver( level_struct *l, struct Thread *threading );
   
 #endif

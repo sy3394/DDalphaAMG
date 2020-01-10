@@ -16,20 +16,14 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * copied:11/30/2019
- * changed from sbacchio: new test routine
- * glnced over:12/08/2019
- * 1st cleanup:12/18/2019
+ * 
  */
 
-#ifndef SOLVER_ANALYSIS_HEADER
-  #define SOLVER_ANALYSIS_HEADER
+#ifndef READIN_HEADER
+  #define READIN_HEADER
 
-struct Thread;
-  
-  void test_routine_new( level_struct *l, struct Thread *threading );
-  
-  void prof_init( level_struct *l );
-  double prof_print( level_struct *l );
-  
+  void lg_in( char *inputfile, level_struct *l );
+  void parameter_update( level_struct *l );
+  void set_DDalphaAMG_parameters( struct init *params, level_struct *l );
+
 #endif

@@ -16,7 +16,8 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * minor change from sbacchio
+ * 1st cleanup:12/18/2019
  */
 
 #ifndef INIT_HEADER
@@ -24,21 +25,19 @@
 
   struct init;
 
+  void l_init( level_struct *l );
+  void g_init( ); //level_struct *l );//!!!!!!!!!!
+
   void method_init( int *argc, char ***argv, level_struct *l );
   void method_setup( vector_double *V, level_struct *l, struct Thread *threading );
   void method_re_setup( level_struct *l, struct Thread *threading );
-  void method_update( int setup_iter, level_struct *l, struct Thread *threading );
+  void next_level_setup_new( vector_double *V, level_struct *l, struct Thread *threading );
+  void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *threading );
   void method_free( level_struct *l );
   void method_finalize( level_struct *l );
   
-  void next_level_setup( vector_double *V, level_struct *l, struct Thread *threading );
+  void next_level_setup_new( vector_double *V, level_struct *l, struct Thread *threading );
   void next_level_free( level_struct *l );
   
-  void l_init( level_struct *l );
-  void g_init( level_struct *l );
-  void lg_in( char *inputfile, level_struct *l );
-  void set_DDalphaAMG_parameters( struct init *params, level_struct *l );
   
-  void parameter_update( level_struct *l );
-  int read_parameter( void **save_at, char *search_pattern, char *read_format, int number, FILE *read_from, int set_default );
 #endif

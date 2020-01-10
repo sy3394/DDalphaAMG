@@ -16,12 +16,18 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * changed from sbacchio
+ * checked: 12/08/2019
+ * glanced over:12/19/2019
  */
 
 #include "main.h"
 
+// now mainly used for operators
+
 // vector storage for PRECISION precision
+// assign value to each entry of the vector in phi?
 void buffer_PRECISION_define( complex_PRECISION *phi, complex_PRECISION value, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
@@ -32,44 +38,22 @@ void buffer_PRECISION_define( complex_PRECISION *phi, complex_PRECISION value, i
     for ( i=start; i<end; i++ )
       phi[i] = value;
   } else {
-    error0("Error in \"vector_PRECISION_define\": pointer is null\n");
+    error0("Error in \"buffer_PRECISION_define\": pointer is null\n");
   }
   if(thread == 0 && start != end)
     PROF_PRECISION_STOP( _SET, 1 );
 }
 
-
-void vector_PRECISION_define_random( vector_PRECISION *phi, int start, int end, level_struct *l ) {
+// used in some operator functions
+void buffer_PRECISION_copy( complex_PRECISION *z, complex_PRECISION *x, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
-    PROF_PRECISION_START( _SET );
-  if ( phi != NULL ) {
-    int i;
-    for ( i=start; i<end; i++ )
-      phi->vector_buffer[i] = (PRECISION)(((double)rand()/(double)RAND_MAX))-0.5 + ( (PRECISION)((double)rand()/(double)RAND_MAX)-0.5)*_Complex_I;
-  } else {
-    error0("Error in \"vector_PRECISION_define_random\": pointer is null\n");
-  }
-  if(thread == 0 && start != end)
-    PROF_PRECISION_STOP( _SET, 1 );
-}
-
-
-void vector_PRECISION_define_random_new( vector_PRECISION *phi, level_struct *l, struct Thread *threading ) {
+  PROF_PRECISION_START( _CPY );
   
-  int start, end;
-  compute_core_start_end( 0, (phi->size)*(phi->num_vect), &start, &end, l, threading );
-  int thread = omp_get_thread_num();
-  if(thread == 0)
-    PROF_PRECISION_START( _SET );
-  if ( phi != NULL ) {
-    int i;
-    for ( i=start; i<end; i++ )
-      phi->vector_buffer[i] = (PRECISION)(((double)rand()/(double)RAND_MAX))-0.5 + ( (PRECISION)((double)rand()/(double)RAND_MAX)-0.5)*_Complex_I;
-  } else {
-    error0("Error in \"vector_PRECISION_define_random\": pointer is null\n");
-  }
-  if(thread == 0)
-    PROF_PRECISION_STOP( _SET, 1 );
+  VECTOR_FOR( int i=start, i<end, z[i] = x[i], i++, l );// does this cause an issue????
+  
+  if(thread == 0 && start != end)
+  PROF_PRECISION_STOP( _CPY, (double)(end-start)/(double)l->inner_vector_size );
 }
+

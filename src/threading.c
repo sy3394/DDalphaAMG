@@ -16,25 +16,34 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * changed from sbacchio: take out SSE
+ * glanced over: 12/08/2019
  */
 
-#include "main.h" // for level_struct
+/*
+  Hyperthreading is not impremented.
+ */
+
+#include "main.h"
 #include <omp.h>
 
 
 void no_barrier(int id)
 {
 }
+
 void no_hyperthread_barrier(void *barrier, int id)
 {
 }
+
 void core_barrier(int core)
 {
 #ifdef OPENMP
 #pragma omp barrier
 #endif
 }
+
 void hyperthread_barrier(void *barrier, int hyperthead)
 {
     // no hyperthreads for now => do nothing
@@ -46,7 +55,7 @@ void init_common_thread_data(struct common_thread_data *common)
     common->barrier = &core_barrier;
     common->thread_barrier = &hyperthread_barrier;
     common->workspace = NULL;
-    MALLOC( common->workspace, char, 4*128*sizeof(double));
+    MALLOC( common->workspace, char, 4*128*sizeof(double)); //4=#cores???? 128 doubles = 64 complex_double
 }
 
 
@@ -74,6 +83,25 @@ void setup_threading_external(struct Thread *threading, struct common_thread_dat
     threading->workspace = common->workspace;
 }
 
+void setup_no_threading(struct Thread *no_threading, struct level_struct *l) {
+  /********************
+   * Thread struct for no threading case
+   *******************/
+
+  no_threading->core = 0;
+  no_threading->n_core = 1;
+  // no hyperthreading for now
+  no_threading->thread = 0;
+  no_threading->n_thread = 1;
+  no_threading->workspace = NULL;
+  
+  update_threading(no_threading, l);
+  
+  no_threading->barrier = &no_barrier;
+  no_threading->thread_barrier = &no_hyperthread_barrier;
+  
+  MALLOC( no_threading->workspace, char, 4*1024*sizeof(double));//4=#cores???? 1024 doubles = 512 complex_double 
+}
 
 void update_threading(struct Thread *threading, struct level_struct *l)
 {
@@ -82,34 +110,17 @@ void update_threading(struct Thread *threading, struct level_struct *l)
     while(1)
     {
         compute_core_start_end(0, current->num_inner_lattice_sites,
-                threading->start_site+current->depth, threading->end_site+current->depth, current, threading);
-        threading->n_site[current->depth] = threading->end_site[current->depth] - threading->start_site[current->depth];
+			       threading->start_site+current->depth, threading->end_site+current->depth, 
+			       current, threading);
+        threading->n_site[current->depth]      = threading->end_site[current->depth] - threading->start_site[current->depth];
         threading->start_index[current->depth] = threading->start_site[current->depth]*current->num_lattice_site_var;
-        threading->end_index[current->depth]   =   threading->end_site[current->depth]*current->num_lattice_site_var;
-        threading->n_index[current->depth]     =     threading->n_site[current->depth]*current->num_lattice_site_var;
+        threading->end_index[current->depth]   = threading->end_site[current->depth]*current->num_lattice_site_var;
+        threading->n_index[current->depth]     = threading->n_site[current->depth]*current->num_lattice_site_var;
 
         if(current->next_level == NULL)
             break;
         current = current->next_level;
     }
-}
-
-
-void setup_no_threading(struct Thread *no_threading, struct level_struct *l)
-{
-    no_threading->core = 0;
-    no_threading->n_core = 1;
-    // no hyperthreading for now
-    no_threading->thread = 0;
-    no_threading->n_thread = 1;
-    no_threading->workspace = NULL;
-
-    update_threading(no_threading, l);
-
-    no_threading->barrier = &no_barrier;
-    no_threading->thread_barrier = &no_hyperthread_barrier;
-    
-    MALLOC( no_threading->workspace, char, 4*1024*sizeof(double));
 }
 
 
@@ -124,9 +135,12 @@ void compute_core_start_end(int start, int end, int *core_start, int *core_end,
 
 
 void compute_core_start_end_custom(int start, int end, int *core_start, int *core_end,
-        struct level_struct *l, struct Thread *threading, int granularity)
-{
-    if(threading->thread != 0)
+				   struct level_struct *l, struct Thread *threading, int granularity) {
+  /*******************
+   * distribute vector entries from start to end among cores
+   *******************/
+
+  if(threading->thread != 0) //????
     {
         *core_start = 0;
         *core_end = 0;

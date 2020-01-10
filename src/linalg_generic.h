@@ -16,7 +16,9 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * checked: 12/07/2019
+ * 1st cleanup: 12/18/2019
  */
 
 #ifndef LINALG_PRECISION_HEADER
@@ -99,35 +101,18 @@
 
   struct Thread;
 
-  complex_PRECISION global_inner_product_PRECISION( vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l, struct Thread *threading );
-  complex_PRECISION process_inner_product_PRECISION( vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l, struct Thread *threading );
-
-  void process_multi_inner_product_PRECISION( int count, complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi,
-      int start, int end, level_struct *l, struct Thread *threading );
+  void global_norm_PRECISION_new( PRECISION *res, vector_PRECISION *x, int start, int end, level_struct *l, struct Thread *threading );
+  void global_inner_product_PRECISION_new( complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l, struct Thread *threading );
   void process_multi_inner_product_PRECISION_new( int count, complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi,
-      level_struct *l, struct Thread *threading );
+						  level_struct *l, struct Thread *threading );
 
-  PRECISION global_norm_PRECISION( vector_PRECISION *phi, int start, int end, level_struct *l, struct Thread *threading );
-  PRECISION process_norm_PRECISION( vector_PRECISION *x, int start, int end, level_struct *l, struct Thread *threading );
-  void global_norm_PRECISION_new( PRECISION *res, vector_PRECISION *x, level_struct *l, struct Thread *threading );
- 
-  complex_PRECISION local_xy_over_xx_PRECISION( vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l  );
-  void vector_PRECISION_plus( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l ); // z := x + y
-  void vector_PRECISION_plus_new( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, level_struct *l, struct Thread *threading );
-  void vector_PRECISION_minus( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l ); // z := x - y
-  void vector_PRECISION_minus_new( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, level_struct *l, struct Thread *threading );
-  void vector_PRECISION_scale( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION alpha, int start, int end, level_struct *l ); // z := alpha*x
-  void vector_PRECISION_scale_new( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION *alpha, int k, level_struct *l, struct Thread *threading );
-  void buffer_PRECISION_real_scale( complex_PRECISION *z, complex_PRECISION *x, complex_PRECISION alpha,
-                                    int start, int end, level_struct *l );
-  void vector_PRECISION_saxpy( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, complex_PRECISION alpha, int start, int end, level_struct *l ); // z := x + alpha*y
-  void vector_PRECISION_saxpy_new( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, complex_PRECISION *alpha, int k, int sign, level_struct *l, struct Thread *threading );
-  void buffer_PRECISION_copy( complex_PRECISION *z, complex_PRECISION *x, int start, int end, level_struct *l ); // z := x
-  void vector_PRECISION_projection( vector_PRECISION *z, vector_PRECISION *v, int k, vector_PRECISION *W, complex_PRECISION *diag, 
-                                  int orthogonal, level_struct *l, Thread *threading );
-  
-  void gram_schmidt_on_aggregates_PRECISION( vector_PRECISION *V, const int num_vec, level_struct *l, struct Thread *threading );
-  
+  void local_xy_over_xx_PRECISION_new( complex_PRECISION *res, vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l  );
+
+  void gram_schmidt_PRECISION_new( vector_PRECISION *V, const int nvec, level_struct *l, struct Thread *threading );
+  void gram_schmidt_on_aggregates_PRECISION_new( vector_PRECISION *phi, const int num_vec, level_struct *l, struct Thread *threading );
+
+/*
+//not used!!!!!
   // Gram-Schmidt on a block of vectors, used by Block-Gram-Schmidt
   void aggregate_gram_schmidt_block_PRECISION( PRECISION *V,
       int num_vec, int leading_dimension, level_struct *l, struct Thread *threading );
@@ -141,12 +126,11 @@
   void aggregate_block_minus_block_times_dot_PRECISION( PRECISION *B, PRECISION *U, PRECISION *S,
       int num_vec, int leading_dimension, level_struct *l, struct Thread *threading );
 
-  void gram_schmidt_PRECISION( vector_PRECISION *V, complex_PRECISION *buffer, const int start, const int n, level_struct *l, struct Thread *threading );
   void setup_gram_schmidt_PRECISION( vector_PRECISION *V, vector_PRECISION *g5v,
                                      complex_PRECISION *buffer, const int n, level_struct *l,
                                      struct Thread *threading );
   void spinwise_PRECISION_skalarmultiply( vector_PRECISION *eta1, vector_PRECISION *eta2,
                                           vector_PRECISION *phi, complex_PRECISION alpha, int start, int end, level_struct *l );
-  void set_boundary_PRECISION( vector_PRECISION *phi, complex_PRECISION alpha, level_struct *l, struct Thread *threading );
-  
+*/
+
 #endif

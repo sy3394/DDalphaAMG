@@ -16,7 +16,9 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * checked:11/29/2019
+ * changed from sbacchio
+ * glanced over: 12/18/2019
  */
 
 #include <stdio.h>
@@ -32,6 +34,7 @@
 #ifndef MAIN_HEADER
   #define MAIN_HEADER
 
+  // macros
   #define num_loop 4
  
   #define VECTOR_LOOP(j, jmax, jj, instructions) for( j=0; j<jmax; j+=num_loop) {_Pragma("unroll") _Pragma("vector aligned") _Pragma("ivdep") for( jj=0; jj<num_loop; jj++) { instructions; }} 
@@ -46,7 +49,9 @@
   //#define HAVE_TM1p1   // flag for enable doublet for twisted mass
 
   #define INIT_ONE_PREC // flag undef for enabling additional features in the lib
-  
+
+  // These explicit repetitions are faster than for-loops.
+  #define FORN( N, e ) _Pragma( "unroll (N)" ) for(int i=0; i < N; i++){ e }; // suggestion
   #define FOR2( e )  { e e }
   #define FOR3( e )  { e e e }
   #define FOR4( e )  { e e e e }
@@ -174,9 +179,6 @@
   #define DEBUGOUTPUT( A, FORMAT )
   #endif
   
-  #define INDEX_NV_LV_SV( NV, NUM_NV, LV, NUM_LV, SV, NUM_SV ) SV+NUM_SV*LV+NUM_SV*NUM_LV*NV
-  #define INDEX_LV_SV_NV( NV, NUM_NV, LV, NUM_LV, SV, NUM_SV ) NV+NUM_NV*SV+NUM_NV*NUM_SV*LV
-
   #include "vectorization_control.h"
   #include "threading.h"
 
@@ -186,7 +188,7 @@
   enum { _NO_REORDERING, _REORDER };
   enum { _ADD, _COPY };
   enum { _ORDINARY, _SCHWARZ, _ODDEVEN, _INNER };
-  enum { _RES, _NO_RES };
+  enum { _RES, _NO_RES };// _RES: Use residual r as the right-side; _NO_RES: Use b as the right-hand side, which occurs when x=0 as r=b-Ax_0 = b.  
   enum { _STANDARD, _LIME }; //formats
   enum { _READ, _WRITE };
   enum { _NO_SHIFT };
@@ -200,8 +202,10 @@
       _SM1, _SM2, _SM3, _SM4, _SMALL1, _SMALL2, _RS, _NUM_PROF }; // _NUM_PROF has always to be the last constant!
   enum { _VTS = 20 };
   enum { _TRCKD_VAL, _STP_TIME, _SLV_ITER, _SLV_TIME, _CRS_ITER, _CRS_TIME, _SLV_ERR, _CGNR_ERR, _NUM_OPTB };
-  enum { _NV_LV_SV, _LV_SV_NV }; //vector layout
+  enum { _NVEC_OUTER, _NVEC_INNER }; //vector layout: spin first; vector first
 
+
+  // structures
   typedef struct block_struct {
     int start, color, no_comm, *bt;
   } block_struct;
@@ -255,7 +259,7 @@
     gmres_float_struct sp;
     gmres_double_struct dp;
     
-  } gmres_MP_struct;
+  } gmres_MP_struct; // MP=Mixed Precision
 
   typedef struct level_struct {    
     
@@ -277,9 +281,12 @@
     // gathering parameters and buffers
     gathering_double_struct gs_double;
     gathering_float_struct gs_float;
-    // k cycle
+    // gmres used in k cycle ???
     gmres_float_struct p_float;
     gmres_double_struct p_double;
+    // gmres used in k cycle for inversion: need???
+    //  gmres_float_struct ip_float;
+    //    gmres_double_struct ip_double;
     // gmres as a smoother
     gmres_float_struct sp_float;
     gmres_double_struct sp_double;
@@ -292,39 +299,37 @@
     
     // communication
     MPI_Request *reqs;
-    int parent_rank, idle, neighbor_rank[8], num_processes, num_processes_dir[4];
+    int parent_rank; //get parent rank (i/o rank that becomes a parent of subsets of ranks specified by comm_offset[mu):master node???
+    int idle, neighbor_rank[8], num_processes;
+    int  num_processes_dir[4]; // #processes in a given dir when mapped to the Cartesian process topology
     // lattice
-    int *global_lattice;
-    int *local_lattice;
-    int *block_lattice;
-    int num_eig_vect;
-    int num_parent_eig_vect;
-    int coarsening[4];
-    int global_splitting[4];
-    int periodic_bc[4];
-    int comm_offset[4];
-    // degrees of freedom on a site
-    // 12 on fine lattice (i.e., complex d.o.f.)
-    // 2*num_eig_vect on coarser lattices
-    int num_lattice_site_var;
-    int level;
-    int depth;
-    // number of sites in local volume + ghost shell (either fw or bw)
-    int num_lattice_sites;
-    // number of sites in local volume
-    int num_inner_lattice_sites;
+    int *global_lattice; // dims of global lattice at the given depth
+    int *local_lattice;  // dims of local lattice on each process at the given depth
+    int *block_lattice;  // dims of a block within a local lattice
+    int num_eig_vect;        // #eigenvectors used for interpolation/restriction on a given level
+    int num_parent_eig_vect; // #eigenvectors used for interpolation/restriction on a level one up
+    int coarsening[4];       // dims of an aggregate, corresponding to a lattice site on a coarsened lattice.
+    int global_splitting[4]; // #processes in the given dir in the Cartesian topology of processes on the global lattice
+    int periodic_bc[4];      // specify whether the grid is periodic (true) or not (false) in each dimension
+    int comm_offset[4];      // the ratio of #processes in the given dir on the top level to #processes in the given dir on the current level
+    // degrees of freedom on a site:
+    //   fine lattice: 12 (i.e., complex d.o.f. of spin and color)
+    //   coarser lattices: 2*num_eig_vect
+    int num_lattice_site_var;    // # d.o.f. on a given site
+    int level;                   // counts level of coarsening from the bottom, i.e., coarsest (=0) to the top (finest)
+    int depth;                   // counts level of coarsening from the top, i.e., finest (=0) to the bottom (coarsest)
+    int num_lattice_sites;       // number of sites in local volume + ghost shell (either fw or bw: one-sided boundry sites)
+    int num_inner_lattice_sites; // number of sites in local volume
     int num_boundary_sites[4];
-    // complex d.o.f. in local volume + ghost shell = num_lattice_sites * num_lattice_site_var
-    long int vector_size;
-    // complex d.o.f. in local volume = num_inner_lattice_sites * num_lattice_site_var
-    long int inner_vector_size;
-    long int schwarz_vector_size;
+    long int vector_size;        // complex d.o.f. in local volume + ghost shell (either fw or bw) = num_lattice_sites * num_lattice_site_var
+    long int inner_vector_size;  // complex d.o.f. in local volume = num_inner_lattice_sites * num_lattice_site_var
+    long int schwarz_vector_size;// 2*vector_size - inner_vector_size = #local lattice sites + full ghost shell
     int D_size;
     int clover_size;
     int block_size;
-    // buffer vectors
-    vector_float vbuf_float[9], sbuf_float[2];
-    vector_double vbuf_double[9], sbuf_double[2];
+    // buffer vectors: vbuf has num_eig_vect many vectors
+    vector_float vbuf_float[9], vtmp_float[2], sbuf_float[2];
+    vector_double vbuf_double[9], vtmp_double[2], sbuf_double[2];
     // storage + daggered-operator bufferes
     vector_double x;
     // local solver parameters
@@ -341,7 +346,7 @@
     
     FILE *logfile;
     
-    gmres_double_struct p;
+    gmres_double_struct p;// why only double???????
     gmres_MP_struct p_MP;
     operator_double_struct op_double;
     operator_float_struct op_float;
@@ -390,7 +395,7 @@
     int bc; 
     
     // number of rhs vectors (b) to be solved at the same time (hopefully)
-    int num_rhs_vect;
+    int num_rhs_vect, num_vect_now, num_vect_pass1, num_vect_pass2;
     
 
     complex_double **gamma;
@@ -400,6 +405,7 @@
 
   extern global_struct g;
   
+  // inline functiona
   static inline void printf0( char* format, ... ) {
     START_MASTER(no_threading)
     if ( g.my_rank == 0 && g.print >= 0 ) {
@@ -430,6 +436,16 @@
     }
   }
 
+static inline void printfv_float ( vector_float *v ) {
+  int vjj, vj;
+  for ( int vi=0; vi<v->size; vi++ )
+    VECTOR_LOOP(vj, v->num_vect_now, vjj, printf("v_%d[%d,%d]=%g %g ",vj+vjj,vi/v->l->num_lattice_site_var,vi%v->l->num_lattice_site_var,creal_float((float)v->vector_buffer[vi*v->num_vect+vj+vjj]),cimag_float((float)v->vector_buffer[vi*v->num_vect+vj+vjj]));)
+}
+static inline void printfv_double ( vector_double *v ) {
+  int vjj, vj;
+  for ( int vi=0; vi<v->size; vi++ )
+    VECTOR_LOOP(vj, v->num_vect_now, vjj, printf("v_%d[%d]=%g %g ",vj+vjj,vi,creal_float((double)v->vector_buffer[vi*v->num_vect+vj+vjj]),cimag_double((float)v->vector_buffer[vi*v->num_vect+vj+vjj]));)
+      }
   static inline void warning( char* format, ... ) {
     printf("\x1b[31mwarning, rank %d: ", g.my_rank);
     va_list argpt;
@@ -479,7 +495,7 @@
   
 #endif
 
-// functions
+// includes
 #include "clifford.h"
 
 #include "interpolation_float.h"
@@ -490,6 +506,7 @@
 #include "data_layout.h"
 #include "io.h"
 #include "init.h"
+#include "readin.h"
 #include "operator_float.h"
 #include "operator_double.h"
 #include "dirac.h"
@@ -497,6 +514,8 @@
 #include "dirac_double.h"
 #include "oddeven_float.h"
 #include "oddeven_double.h"
+#include "block_oddeven_float.h"
+#include "block_oddeven_double.h"
 #include "linalg.h"
 #include "linalg_float.h"
 #include "linalg_double.h"

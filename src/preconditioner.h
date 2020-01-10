@@ -16,7 +16,10 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * changed from sbacchio
+ * glanced over:12/08/2019
+ * 1st cleanup:12/18/2019
  */
 
 #ifndef PRECONDITIONER_HEADER
@@ -29,6 +32,6 @@
   #include "schwarz_float.h"
   #include "schwarz_double.h"
 
-  void preconditioner( vector_double *phi, vector_double *Dphi, vector_double *eta,
+  void preconditioner_new( vector_double *phi, vector_double *Dphi, vector_double *eta,
                        const int res, level_struct *l, struct Thread *threading );
 #endif

@@ -16,7 +16,10 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * changed from sbacchio
+ * checked: 12/08/2019
+ * glanced over:12/18/2019
  */
  
 #include "main.h"
@@ -42,10 +45,10 @@ int main( int argc, char **argv ) {
 #endif
   level_struct l;
   config_double hopp = NULL;
-  
-  MPI_Init( &argc, &argv );
-  
-  predefine_rank( MPI_COMM_WORLD );
+
+  MPI_Init( &argc, &argv );  printf("main0\n");fflush(stdout);//MPI_Init_thread??????
+  MPI_Comm_rank( MPI_COMM_WORLD, &(g.my_rank) );//predefine_rank( MPI_COMM_WORLD );//!!!!!!!
+
   if ( g.my_rank == 0 ) {
     printf("\n\n+----------------------------------------------------------+\n");
     printf("| The DDalphaAMG solver library.                           |\n");
@@ -56,8 +59,9 @@ int main( int argc, char **argv ) {
     printf("+----------------------------------------------------------+\n\n");
   }
   
+  //------------ initialize and setup g and l according to the inputfile
   method_init( &argc, &argv, &l );
-  
+  printf("main1\n");fflush(stdout);
   no_threading = (struct Thread *)malloc(sizeof(struct Thread));
   setup_no_threading(no_threading, &l);
   
@@ -69,34 +73,38 @@ int main( int argc, char **argv ) {
     read_conf( (double*)(hopp), g.in, &(g.plaq_hopp), &l );
 
   // store configuration, compute clover term
-  dirac_setup( hopp, &l );
+  dirac_setup( hopp, &l );printf("main1n");
   FREE( hopp, complex_double, 3*l.inner_vector_size );
 
   commonthreaddata = (struct common_thread_data *)malloc(sizeof(struct common_thread_data));
   init_common_thread_data(commonthreaddata);
-  
+
   THREADED(g.num_openmp_processes)
   {
+    //------------------ allocate memory and set up for multigrid solver
     struct Thread threading;
     setup_threading(&threading, commonthreaddata, &l);
-    setup_no_threading(no_threading, &l);
-    
+    setup_no_threading(no_threading, &l);//is this redundant??????
+    printf("main2\n");
     // setup up initial MG hierarchy
-    method_setup( NULL, &l, &threading );
+    method_setup( NULL, &l, &threading );printf("main3\n");
     
-    // iterative phase
-    method_update( l.setup_iter, &l, &threading );
-    
+    // iterative part of the setup
+    method_iterative_setup( l.setup_iter, &l, &threading );
+
+    //----------------- solve
+    g.num_vect_now=g.num_rhs_vect;//!!!!!!!!!!!
     solve_driver( &l, &threading );
   }
   printf0("Number of rhs vectors = %d\n", g.num_rhs_vect);
-  finalize_common_thread_data(commonthreaddata);
-  finalize_no_threading(no_threading);
+  method_free( &l );
+  method_finalize( &l );
+  finalize_common_thread_data(commonthreaddata); // free workspace in commonthreaddata
+  finalize_no_threading(no_threading);// free workspace in no_threading
   free(commonthreaddata);
   free(no_threading);
 
-  method_free( &l );
-  method_finalize( &l );
+
   
   MPI_Finalize();
   

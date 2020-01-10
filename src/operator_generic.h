@@ -16,7 +16,10 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * copied:11/30/2019
+ * not changed from sbacchio
+ * checked: 12/08/2019
+ * glanced over:12/18/2019
  */
 
 #ifndef OPERATOR_PRECISION_HEADER
@@ -26,12 +29,12 @@
   
   void operator_PRECISION_init( operator_PRECISION_struct *op );
   void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, level_struct *l );
-  void operator_PRECISION_define( operator_PRECISION_struct *op, level_struct *l );
   void operator_PRECISION_free( operator_PRECISION_struct *op, const int type, level_struct *l );
+  void operator_PRECISION_define( operator_PRECISION_struct *op, level_struct *l );
 
-  void operator_PRECISION_set_couplings( operator_PRECISION_struct *op, level_struct *l );
-  void operator_PRECISION_set_self_couplings( operator_PRECISION_struct *op, level_struct *l );
-  void operator_PRECISION_set_neighbor_couplings( operator_PRECISION_struct *op, level_struct *l );
+void operator_PRECISION_set_couplings( operator_PRECISION_struct *op, level_struct *l );// no effect
+  void operator_PRECISION_set_self_couplings( operator_PRECISION_struct *op, level_struct *l );// no effect
+  void operator_PRECISION_set_neighbor_couplings( operator_PRECISION_struct *op, level_struct *l );// no effect
   
   void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
   

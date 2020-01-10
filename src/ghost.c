@@ -16,36 +16,14 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * 
+ * not changed:11/30/2019
+ * glanced over: 12/04/2019
  */
 
 #include "main.h"
- 
-void neighbor_define( level_struct *l ) {
-  
-/*********************************************************************************
-* Determines the rank of the (cartesian) neighbors of a process and stores them 
-* in l->neighbor_rank.                                                  
-*********************************************************************************/
 
-  int mu, neighbor_coords[4];
-  
-  for ( mu=0; mu<4; mu++ ) {
-    neighbor_coords[mu] = g.my_coords[mu];
-  }
-  
-  for ( mu=0; mu<4; mu++ ) {    
-    neighbor_coords[mu]+=l->comm_offset[mu];
-    g.Cart_rank( g.comm_cart, neighbor_coords, &(l->neighbor_rank[2*mu]) );
-    neighbor_coords[mu]-=2*l->comm_offset[mu];
-    
-    g.Cart_rank( g.comm_cart, neighbor_coords, &(l->neighbor_rank[2*mu+1]) );
-    neighbor_coords[mu]+=l->comm_offset[mu];
-  }
-}
-
-
-void predefine_rank( MPI_Comm comm ) {
+// Is this necessary??? 
+void  predefine_rank( MPI_Comm comm ) {
   
 /*********************************************************************************
 * Assignes the MPI_rank of every process to g.my_rank.                         
@@ -53,7 +31,6 @@ void predefine_rank( MPI_Comm comm ) {
 
   MPI_Comm_rank( comm, &(g.my_rank) );
 }
-
 
 void cart_define( MPI_Comm comm, level_struct *l ) {
   
@@ -117,4 +94,29 @@ void cart_free( level_struct *l ) {
 
   MPI_Group_free( &(g.global_comm_group) );
   MPI_Comm_free( &(g.comm_cart) );  
+}
+
+void  neighbor_define( level_struct *l ) {
+  
+/*********************************************************************************
+* Determines the rank of the (cartesian) neighbors of a process and stores them 
+* in l->neighbor_rank.                                                  
+*********************************************************************************/
+
+  int mu, neighbor_coords[4];
+  
+  for ( mu=0; mu<4; mu++ ) {
+    neighbor_coords[mu] = g.my_coords[mu];
+  }
+  
+  for ( mu=0; mu<4; mu++ ) {    
+    // plus mu dir
+    neighbor_coords[mu]+=l->comm_offset[mu];
+    g.Cart_rank( g.comm_cart, neighbor_coords, &(l->neighbor_rank[2*mu]) );
+    // minus mu dir
+    neighbor_coords[mu]-=2*l->comm_offset[mu];
+    g.Cart_rank( g.comm_cart, neighbor_coords, &(l->neighbor_rank[2*mu+1]) );
+    // reset to the origianl value
+    neighbor_coords[mu]+=l->comm_offset[mu]; 
+  }
 }
