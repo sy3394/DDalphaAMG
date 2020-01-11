@@ -157,7 +157,7 @@ void vector_PRECISION_copy_new2( vector_PRECISION *z, vector_PRECISION *x, int l
       z->vector_buffer[i*z->num_vect] = x->vector_buffer[i*x->num_vect+loc];
   else 
     for( i=0; i<z->size; i++)
-      z->vector_buffer[i*x->num_vect+loc] = x->vector_buffer[i*z->num_vect];
+      z->vector_buffer[i*z->num_vect+loc] = x->vector_buffer[i*x->num_vect];
 
   if(thread == 0)
     PROF_PRECISION_STOP( _CPY, (double)(z->size)/(double)l->inner_vector_size );//???

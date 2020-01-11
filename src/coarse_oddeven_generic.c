@@ -553,14 +553,14 @@ void coarse_hopping_term_PRECISION_new( vector_PRECISION *out, vector_PRECISION 
   
   START_LOCKED_MASTER(threading)
   if ( op->c.comm ) {
+    g.num_vect_pass2 = nvec_out;
     for ( mu=0; mu<4; mu++ ) {
       // communicate in +mu direction
-      g.num_vect_pass2 = nvec_out;
       ghost_sendrecv_PRECISION_new( out->vector_buffer, mu, +1, &(op->c), plus_dir_param, l );    
     }
+    g.num_vect_pass2 = nvec_in;
     for ( mu=0; mu<4; mu++ ) {
       // wait for -mu direction
-      g.num_vect_pass2 = nvec_in;
       ghost_wait_PRECISION_new( in->vector_buffer, mu, -1, &(op->c), minus_dir_param, l );    
     }
   }
@@ -631,7 +631,7 @@ void coarse_n_hopping_term_PRECISION_new( vector_PRECISION *out, vector_PRECISIO
   //  out_pt = *out;
   vector_PRECISION_duplicate( &in_pt, in, 0, l );
   vector_PRECISION_duplicate( &out_pt, out, 0, l );
-  g.num_vect_pass1 = nvec_in;
+  g.num_vect_pass1 = nvec;
 
   int core_start;
   int core_end;

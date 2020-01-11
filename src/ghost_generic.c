@@ -32,7 +32,7 @@ void ghost_alloc_PRECISION( int buffer_size, comm_PRECISION_struct *c, level_str
   if ( l->depth > 0 ) {
     c->offset = l->num_lattice_site_var;
   } else {
-    c->offset = l->num_lattice_site_var/2;//why divide by 2???? probably b/c only half of d.o.f are stored
+    c->offset = l->num_lattice_site_var/2;//why divide by 2???? probably b/c only half of d.o.f are used; other half projected out
     if ( g.method < 5 )
       factor = 2;
   }
@@ -704,21 +704,26 @@ void negative_sendrecv_PRECISION( vector_PRECISION *phi, const int mu, comm_PREC
 }
 */
 
-// is this legacy code??? can we use only ghost_***?
 // send inner boundary sites on the negative mu boundary in the negative mu dir and
 // recieve inner boundary sites from rank in the positive mu dir and store the associated ghost cells
 void negative_sendrecv_PRECISION_new( vector_PRECISION *phi, const int mu, comm_PRECISION_struct *c, level_struct *l ) {
-  // send dir = -1
+  /**************************
+   * dir = -1
+   *   send neg mu inner boundary sites of this rank to the rank in the neg mu dir
+   *   recieve data from the rank in the pos mu dir and update pos mu ghost shell
+   **************************/
   if( l->global_splitting[mu] > 1 ) {    
     
-    int i, j, jj, num_boundary_sites = c->num_boundary_sites[2*mu+1], boundary_start,
-      *boundary_table = c->boundary_table[2*mu+1], n = l->num_lattice_site_var;
+    int i, j, jj, boundary_start;
+    int num_boundary_sites = c->num_boundary_sites[2*mu+1];
+    int *boundary_table    = c->boundary_table[2*mu+1];
+    int n                  = l->num_lattice_site_var;
     int nvec = phi->num_vect;
 
     if ( l->vbuf_PRECISION[8].num_vect < nvec )
       error0("negative_sendrecv_PRECISION: potential memory overflow\n");
     
-    buffer_PRECISION buffer, tmp_pt, buffer_pt;//need all three???
+    buffer_PRECISION buffer, tmp_pt, buffer_pt;
 
     boundary_start = l->num_inner_lattice_sites;
     for ( i=0; i<mu; i++ )
@@ -779,8 +784,8 @@ void negative_sendrecv_PRECISION_new( vector_PRECISION *phi, const int mu, comm_
 void negative_wait_PRECISION( const int mu, comm_PRECISION_struct *c, level_struct *l ) {
  
   if( l->global_splitting[mu] > 1 ) {printf("negative_wait_PRECISION %d",mu);
-    MPI_Wait( &(c->sreqs[2*mu+1]), MPI_STATUS_IGNORE );printf("negative_wait_PRECISION send %d",mu);
-    MPI_Wait( &(c->rreqs[2*mu+1]), MPI_STATUS_IGNORE );printf("negative_wait_PRECISION recv  %d",mu);
+    MPI_Wait( &(c->sreqs[2*mu+1]), MPI_STATUS_IGNORE );//printf("negative_wait_PRECISION send %d",mu);
+    MPI_Wait( &(c->rreqs[2*mu+1]), MPI_STATUS_IGNORE );//printf("negative_wait_PRECISION recv  %d",mu);
   }
 }
 

@@ -157,7 +157,7 @@ void coarse_grid_correction_PRECISION_setup_new( level_struct *l, struct Thread 
       }
       coarse_operator_PRECISION_set_couplings( &(l->next_level->s_PRECISION.op), l->next_level, threading );//not impremented????
       START_LOCKED_MASTER(threading)
-      l->next_level->p_PRECISION.op = &(l->next_level->s_PRECISION.op);
+	l->next_level->p_PRECISION.op = &(l->next_level->s_PRECISION.op);// set l->next_level->p_PRECISION.op
       END_LOCKED_MASTER(threading)
     }
     if ( !l->next_level->idle && l->next_level->level == 0 && g.odd_even ) {

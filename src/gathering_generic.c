@@ -247,7 +247,7 @@ void gathering_PRECISION_free( gathering_PRECISION_struct *gs, level_struct *l )
   FREE( gs->transfer_buffer.vector_buffer, complex_PRECISION, gs->dist_inner_lattice_sites * l->num_lattice_site_var * nvect );
 #endif
 }
-
+//intact
 void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_struct *in, level_struct *l ) {
   
   int send_size_hopp = l->gs_PRECISION.dist_inner_lattice_sites * 4 * SQUARE( l->num_lattice_site_var ),
@@ -473,7 +473,7 @@ void vector_PRECISION_gather_new( vector_PRECISION *gath, vector_PRECISION *dist
 
   if ( l->gs_PRECISION.buffer.num_vect < nvect_dist )
     error0("vector_PRECISION_gather: potential memory overflow\n");
-  printf0("gath: %d %d %d\n",g.my_rank,l->parent_rank,nvect);
+  printf("gath: %d %d %d\n",g.my_rank,l->parent_rank,nvect);
   if ( g.my_rank != l->parent_rank ) {
     MPI_Send( dist->vector_buffer, send_size*nvect_dist, MPI_COMPLEX_PRECISION, l->parent_rank, g.my_rank, g.comm_cart );
   } else {

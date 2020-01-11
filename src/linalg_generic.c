@@ -264,14 +264,14 @@ void gram_schmidt_PRECISION_new( vector_PRECISION *V, const int nvec, level_stru
     local_alpha = ((complex_PRECISION *)threading->workspace)[0];
     if ( g.num_processes > 1 ) {
       START_MASTER(threading)
-     PROF_PRECISION_START( _ALLR );
-     MPI_Allreduce( &local_alpha, &global_alpha, 1, MPI_COMPLEX_PRECISION, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_PRECISION.level_comm );
-     PROF_PRECISION_STOP( _ALLR, 1 );
-     ((complex_PRECISION *)threading->workspace)[0] = global_alpha;
-     END_MASTER(threading)
-     // all threads need the result of the norm
-     SYNC_MASTER_TO_ALL(threading)
-     global_alpha = ((complex_PRECISION *)threading->workspace)[0];
+      PROF_PRECISION_START( _ALLR );
+      MPI_Allreduce( &local_alpha, &global_alpha, 1, MPI_COMPLEX_PRECISION, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_PRECISION.level_comm );
+      PROF_PRECISION_STOP( _ALLR, 1 );
+      ((complex_PRECISION *)threading->workspace)[0] = global_alpha;
+      END_MASTER(threading)
+      // all threads need the result of the norm
+      SYNC_MASTER_TO_ALL(threading)
+      global_alpha = ((complex_PRECISION *)threading->workspace)[0];
     }
     else {
       global_alpha = local_alpha;

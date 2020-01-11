@@ -72,7 +72,7 @@ void test_routine_new( level_struct *l, struct Thread *threading ) {
     printf0("\n");
     END_MASTER(threading)
   }
-            error0("STOP\n");
+  //            error0("STOP\n");
   g.num_vect_now=tmp;
 /*
 #ifdef HAVE_TM1p1

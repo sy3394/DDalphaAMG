@@ -805,7 +805,7 @@ void schwarz_PRECISION_setup( schwarz_PRECISION_struct *s, operator_double_struc
     schwarz_PRECISION_oddeven_setup( s, l );
 
 }
-
+//intact
 void schwarz_PRECISION_boundary_update( schwarz_PRECISION_struct *s, level_struct *l ) {
 
 /*********************************************************************************
