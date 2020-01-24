@@ -61,7 +61,8 @@ void coarse_operator_PRECISION_setup_new( vector_PRECISION *V, level_struct *l )
   double t0, t1;
   t0 = MPI_Wtime();
   
-  vector_PRECISION buffer1, buffer2, buffer[3];
+  //vector_PRECISION buffer1, buffer2, buffer[3];
+  vector_PRECISION buffer[3];
 
   if ( V->num_vect_now != l->num_eig_vect || V->num_vect != l->num_eig_vect )
     error0("oarse_operator_PRECISION_setup: assumptions are not met\n");
@@ -97,8 +98,10 @@ void coarse_operator_PRECISION_setup_new( vector_PRECISION *V, level_struct *l )
 
   // for all test vectors V[i]:
   for ( i=0; i<n; i++ ) {
+    //START_LOCKED_MASTER(threading)
     vector_PRECISION_change_layout( V, V, _NVEC_INNER, no_threading ); 
-    vector_PRECISION_copy_new2( &buffer[2], V, i, 1, l );//printfv_PRECISION(&buffer[2]);
+    //END_LOCKED_MASTER(threading)
+    vector_PRECISION_copy_new2( &buffer[2], V, i, 1, l );//printfv_PRECISION(&buffer[2]); should it use start end????
     for ( mu=0; mu<4; mu++ ) {//printf("gg %d\n",mu);
       // update ghost cells of V[i]
       negative_sendrecv_PRECISION_new( &buffer[2], mu, &(l->s_PRECISION.op.c), l );//have not checked!!!!!//this requires V contains ghost shell
@@ -110,33 +113,33 @@ void coarse_operator_PRECISION_setup_new( vector_PRECISION *V, level_struct *l )
     //aggregate_self_coupling( &buffer1, &buffer2, V, &(l->s_PRECISION), l );
     //    printf("set cor: %p %p %p\n", &buffer[0], &buffer[1],&buffer[2]);
     aggregate_self_coupling( &buffer[0], &buffer[1], &buffer[2], &(l->s_PRECISION), l );//printfv_PRECISION(&buffer[1]);
+    //START_LOCKED_MASTER(threading)
     vector_PRECISION_change_layout( V, V, _NVEC_OUTER, no_threading );
     vector_PRECISION_change_layout( &buffer[0], &buffer[0], _NVEC_OUTER, no_threading );
     vector_PRECISION_change_layout( &buffer[1], &buffer[1], _NVEC_OUTER, no_threading );//printfv_PRECISION(&buffer[1]);
+    //END_LOCKED_MASTER(threading)
     //       set l->next_level->op_PRECISION.clover)
     //vector_PRECISION_copy_new2( V, buffer[2], i, -1, l );
     //set_coarse_self_coupling_PRECISION_new( &buffer1, &buffer2, V, i, l );
     set_coarse_self_coupling_PRECISION_new( &buffer[0], &buffer[1], V, i, l );
-    //vector_PRECISION_change_layout( &buffer1, &buffer1, _LV_SV_NV, no_threading );
-    //vector_PRECISION_change_layout( &buffer2, &buffer2, _LV_SV_NV, no_threading );
-    vector_PRECISION_change_layout( &buffer[0], &buffer[0], _NVEC_INNER, no_threading );//printf("gg\n");
-    vector_PRECISION_change_layout( &buffer[1], &buffer[1], _NVEC_INNER, no_threading );
-    //buffer[0].layout = _NVEC_INNER; buffer[1].layout = _NVEC_INNER;
+    //START_LOCKED_MASTER(threading)
+    //vector_PRECISION_change_layout( &buffer[0], &buffer[0], _NVEC_INNER, no_threading );//printf("gg\n");
+    //vector_PRECISION_change_layout( &buffer[1], &buffer[1], _NVEC_INNER, no_threading );
+    //END_LOCKED_MASTER(threading)
+    buffer[0].layout = _NVEC_INNER; buffer[1].layout = _NVEC_INNER;
     // odd_proj????
     //aggregate_block( &buffer1, &buffer2, V, l->s_PRECISION.op.odd_proj, l );
     aggregate_block( &buffer[0], &buffer[1], &buffer[2], l->s_PRECISION.op.odd_proj, l );
-    //vector_PRECISION_change_layout( &buffer1, &buffer1, _NV_LV_SV, no_threading );
-    //vector_PRECISION_change_layout( &buffer2, &buffer2, _NV_LV_SV, no_threading );
+    //START_LOCKED_MASTER(threading)
     vector_PRECISION_change_layout( &buffer[0], &buffer[0], _NVEC_OUTER, no_threading );
     vector_PRECISION_change_layout( &buffer[1], &buffer[1], _NVEC_OUTER, no_threading );
+    //END_LOCKED_MASTER(threading)
     //       set l->next_level->op_PRECISION.odd_proj
     //set_block_diagonal_PRECISION_new( &buffer1, &buffer2, V, i, l->next_level->op_PRECISION.odd_proj, l ); 
     set_block_diagonal_PRECISION_new( &buffer[0], &buffer[1], V, i, l->next_level->op_PRECISION.odd_proj, l ); 
-    //vector_PRECISION_change_layout( &buffer1, &buffer1, _LV_SV_NV, no_threading );
-    //vector_PRECISION_change_layout( &buffer2, &buffer2, _LV_SV_NV, no_threading );
-    vector_PRECISION_change_layout( &buffer[0], &buffer[0], _NVEC_INNER, no_threading );
-    vector_PRECISION_change_layout( &buffer[1], &buffer[1], _NVEC_INNER, no_threading );
-    //buffer[0].layout = _NVEC_INNER; buffer[1].layout = _NVEC_INNER;
+    //vector_PRECISION_change_layout( &buffer[0], &buffer[0], _NVEC_INNER, no_threading );
+    //vector_PRECISION_change_layout( &buffer[1], &buffer[1], _NVEC_INNER, no_threading );
+    buffer[0].layout = _NVEC_INNER; buffer[1].layout = _NVEC_INNER;
     for ( mu=0; mu<4; mu++ ) {//printf("gf %d\n",mu);
       //      finish updating ghostcells of V[i]
       negative_wait_PRECISION( mu, &(l->s_PRECISION.op.c), l );      
@@ -146,30 +149,35 @@ void coarse_operator_PRECISION_setup_new( vector_PRECISION *V, level_struct *l )
       //      apply 2spin-restricted dirac operator for direction mu for all aggregates
       //aggregate_neighbor_coupling( &buffer1, &buffer2, V, mu, &(l->s_PRECISION), l );      
       aggregate_neighbor_coupling( &buffer[0], &buffer[1], &buffer[2], mu, &(l->s_PRECISION), l );      
-      //vector_PRECISION_change_layout( &buffer1, &buffer1, _NV_LV_SV, no_threading );
-      //vector_PRECISION_change_layout( &buffer2, &buffer2, _NV_LV_SV, no_threading );
+      //START_LOCKED_MASTER(threading)
       vector_PRECISION_change_layout( &buffer[0], &buffer[0], _NVEC_OUTER, no_threading );
       vector_PRECISION_change_layout( &buffer[1], &buffer[1], _NVEC_OUTER, no_threading );
+      //END_LOCKED_MASTER(threading)
       //     finally set l->next_level->op_PRECISION.D 
       //set_coarse_neighbor_coupling_PRECISION_new( &buffer1, &buffer2, V, mu, i, l );
+      //START_LOCKED_MASTER(threading)
       vector_PRECISION_change_layout( V, V, _NVEC_INNER, no_threading );
+      //END_LOCKED_MASTER(threading)
       vector_PRECISION_copy_new2( V, &buffer[2], i, -1, l );
+      //START_LOCKED_MASTER(threading)
       vector_PRECISION_change_layout( V, V, _NVEC_OUTER, no_threading );
+      //END_LOCKED_MASTER(threading)
       set_coarse_neighbor_coupling_PRECISION_new( &buffer[0], &buffer[1], V, mu, i, l );
-      //vector_PRECISION_change_layout( &buffer1, &buffer1, _LV_SV_NV, no_threading );
-      //vector_PRECISION_change_layout( &buffer2, &buffer2, _LV_SV_NV, no_threading );
-      vector_PRECISION_change_layout( &buffer[0], &buffer[0], _NVEC_INNER, no_threading );
-      vector_PRECISION_change_layout( &buffer[1], &buffer[1], _NVEC_INNER, no_threading );
-      //buffer[0].layout = _NVEC_INNER; buffer[1].layout = _NVEC_INNER;
+      //START_LOCKED_MASTER(threading)
+      //vector_PRECISION_change_layout( &buffer[0], &buffer[0], _NVEC_INNER, no_threading );
+      //vector_PRECISION_change_layout( &buffer[1], &buffer[1], _NVEC_INNER, no_threading );
+      //END_LOCKED_MASTER(threading)
+      buffer[0].layout = _NVEC_INNER; buffer[1].layout = _NVEC_INNER;
     }
   }
+  //START_LOCKED_MASTER(threading)
   vector_PRECISION_change_layout( V, V, _NVEC_INNER, no_threading );
+  //END_LOCKED_MASTER(threading)
   // set tm_term (and eps_term if HAVE_TM1p1)
   coarse_operator_PRECISION_setup_finalize( l, no_threading );
-  /*
-  for ( j=0; j<block_size; j++ )
-    printf("%g ",creal_PRECISION(l->next_level->op_PRECISION.odd_proj[j]));
-  */
+
+  for ( i=0; i<3; i++ ) 
+    vector_PRECISION_free( &buffer[i], l, no_threading ); 
   t1 = MPI_Wtime();
   if ( g.print > 0 ) printf0("depth: %d, time spent for setting up next coarser operator: %lf seconds\n", l->depth, t1-t0 );
 
@@ -269,7 +277,6 @@ static void set_block_diagonal_PRECISION_new( vector_PRECISION *spin_0_1, vector
   //          0 D ]
   // storage order: upper triangle of A, upper triangle of D, columnwise
   // suitable for tm_term and odd_proj
-  //  printf("set_block_diagonal_PRECISION_\n");
   int i, j, k, m, k1, k2;
   int num_aggregates  = l->is_PRECISION.num_agg;
   int num_eig_vect    = l->next_level->num_parent_eig_vect;
@@ -401,7 +408,7 @@ void coarse_block_operator_PRECISION_new( vector_PRECISION *eta, vector_PRECISIO
   vector_PRECISION_duplicate( &lphi, phi, 0, l );//start/m, l );
   vector_PRECISION_duplicate( &leta, eta, 0, l );//start/m, l );
 
-  printf("coarse_block_operator_PRECISION: %d %d %d %d\n",nvec,nvec_phi,nvec_eta,length[0]);
+  //  printf("coarse_block_operator_PRECISION: %d %d %d %d\n",nvec,nvec_phi,nvec_eta,length[0]);
   if ( nvec_eta < nvec_phi )
     error0("coarse_block_operator_PRECISION: assumptions are not met\n");
   
@@ -559,7 +566,7 @@ void coarse_aggregate_block_diagonal_PRECISION_new( vector_PRECISION *eta1, vect
   vector_PRECISION_duplicate( &eta2_pt, eta2, 0, l);
   vector_PRECISION_duplicate( &phi_pt, phi, 0, l);
   phi_end_pt.vector_buffer = phi->vector_buffer+length*nvec_phi;
-  //  printf("coarse_aggregate_block_diagonal_:%d %d %d %d %d %d %d %d\n", nvec, nvec_phi, nvec_eta1, nvec_eta2, length, num_eig_vect, eta1->size, phi->size);
+
   if ( nvec_eta1 != nvec_eta2 || nvec_eta1 < nvec_phi )
     error0("coarse_aggregate_block_diagonal_PRECISION: assumptions are not met\n");
 
@@ -569,7 +576,6 @@ void coarse_aggregate_block_diagonal_PRECISION_new( vector_PRECISION *eta1, vect
   // diagonal coupling
   while ( phi_pt.vector_buffer < phi_end_pt.vector_buffer ) {
     // A
-    //    printf("coarse_aggregate_block_diago %d %g", num_eig_vect,creal_PRECISION(*block));//*phi_end_pt.vector_buffer));
     mvp_PRECISION_new( eta1_pt.vector_buffer, block_pt, phi_pt.vector_buffer, num_eig_vect, nvec, nvec_eta1, nvec_phi );
     vector_PRECISION_define_new( &eta2_pt, _COMPLEX_PRECISION_ZERO, 0, num_eig_vect, l );
     block_pt += block_step_size; 
@@ -577,7 +583,6 @@ void coarse_aggregate_block_diagonal_PRECISION_new( vector_PRECISION *eta1, vect
     eta2_pt.vector_buffer += num_eig_vect*nvec_eta2; 
     phi_pt.vector_buffer  += num_eig_vect*nvec_phi;
     // D
-    //    printf("coarse_aggregate_block_diago D %d %g", num_eig_vect,creal_PRECISION(*block));//*phi_end_pt.vector_buffer));
     vector_PRECISION_define_new( &eta1_pt, _COMPLEX_PRECISION_ZERO, 0, num_eig_vect, l );
     mvp_PRECISION_new( eta2_pt.vector_buffer, block_pt, phi_pt.vector_buffer, num_eig_vect, nvec, nvec_eta2, nvec_phi );
     block_pt += block_step_size; 
@@ -625,7 +630,7 @@ void apply_coarse_operator_PRECISION_new( vector_PRECISION *eta, vector_PRECISIO
   int start;
   int end;
   compute_core_start_end_custom(0, l->num_inner_lattice_sites, &start, &end, l, threading, 1);
-  printf("apply_coarse_operator_PRECISION: %d %d %d %d\n",l->num_inner_lattice_sites,start, end, l->num_lattice_site_var);
+  //  printf("apply_coarse_operator_PRECISION: %d %d %d %d\n",l->num_inner_lattice_sites,start, end, l->num_lattice_site_var);
   coarse_self_couplings_PRECISION_new( eta, phi, op, start, end, l);
 
   PROF_PRECISION_STOP( _SC, 1, threading );
@@ -642,7 +647,7 @@ void apply_coarse_operator_PRECISION_new( vector_PRECISION *eta, vector_PRECISIO
 void coarse_operator_PRECISION_set_couplings( operator_PRECISION_struct *op, level_struct *l,
                                               struct Thread *threading ) {
 
-  printf0("coarse_operator_PRECISION_set_couplings: not impremented\n");
+  //  printf0("coarse_operator_PRECISION_set_couplings: not impremented\n");
   coarse_operator_PRECISION_set_neighbor_couplings( op, l, threading );
   coarse_operator_PRECISION_set_self_couplings( op, l, threading );
 
@@ -818,12 +823,13 @@ void coarse_operator_PRECISION_test_routine_new( level_struct *l, struct Thread 
     END_LOCKED_MASTER(threading)
 
     START_LOCKED_MASTER(threading)
-    vector_PRECISION_define_random_new( &vp[1], 0, ivs, l );
-    vector_PRECISION_change_layout(&vp[2],&vp[1], _NVEC_OUTER, no_threading );//_NV_LV_SV==0
+      //vector_PRECISION_define_random_new( &vp[1], 0, ivs, l );
+      vector_PRECISION_change_layout(&vp[2],&vp[1], _NVEC_OUTER, no_threading );//printfv_PRECISION(&vp[1]);
     vector_PRECISION_change_layout(&vp[2],&vp[2], _NVEC_INNER, no_threading );
-    vector_PRECISION_minus_new( &vp[2], &vp[2], &vp[1], 0, civs, l->next_level );
-    global_norm_PRECISION_new( diff1, &vp[2], 0, civs, l, no_threading );
-    global_norm_PRECISION_new( diff2, &vp[1], 0, civs, l, no_threading );
+    //for(int i=0;i<ivs*n_vect;i++)printf0("%d %d %d %13g %g %g\n",i/n_vect/l->num_lattice_site_var,(i/n_vect)%l->num_lattice_site_var,i%n_vect,creal_PRECISION(vp[1].vector_buffer[i]-vp[2].vector_buffer[i]),creal_PRECISION(vp[1].vector_buffer[i]),creal_PRECISION(vp[2].vector_buffer[i]));   
+    vector_PRECISION_minus_new( &vp[2], &vp[2], &vp[1], 0, ivs, l );
+    global_norm_PRECISION_new( diff1, &vp[2], 0, ivs, l, no_threading );
+    global_norm_PRECISION_new( diff2, &vp[1], 0, ivs, l, no_threading );
     for(int i=0; i<n_vect; i++)
       test0_PRECISION("depth: %d, correctness of vector layout change: %le\n", l->depth, diff1[i]/diff2[i] );
     END_LOCKED_MASTER(threading)
@@ -842,7 +848,7 @@ void coarse_operator_PRECISION_test_routine_new( level_struct *l, struct Thread 
 
     vector_PRECISION_scale_new( &vc[1], &vc[1], factor, 0, 0, civs, l->next_level );
     coarse_add_block_diagonal_PRECISION_new( &vc[1], &vc[0], l->next_level->s_PRECISION.op.odd_proj, civs, l->next_level );
-    for(int i=0;i<civs*n_vect;i++)printf0("%d %d %13g %g %g\n",i/n_vect,i%n_vect,creal_PRECISION(vc[0].vector_buffer[i]-vc[1].vector_buffer[i]),creal_PRECISION(vc[0].vector_buffer[i]),creal_PRECISION(vc[1].vector_buffer[i]));
+    //for(int i=0;i<civs*n_vect;i++)printf0("%d %d %13g %g %g\n",i/n_vect,i%n_vect,creal_PRECISION(vc[0].vector_buffer[i]-vc[1].vector_buffer[i]),creal_PRECISION(vc[0].vector_buffer[i]),creal_PRECISION(vc[1].vector_buffer[i]));
     global_norm_PRECISION_new( diff1, &vc[1], 0, civs, l->next_level, no_threading );
     global_norm_PRECISION_new( diff2, &vc[0], 0, civs, l->next_level, no_threading );
     for(int i=0; i<n_vect; i++)
@@ -893,7 +899,7 @@ void coarse_operator_PRECISION_test_routine_new( level_struct *l, struct Thread 
     if ( l->level > 0 ) {
       START_LOCKED_MASTER(threading)
       interpolate3_PRECISION_new( &vp[0], &vc[0], l, no_threading );
-      printf("eres %d %d\n",vc[0].num_vect_now,vp[0].num_vect_now);
+      //printf0("eres %d %d\n",vc[0].num_vect_now,vp[0].num_vect_now);
       apply_operator_PRECISION( &vp[1], &vp[0], &(l->p_PRECISION), l, no_threading );      //l==0=>d_plus_clover
       
 #ifdef HAVE_TM
@@ -909,19 +915,18 @@ void coarse_operator_PRECISION_test_routine_new( level_struct *l, struct Thread 
         }
 #endif
       restrict_PRECISION_new( &vc[1], &vp[1], l, no_threading );
-      printf("eres %d %d\n",vc[1].num_vect_now,vp[1].num_vect_now);
+      //printf0("eres %d %d\n",vc[1].num_vect_now,vp[1].num_vect_now);
       if ( !l->next_level->idle ) {
         if ( l->level==1 && g.odd_even )
           coarse_odd_even_PRECISION_test_new( &vc[2], &vc[0], l->next_level, no_threading );
         else
           apply_operator_PRECISION( &vc[2], &vc[0], &(l->next_level->p_PRECISION), l->next_level, no_threading );
 
-	for(int i=0;i<civs*n_vect;i++)printf0("%d %d %d %13g %g %g\n",i/n_vect/l->next_level->num_lattice_site_var,(i/n_vect)%l->next_level->num_lattice_site_var,i%n_vect,creal_PRECISION(vc[1].vector_buffer[i]-vc[2].vector_buffer[i]),creal_PRECISION(vc[1].vector_buffer[i]),creal_PRECISION(vc[2].vector_buffer[i]));
+	//for(int i=0;i<civs*n_vect;i++)printf0("%d %d %d %13g %g %g\n",i/n_vect/l->next_level->num_lattice_site_var,(i/n_vect)%l->next_level->num_lattice_site_var,i%n_vect,creal_PRECISION(vc[1].vector_buffer[i]-vc[2].vector_buffer[i]),creal_PRECISION(vc[1].vector_buffer[i]),creal_PRECISION(vc[2].vector_buffer[i]));
         
         vector_PRECISION_minus_new( &vc[2], &vc[1], &vc[2], 0, civs, l->next_level );
         global_norm_PRECISION_new( diff1, &vc[2], 0, civs, l->next_level, no_threading );
         global_norm_PRECISION_new( diff2, &vc[1], 0, civs, l->next_level, no_threading );
-	//	printf("%g diff2 %g\n",diff1[0],diff2[0]);
 																						    
         if ( l->level==1 && g.odd_even ) {
           for(int i=0; i<n_vect; i++) 
@@ -956,8 +961,8 @@ void coarse_operator_PRECISION_test_routine_new( level_struct *l, struct Thread 
         END_LOCKED_MASTER(threading)
         }
     }
-    START_LOCKED_MASTER(threading)
 
+    START_LOCKED_MASTER(threading)
     if ( l->level > 0 && l->depth > 0 && g.method == 3 && g.odd_even ) {
       vector_PRECISION_define_random_new( &vp[0], 0, ivs, l );
       block_to_oddeven_PRECISION_new( &vp[3], &vp[0], l, no_threading );
@@ -982,14 +987,21 @@ void coarse_operator_PRECISION_test_routine_new( level_struct *l, struct Thread 
       for(int i=0; i<n_vect; i++)   
         test0_PRECISION("depth: %d, correctness of odd even preconditioned operator (smoother): %le\n", l->depth, diff1[i]/diff2[i] );
     }
-    
-    for(int i=0; i<4; i++)
-      vector_PRECISION_free( &vp[i], l, threading );
-
-    for(int i=0; i<3; i++)
-      vector_PRECISION_free( &vc[i], l->next_level, threading );
-    
-   END_LOCKED_MASTER(threading)
+    //printf("before free: %d %d %d",g.my_rank,threading->core,omp_get_num_threads());fflush(stdout);
+    END_LOCKED_MASTER(threading)    
+      /*
+    if ( 0){// omp_get_num_threads() != 1 ) {//????cause free(): invalid next size (normal)
+      for(int i=0; i<4; i++)
+	FREE(vp[i].vector_buffer,buffer_PRECISION,vp[i].size);//printf("after free vp[%d]: %d %d %d",i,g.my_rank,threading->core,omp_get_num_threads());fflush(stdout);}
+      for(int i=0; i<3; i++)
+	FREE(vc[i].vector_buffer,buffer_PRECISION,vc[i].size);//printf("after free vc[%d]: %d %d %d",i,g.my_rank,threading->core,omp_get_num_threads());fflush(stdout);}
+	} else {*/
+      for(int i=0; i<4; i++)
+	vector_PRECISION_free( &vp[i], l, threading );
+      for(int i=0; i<3; i++)
+	vector_PRECISION_free( &vc[i], l->next_level, threading );
+      //    }
+    //END_LOCKED_MASTER(threading)
     
     if ( l->next_level->level > 0  && !l->next_level->idle ) {
       schwarz_PRECISION_mvm_testfun_new( &(l->next_level->s_PRECISION), l->next_level, threading );

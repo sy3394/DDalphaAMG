@@ -53,7 +53,7 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
 *********************************************************************************/  
 
   long int total=0; 
-  int i, k=0, nvec=(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!! can take it as input
+  int i, k=0, nvec=(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!! can take it as input//more efficient if g.num_vect_now
 
   // double                                       // single
   p->dp.restart_length = m;                       p->sp.restart_length = m;           
@@ -79,18 +79,18 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
   nvec*=2;
 #endif
 
-  /////////////////////////// double precision part
+  //--------------------------- double precision part
   p->dp.num_vect = nvec;
   total = 0;
   total += (m+1)*m*nvec;       // for Hessenberg matrix
   total += 4*(m+1)*nvec;       // for y, gamma, c, s
-  p->dp.total_storage = total; // precomputed storage amount
+  p->dp.total_storage = total; // precomputed total storage amount for y, gamma, c, s
 
   // allocate connected memory for Hessenberg matrix, y, gamma, c, s 
   MALLOC( p->dp.H, complex_double*, m );  
   p->dp.H[0] = NULL; 
   MALLOC( p->dp.H[0], complex_double, total );
-  printf("fgAlloc_MP: %d %ld %g\n",m, total, tol);
+
   // reserve storage
   total = 0;
   // H
@@ -105,6 +105,7 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
   p->dp.c = p->dp.H[0] + total; total += (m+1)*nvec;
   // s
   p->dp.s = p->dp.H[0] + total; total += (m+1)*nvec;
+
   // x
   vector_double_alloc( &(p->dp.x), vl_type, nvec, l, no_threading );
   // r
@@ -115,12 +116,12 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
   ASSERT( p->dp.total_storage == total );
   
   
-  ///////////////////////// single precision part
+  //--------------------------- single precision part
   p->sp.num_vect = nvec;
-  total = 0;
-  p->sp.total_storage = total; // precomputed storage amount
+  //  total = 0;
+  //  p->sp.total_storage = total; // precomputed storage amount
 
-  // allocate connected memory
+  // allocate connected memory for V and Z
   MALLOC( p->sp.V, vector_float, m+1 );
   if ( precond != NULL ) {
     if ( prec_kind == _RIGHT ) {
@@ -148,17 +149,29 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
     }
   }
   
-  ASSERT( p->sp.total_storage == total );
+  //  ASSERT( p->sp.total_storage == total );
 }  
    
    
 void fgmres_MP_struct_free( gmres_MP_struct *p, level_struct *l ) {
-   
+
+  int i, k;  
+  if ( p->sp.preconditioner != NULL ) {
+    if ( p->sp.kind == _RIGHT ) {
+      k = p->dp.restart_length+1;
+    } else {
+      k = p->dp.restart_length;//m debug!!!originally 0
+    }
+  }
+
   // single precision
   vector_float_free( &(p->sp.w), l, no_threading );
+  for ( i=0; i<p->dp.restart_length+1; i++ ) vector_float_free( &(p->sp.V[i]), l, no_threading );
   FREE( p->sp.V, vector_float, p->sp.restart_length+1 );
-  if ( p->sp.Z != NULL )
+  if ( p->sp.Z != NULL ) {
+    for ( i=0; i<k; i++ ) vector_float_free( &(p->sp.Z[i]), l, no_threading );
     FREE( p->sp.Z, vector_float, p->sp.kind==_RIGHT?p->sp.restart_length+1:1 );
+  }
   
   // double precision
   FREE( p->dp.H[0], complex_double, p->dp.total_storage );
@@ -175,9 +188,9 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
    * stored in p->x.                                                              
    *********************************************************************************/  
   
-  // start and end indices for vector functions depending on thread
   ASSERT( g.mixed_precision );
-  
+
+  // start and end indices for vector functions depending on thread
   int start;
   int end;
   
@@ -191,7 +204,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
 
   if ( p->sp.num_vect < g.num_vect_now )
     error0("fgmres: memory corruption\n");
-  printf("fgmres_MP\n");
+  //  printf("fgmres_MP\n");
   p->dp.w.num_vect_now = g.num_vect_now; p->dp.x.num_vect_now = g.num_vect_now; p->dp.r.num_vect_now = g.num_vect_now; p->dp.b.num_vect_now = g.num_vect_now;//!!!!!!
   p->sp.w.num_vect_now = g.num_vect_now; p->dp.x.num_vect_now = g.num_vect_now; p->sp.r.num_vect_now = g.num_vect_now; p->sp.b.num_vect_now = g.num_vect_now;//!!!!!! 
   p->sp.V[0].num_vect_now = g.num_vect_now;  p->sp.Z[0].num_vect_now = g.num_vect_now;;
@@ -216,64 +229,62 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   compute_core_start_end(p->dp.v_start, p->dp.v_end, &start, &end, l, threading);
   
   // Outer loop in double precision
-  for( ol=0; ol<p->dp.num_restart && finish==0; ol++ )  {
+  for( ol=0; ol<p->dp.num_restart && finish==0; ol++ )  {// if go beyond max #restarts or has converged, exit
     
+    //------- iniital setup: Compute r_0 = b − Dx_0 , β := ||r_0||_2 , and v_1 := r_0 /β
     if( ol == 0 && p->dp.initial_guess_zero ) {
-      //vector_double_copy( &(p->dp.r), &(p->dp.b), start, end, l );
       vector_double_copy_new( &(p->dp.r), &(p->dp.b), start, end, l );
-    } else {
-      apply_operator_double( &(p->dp.r), &(p->dp.x), &(p->dp), l, threading ); // compute r <- D*x
-      //vector_double_minus( &(p->dp.r), &(p->dp.b), &(p->dp.r), start, end, l ); // compute r <- b - r
-      vector_double_minus_new( &(p->dp.r), &(p->dp.b), &(p->dp.r), start, end, l );
+    } else { // if the initial guess is not zero, need to compute b_l-D_l phi_i 
+      apply_operator_double( &(p->dp.r), &(p->dp.x), &(p->dp), l, threading );     // compute r <- D*x
+      vector_double_minus_new( &(p->dp.r), &(p->dp.b), &(p->dp.r), start, end, l );// compute r <- b - r = b - D*x
     }
-    //gamma0 = (complex_double) global_norm_double( &(p->dp.r), p->dp.v_start, p->dp.v_end, l, threading ); // gamma_0 = norm(r)
-    global_norm_double_new( gamma0_real, &(p->dp.r), p->dp.v_start, p->dp.v_end, l, threading );
-    VECTOR_LOOP(i, n_vect, jj, gamma0[i+jj]=gamma0_real[i+jj];)
-
+    global_norm_double_new( gamma0_real, &(p->dp.r), p->dp.v_start, p->dp.v_end, l, threading );// gamma_0 = norm(r)
+    //    VECTOR_LOOP(i, n_vect, jj, gamma0[i+jj]=gamma0_real[i+jj];)
     START_MASTER(threading)
-    //p->dp.gamma[0] = gamma0;
-    VECTOR_LOOP(i, n_vect, jj, p->dp.gamma[i+jj] = gamma0[i+jj];)
-    
+    VECTOR_LOOP(i, n_vect, jj, p->dp.gamma[i+jj] = (complex_double) gamma0_real[i+jj];)//gamma0[i+jj];)//!!!!!!
     END_MASTER(threading)
     SYNC_MASTER_TO_ALL(threading)
     
     if( ol == 0) {
-     if (l->depth == 0 && !p->dp.initial_guess_zero) {
-       //norm_r0 = global_norm_double( &(p->dp.b), start, end, l, threading );
-       global_norm_double_new( norm_r0, &(p->dp.b), start, end, l, threading );
-       for( i=0; i<n_vect; i++ ) 
-         printf0("| initial guess relative residual (%d):            %le |\n", i, creal(gamma0[i])/norm_r0[i]);
-     } else {
-       //norm_r0 = creal(gamma0);
-       VECTOR_LOOP(i, n_vect, jj, norm_r0[i+jj]= creal(gamma0[i+jj]);)
-     }
+      if (l->depth == 0 && !p->dp.initial_guess_zero) {
+	global_norm_double_new( norm_r0, &(p->dp.b), start, end, l, threading );
+	START_MASTER(threading)
+	for( i=0; i<n_vect; i++ ) 
+	  printf0("| initial guess relative residual (%d):            %le |\n", i, gamma0_real[i]/norm_r0[i]);
+	END_MASTER(threading)
+	SYNC_MASTER_TO_ALL(threading)
+      } else {
+	VECTOR_LOOP(i, n_vect, jj, norm_r0[i+jj]= gamma0_real[i+jj];)
+      }
     }
-/*#if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
+#if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
     else {
       if ( p->dp.print && g.print > 0 ) {
         START_MASTER(threading)
         printf0("+----------------------------------------------------------+\n");
         for( i=0; i<n_vect; i++ ) 
-          printf0("| restarting ...          true residual norm (%d): %6e |\n", i, creal(gamma0[i])/norm_r0[i] );
+          printf0("| restarting ...          true residual norm (%d): %6e |\n", i, gamma0_real[i]/norm_r0[i] );
         printf0("+----------------------------------------------------------+\n");
         END_MASTER(threading)
       }
     }
-#endif*/
+#endif
     trans_float_new( &(p->sp.V[0]), &(p->dp.r), l->s_float.op.translation_table, l, threading );
-    //vector_float_real_scale( &(p->sp.V[0]), &(p->sp.V[0]), (float)(1/p->dp.gamma[0]), start, end, l ); // V[0] <- r / gamma_0
     VECTOR_LOOP(i, n_vect, jj, gamma_float[i+jj]= (complex_float) p->dp.gamma[0*n_vect+i+jj];)
-    vector_float_real_scale_new( &(p->sp.V[0]), &(p->sp.V[0]), gamma_float, 0, 1, start, end, l );
+    vector_float_real_scale_new( &(p->sp.V[0]), &(p->sp.V[0]), gamma_float, 0, 1, start, end, l ); // V[0] <- r / gamma_0
+
     // inner loop in single precision
-    for( il=0; il<p->dp.restart_length && finish==0; il++) {
+    for( il=0; il<p->dp.restart_length && finish==0; il++) { // if (dim of the Krylov subspace)>p->dp.restart_length or has converged, exit this loop  
       j = il; iter++;
+
+      // extend the Arnoldi basis, p->sp.V, by one
       arnoldi_step_MP_new( p->sp.V, p->sp.Z, &(p->sp.w), p->dp.H, p->dp.y, j, p->sp.preconditioner, &(p->sp), l, threading );
+
       H_tot=0;
       VECTOR_LOOP(i, n_vect, jj, H_tot += cabs( p->dp.H[j][(j+1)*n_vect+i+jj] );)
       //if ( cabs( p->dp.H[j][j+1] ) > 1E-15 )
       if ( H_tot > n_vect*1E-15 ) {
         qr_update_double( p->dp.H, p->dp.s, p->dp.c, p->dp.gamma, j, l, threading );
-        //gamma_jp1 = cabs( p->dp.gamma[j+1] );          
         VECTOR_LOOP(i, n_vect, jj, gamma_jp1[i+jj] = cabs( p->dp.gamma[(j+1)*n_vect+i+jj] );)
 
         if ( iter%10 == 0 || p->sp.preconditioner != NULL || l->depth > 0 ) {
@@ -285,9 +296,9 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
           END_MASTER(threading)
 #endif
         }
+
         gamma_tot=0;
         VECTOR_LOOP(i, n_vect, jj, gamma_tot += gamma_jp1[i+jj]/norm_r0[i+jj];)
-
         //if( gamma_jp1/norm_r0 < p->dp.tol || gamma_jp1/norm_r0 > 1E+5 )  // if satisfied ... stop
         if( gamma_tot < n_vect*p->dp.tol || gamma_tot > n_vect*1E+5 ) {
           finish = 1;
@@ -296,9 +307,9 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
           END_MASTER(threading)
         }
         gamma_tot2=0;
-        VECTOR_LOOP(i, n_vect, jj, gamma_tot2 += gamma_jp1[i+jj]/creal(gamma0[i+jj]);)
+        VECTOR_LOOP(i, n_vect, jj, gamma_tot2 += gamma_jp1[i+jj]/gamma0_real[i+jj];)
         //if( gamma_jp1/creal(gamma0) < p->sp.tol )
-        if( gamma_tot2 < n_vect*p->sp.tol ){  
+	if( gamma_tot2 < n_vect*p->sp.tol ){  
           break;
         }
       } else {
@@ -310,11 +321,9 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
                            
     trans_back_float_new( &(p->dp.r), &(p->sp.w), l->s_float.op.translation_table, l, threading );
     if ( ol == 0 ) {
-      //vector_double_copy( &(p->dp.x), &(p->dp.r), start, end, l );
       vector_double_copy_new( &(p->dp.x), &(p->dp.r), start, end, l );
     } else {
-      //vector_double_plus( &(p->dp.x), &(p->dp.x), &(p->dp.r), start, end, l );
-      vector_double_plus_new( &(p->dp.x), &(p->dp.x), &(p->dp.r), start, end, l );
+      vector_double_plus_new( &(p->dp.x), &(p->dp.x), &(p->dp.r), start, end, l ); // p->dp.x += p->dp.r
     }
   } // end of fgmres
   
@@ -325,9 +334,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   if ( p->dp.print ) {
 #ifdef FGMRES_RESTEST
     apply_operator_double( &(p->dp.r), &(p->dp.x), &(p->dp), l, threading );
-    //vector_double_minus( &(p->dp.r), &(p->dp.b), &(p->dp.r), start, end, l );
     vector_double_minus_new( &(p->dp.r), &(p->dp.b), &(p->dp.r), start, end, l ); 
-    //beta = global_norm_double( &(p->dp.r), p->dp.v_start, p->dp.v_end, l, threading );
     global_norm_double_new( beta, &(p->dp.r), p->dp.v_start, p->dp.v_end, l, threading );
 #else
     VECTOR_LOOP(i, n_vect, jj, beta[i+jj] = creal(gamma_jp1[i+jj]);)
@@ -375,80 +382,14 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   
   return iter;
 }
-/*
-void arnoldi_step_MP( vector_float *V, vector_float *Z, vector_float *w,
-                      complex_double **H, complex_double* buffer, int j, void (*prec)(),
-                      gmres_float_struct *p, level_struct *l, struct Thread *threading ) {
-  
-  SYNC_MASTER_TO_ALL(threading)
-  SYNC_CORES(threading)
-  int i;
-  // start and end indices for vector functions depending on thread
-  int start;
-  int end;
-  // compute start and end indices for core
-  // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-  compute_core_start_end(p->v_start, p->v_end, &start, &end, l, threading);
-  
-  if ( prec != NULL ) {
-    if ( p->kind == _LEFT ) {
-      apply_operator_float( &Z[0], &V[j], p, l, threading );
-      prec( w, NULL, &Z[0], _NO_RES, l, threading );
-    } else {
-      if ( g.mixed_precision == 2 && (g.method >= 1 && g.method <= 2 ) ) {
-        prec( &Z[j], w, &V[j], _NO_RES, l, threading );
-        // obtains w = D * Z[j] from Schwarz
-      } else {
-        prec( &Z[j], NULL, &V[j], _NO_RES, l, threading );
-        apply_operator_float( w, &Z[j], p, l, threading ); // w = D*Z[j]
-      }
-    }
-  } else {
-    apply_operator_float( w, &V[j], p, l, threading ); // w = D*V[j]
-  }
-
-  complex_double tmp[j+1];
-  process_multi_inner_product_MP( j+1, tmp, V, w, p->v_start, p->v_end, l, threading );
-  START_MASTER(threading)
-  for( i=0; i<=j; i++ )
-    buffer[i] = tmp[i];
-  
-  if ( g.num_processes > 1 ) {
-    PROF_double_START( _ALLR );
-    MPI_Allreduce( buffer, H[j], j+1, MPI_COMPLEX_double, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_float.level_comm );
-    PROF_double_STOP( _ALLR, 1 );
-  } else {
-    for( i=0; i<=j; i++ )
-      H[j][i] = buffer[i];
-  }
-  END_MASTER(threading)
-  SYNC_MASTER_TO_ALL(threading)
-
-  // orthogonalization
-  complex_float alpha[j+1];
-  for( i=0; i<=j; i++ )
-    alpha[i] = (complex_float) -H[j][i];
-  vector_float_multi_saxpy( w, V, alpha, 1, j+1, start, end, l );
-  
-  complex_double tmp2 = global_norm_MP( w, p->v_start, p->v_end, l, threading );
-  START_MASTER(threading)
-  H[j][j+1] = tmp2;
-  END_MASTER(threading)
-  SYNC_MASTER_TO_ALL(threading)
-  
-  // V_j+1 = w / H_j+1,j
-  if ( cabs_double( H[j][j+1] ) > 1e-15 )
-    vector_float_real_scale( &V[j+1], w, (float)(1/H[j][j+1]), start, end, l );
-}
-*/
 
 void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
                       complex_double **H, complex_double* buffer, int j, void (*prec)(),
                       gmres_float_struct *p, level_struct *l, struct Thread *threading ) {
-  printf("arnoldi_step_MP: j=%d\n",j);
+
   SYNC_MASTER_TO_ALL(threading)
   SYNC_CORES(threading)
-    int i, n_vect=g.num_vect_now, n, jj;//!!!!!!!
+  int i, jj, n, n_vect = w->num_vect_now;//g.num_vect_now, n, jj;//!!!!!!!
   double H_tot;
   complex_float H_float[n_vect];
   // start and end indices for vector functions depending on thread
@@ -458,31 +399,30 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
   compute_core_start_end(p->v_start, p->v_end, &start, &end, l, threading);
   
-  Z[j].num_vect_now = n_vect; V[j].num_vect_now = n_vect; V[j+1].num_vect_now = n_vect;
+  Z[j].num_vect_now = n_vect; V[j].num_vect_now = n_vect; V[j+1].num_vect_now = n_vect;//can move to fgmres????   
   if ( prec != NULL ) {
     if ( p->kind == _LEFT ) {
       apply_operator_float( &Z[0], &V[j], p, l, threading );
       prec( w, NULL, &Z[0], _NO_RES, l, threading );
     } else {
       if ( g.mixed_precision == 2 && (g.method >= 1 && g.method <= 2 ) ) {
-        prec( &Z[j], w, &V[j], _NO_RES, l, threading );
-        // obtains w = D * Z[j] from Schwarz
+        prec( &Z[j], w, &V[j], _NO_RES, l, threading );    // obtains w = D * Z[j] from Schwarz
       } else {
         prec( &Z[j], NULL, &V[j], _NO_RES, l, threading );
         apply_operator_float( w, &Z[j], p, l, threading ); // w = D*Z[j]
       }
     }
   } else {
-    apply_operator_float( w, &V[j], p, l, threading ); // w = D*V[j]
+    apply_operator_float( w, &V[j], p, l, threading );     // w = D*V[j]
   }
-  printf("ar_MP:001 %d %d %d %d\n",j,V[0].num_vect_now, w->num_vect_now, n_vect);
+
   complex_double tmp[(j+1)*n_vect];
   //  for(i=0;i<=j;i++)VECTOR_LOOP(n, n_vect, jj,printf("normar_MP: %g\n",creal_double(tmp[i*n_vect+n+jj]));)
-  process_multi_inner_product_MP_new( j+1, tmp, V, w, l, threading );
+  process_multi_inner_product_MP_new( j+1, tmp, V, w, l, threading );//don't take start and end????
   //  for(i=0;i<=j;i++)VECTOR_LOOP(n, n_vect, jj,printf("normar_MP: %g\n",creal_double(tmp[i*n_vect+n+jj]));)
   START_MASTER(threading)
   for( i=0; i<=j; i++ )
-    VECTOR_LOOP(n, n_vect, jj, buffer[i*n_vect+n+jj] = tmp[i*n_vect+n+jj];printf("arMP: %g ",creal_double(tmp[i*n_vect+n+jj]));)
+    VECTOR_LOOP(n, n_vect, jj, buffer[i*n_vect+n+jj] = tmp[i*n_vect+n+jj];)//printf("arMP: %g ",creal_double(tmp[i*n_vect+n+jj]));)
 
   if ( g.num_processes > 1 ) {
     PROF_double_START( _ALLR );
@@ -495,11 +435,14 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
 
+  // orthogonalization
   complex_float alpha[(j+1)*n_vect]; 
   for( i=0; i<=j; i++ )
     VECTOR_LOOP(n, n_vect, jj, alpha[i*n_vect+n+jj] = (complex_float) H[j][i*n_vect+n+jj];)
+      //vector_float_multi_saxpy_new( w, V, alpha, 1, j+1, start, end, l );//just wanted to use start end
   for( i=0; i<=j; i++ )
     vector_float_saxpy_new( w, w, &V[i], alpha, i, -1, start, end, l );
+
   /*// orthogonalization
   complex_float alpha[(j+1)*n_vect];
  
@@ -512,59 +455,15 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
   global_norm_MP_new( tmp2, w, l, threading );
   START_MASTER(threading)
   VECTOR_LOOP(n, n_vect, jj, H[j][(j+1)*n_vect+n+jj] = tmp2[n+jj];)
-
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
   
   // V_j+1 = w / H_j+1,j
   //H_tot=0;
   //VECTOR_LOOP(n, n_vect, jj, H_tot += cabs_double( H[j][(j+1)*n_vect+n+jj] );)
-    VECTOR_LOOP(n, n_vect, jj,  H_float[n+jj] = ( cabs_double( H[j][(j+1)*n_vect+n+jj] ) > 1e-15 )?(float)tmp2[n+jj]:1;)
-    //  if ( H_tot > n_vect*1e-15 ){
-    //    VECTOR_LOOP(n, n_vect, jj, H_float[n+jj]= (complex_float) H[j][(j+1)*n_vect+n+jj];)
-   vector_float_real_scale_new( &V[j+1], w, H_float, 0, 1, start, end, l );
-  //}
+  VECTOR_LOOP(n, n_vect, jj,  H_float[n+jj] = ( cabs_double( H[j][(j+1)*n_vect+n+jj] ) > 1e-15 )?(float)tmp2[n+jj]:1;)
+  vector_float_real_scale_new( &V[j+1], w, H_float, 0, 1, start, end, l );
 }
-/*
-void compute_solution_MP( vector_float *x, vector_float *V, complex_double *y,
-                          complex_double *gamma, complex_double **H, int j,
-                          gmres_float_struct *p, level_struct *l, struct Thread *threading ) {
-  
-  int i, k;
-  // start and end indices for vector functions depending on thread
-  int start;
-  int end;
-  // compute start and end indices for core
-  // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-  compute_core_start_end(p->v_start, p->v_end, &start, &end, l, threading);
-
-  START_MASTER(threading)
-  
-  PROF_double_START( _SMALL2 );
-  
-  // backward substitution
-  for ( i=j; i>=0; i-- ) {
-    y[i] = gamma[i];
-    for ( k=i+1; k<=j; k++ ) {
-      y[i] -= H[k][i]*y[k];
-    }
-    y[i] /= H[i][i];
-  }
-  
-  PROF_double_STOP( _SMALL2, ((j+1)*(j+2))/2 + j+1 );
-  
-  END_MASTER(threading)
-  SYNC_MASTER_TO_ALL(threading)
-  
-  // x = V*y
-  vector_float_scale( x, &V[0], (complex_float) y[0], start, end, l );
-
-  complex_float alpha[j];
-  for ( i=1; i<=j; i++ )
-    alpha[i-1] = (complex_float) y[i];
-  vector_float_multi_saxpy( x, &V[1], alpha, 1, j, start, end, l );
-}
-*/
 
 void compute_solution_MP_new( vector_float *x, vector_float *V, complex_double *y,
                           complex_double *gamma, complex_double **H, int j,
@@ -586,10 +485,12 @@ void compute_solution_MP_new( vector_float *x, vector_float *V, complex_double *
   // backward substitution
   for ( i=j; i>=0; i-- ) {
     VECTOR_LOOP(n, n_vect, jj, y[i*n_vect+n+jj] = gamma[i*n_vect+n+jj];)
-    for ( k=i+1; k<=j; k++ ) {
+    for ( k=i+1; k<=j; k++ ) //{
+      VECTOR_LOOP(n, n_vect, jj, y[i*n_vect+n+jj] -= H[k][i*n_vect+n+jj]*y[k*n_vect+n+jj];)
+	/*
       for ( n=0; n<n_vect; n++ )
         y[i*n_vect+n] -= H[k][i*n_vect+n]*y[k*n_vect+n];
-    }
+	}*/
     VECTOR_LOOP(n, n_vect, jj, y[i*n_vect+n+jj] /= H[i][i*n_vect+n+jj];)
   }
   
@@ -600,13 +501,13 @@ void compute_solution_MP_new( vector_float *x, vector_float *V, complex_double *
   
   // x = V*y
   VECTOR_LOOP(n, n_vect, jj, y_float[n+jj]= (complex_float) y[0*n_vect+n+jj];)
-  vector_float_scale_new( x, &V[0], y_float, 0, start, end, l );
+    vector_float_scale_new( x, &V[0], y_float, 0, start, end, l ); // x = y_0 * V_0 where V_0 is the first basis vector 
 
   complex_float alpha[j*n_vect];
   for ( i=1; i<=j; i++ )
-    VECTOR_LOOP(n, n_vect, jj, alpha[i*n_vect+n+jj] = (complex_float) y[i*n_vect+n+jj];)
-  for ( i=1; i<=j; i++ )
-    vector_float_saxpy_new( x, x, &V[i], alpha, i, 1, start, end, l );
-//vector_float_multi_saxpy_new( x, &V[1], alpha, 1, j, l, threading );
+    VECTOR_LOOP(n, n_vect, jj, alpha[(i-1)*n_vect+n+jj] = (complex_float) y[i*n_vect+n+jj];)// i <- i-1!!!!!
+      //  vector_float_multi_saxpy_new( x, V, alpha, 1, j, start, end, l );//does not take start and end
+  for ( i=0; i<j; i++ )
+    vector_float_saxpy_new( x, x, &V[i+1], alpha, i, 1, start, end, l );
 
 }

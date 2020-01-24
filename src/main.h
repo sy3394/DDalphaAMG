@@ -136,6 +136,7 @@
     #define DPRINTF0( ARGS, ... )
   #endif
     
+  // Allocate memory in the master and assign the pt to variable in each thread (variable is assumed to be local to thread and thus private)
   #define PUBLIC_MALLOC( variable, kind, size ) do{ START_MASTER(threading) MALLOC( variable, kind, size ); \
   ((kind**)threading->workspace)[0] = variable; END_MASTER(threading) SYNC_MASTER_TO_ALL(threading) \
   variable = ((kind**)threading->workspace)[0]; SYNC_MASTER_TO_ALL(threading) }while(0)
@@ -281,13 +282,10 @@
     // gathering parameters and buffers
     gathering_double_struct gs_double;
     gathering_float_struct gs_float;
-    // gmres used in k cycle ???
+    // gmres used in V/K-cycle
     gmres_float_struct p_float;
     gmres_double_struct p_double;
-    // gmres used in k cycle for inversion: need???
-    //  gmres_float_struct ip_float;
-    //    gmres_double_struct ip_double;
-    // gmres as a smoother
+    // gmres as a smoother: used when g.method >= 5
     gmres_float_struct sp_float;
     gmres_double_struct sp_double;
     // dummy gmres struct
@@ -299,9 +297,11 @@
     
     // communication
     MPI_Request *reqs;
-    int parent_rank; //get parent rank (i/o rank that becomes a parent of subsets of ranks specified by comm_offset[mu):master node???
-    int idle, neighbor_rank[8], num_processes;
-    int  num_processes_dir[4]; // #processes in a given dir when mapped to the Cartesian process topology
+    int parent_rank;          // rank that takes care of the sites on the idle processes in the family (a group of a parent and idle children)
+    int idle, neighbor_rank[8];
+    int num_processes;        // total #active processes at the given level
+    int num_processes_dir[4]; // #processes in a given dir when mapped to the Cartesian process topology
+    int comm_offset[4];       // =(#processes in the given dir on the top level)/(#processes in the given dir on the current level); some processes become idle
     // lattice
     int *global_lattice; // dims of global lattice at the given depth
     int *local_lattice;  // dims of local lattice on each process at the given depth
@@ -311,7 +311,6 @@
     int coarsening[4];       // dims of an aggregate, corresponding to a lattice site on a coarsened lattice.
     int global_splitting[4]; // #processes in the given dir in the Cartesian topology of processes on the global lattice
     int periodic_bc[4];      // specify whether the grid is periodic (true) or not (false) in each dimension
-    int comm_offset[4];      // the ratio of #processes in the given dir on the top level to #processes in the given dir on the current level
     // degrees of freedom on a site:
     //   fine lattice: 12 (i.e., complex d.o.f. of spin and color)
     //   coarser lattices: 2*num_eig_vect

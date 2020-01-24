@@ -49,8 +49,8 @@ void coarsening_index_table_PRECISION_alloc( interpolation_PRECISION_struct *is,
   is->num_agg = 1;
   for ( mu=0; mu<4; mu++ ) {
     agg_split[mu] = l->local_lattice[mu]/l->coarsening[mu]; // #aggregates in a local lattice
-    agg_size[mu] = l->coarsening[mu];                       // dims of each aggregate
-    is->num_agg *= agg_split[mu];                           // total #aggregates in a local lattice
+    agg_size[mu]  = l->coarsening[mu];                      // dims of each aggregate
+    is->num_agg  *= agg_split[mu];                          // total #aggregates in a local lattice
   }
 
   count[T]=&t; count[Z]=&z; count[Y]=&y; count[X]=&x;

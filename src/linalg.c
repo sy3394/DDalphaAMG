@@ -46,15 +46,27 @@ void process_multi_inner_product_MP_new( int count, complex_double *results, vec
     PROF_float_START( _PIP, threading );
   
   int c, i, j, jj, nvec = psi->num_vect_now;
-  for ( c=0; c<count; c++)
-   VECTOR_LOOP(j, nvec, jj, results[c*nvec+j+jj] = 0.0;)
+  VECTOR_LOOP(j, count*nvec, jj, results[j+jj] = 0.0;)
 
   for ( c=0; c<count; c++ ) {
     if ( phi[c].num_vect_now != psi->num_vect_now )
       error0("process_multi_inner_product_MP: phi[%d]->num_vect_now != psi->num_vect_now \n",c);
     for ( i=start; i<end; i++ )
-      VECTOR_LOOP(j, nvec, jj, results[c*nvec+j+jj] += (complex_double) conj_float(phi[c].vector_buffer[i*phi[c].num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj])//;printf("pMP: %g ",creal_double(results[c*nvec+j+jj]));)
+      VECTOR_LOOP(j, nvec, jj, results[c*nvec+j+jj] += (complex_double) conj_float(phi[c].vector_buffer[i*phi[c].num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj])
   }
+
+  START_NO_HYPERTHREADS(threading)
+  VECTOR_LOOP( j, count*nvec, jj,((complex_double *)threading->workspace)[threading->core*count*nvec+j+jj] = results[j+jj];)
+  END_NO_HYPERTHREADS(threading)
+  // master sums up all results
+  SYNC_CORES(threading)
+  START_MASTER(threading)
+  for( i=1; i<threading->n_core; i++)
+    VECTOR_LOOP( j, count*nvec, jj,((complex_double *)threading->workspace)[j+jj] += ((complex_double *)threading->workspace)[i*count*nvec+j+jj];)
+  END_MASTER(threading)
+  // all threads need the result of the norm
+  SYNC_MASTER_TO_ALL(threading)
+  VECTOR_LOOP( j, count*nvec, jj, results[j+jj] = ((complex_double *)threading->workspace)[j+jj];)
 
   if(thread == 0 && start != end)
     PROF_float_STOP( _PIP, (double)(end-start)/(double)l->inner_vector_size, threading );

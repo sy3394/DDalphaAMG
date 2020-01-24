@@ -21,32 +21,32 @@
  * glanced over: 12/08/2019
  */
 
-/*
-  Description:
-  The header file for threading functionality.
- */
-
 #ifndef THREADING_H
    #define THREADING_H
-
+/**********
+ * Note:
+ *   thread: hyperthread; core:thread
+ *   hyperthreading is not impremented
+ *   dynamic memory allocation is done only in the master, and 
+ *     when using PUBLIC_MALLOC no_threading should be used 
+ *********/
 struct level_struct;
+
 
 struct common_thread_data
 {
     void (*barrier)(int);                // barrier among cores
     void (*thread_barrier)(void *, int); // barrier among hyperthreads on a core
     // *common* workspace for *all* threads
-    // sometimes threads need to exchange data, they can use this
+    // sometimes threads need to exchange data, they can use this field
     char *workspace;
 };
-
-void init_common_thread_data(struct common_thread_data *common);
 
 // holds information relevant for specific core/thread
 typedef struct Thread
 {
-  int core;   // core id
-  int n_core; // total # cores
+  int core;     // core id
+  int n_core;   // total # cores
   // for SMT/hyperthreading: threads per core (1-4 on KNC)
   int thread;   // thread id
   int n_thread; // total # threads
@@ -54,7 +54,9 @@ typedef struct Thread
   /* level_struct.num_inner_lattice_sites is split among cores
      These variables define start and end site for this specific *core* (not thread)
      but num_inner_lattice_sites depends on the level.
-     Use level_struct.depth as index */
+     Use level_struct.depth as index 
+     If g.num_levels > 4, this will fail.
+  */
   int start_site[4];
   int end_site[4];
   int n_site[4];
@@ -103,6 +105,8 @@ typedef struct Thread
 #endif
 
 
+// used within a function; returns to the calling pt if not master hyperthread after passing through the barrier
+// master execute the section of the code and bumps into the barrier
 #define START_UNTHREADED_FUNCTION(threading) \
     if(threading->thread != 0) \
         return; \
@@ -118,6 +122,7 @@ typedef struct Thread
 /* Only one thread (master) will execute the code section between
    START_LOCKED_MASTER and END_LOCKED_MASTER, and it is protected by barriers
    among cores to prevent data races */
+// not syncing hyperthread?????
 #define START_LOCKED_MASTER(threading) \
     if(threading->thread == 0) \
         CORE_BARRIER(threading); \
@@ -127,11 +132,10 @@ typedef struct Thread
     if(threading->thread == 0) \
         CORE_BARRIER(threading);
 
-// I prefer the name IS_MASTER
 #define MASTER(threading) \
     if(threading->core + threading->thread == 0)
 #define START_MASTER(threading) \
-  MASTER(threading) {
+     MASTER(threading) {
 #define END_MASTER(threading) \
     }
 
@@ -154,7 +158,7 @@ typedef struct Thread
 
 #ifdef OPENMP
 #include <omp.h>
-#define DO_PRAGMA(EXP) _Pragma (#EXP)
+#define DO_PRAGMA(EXP) _Pragma (#EXP )
 #define THREADED(EXP) DO_PRAGMA ( omp parallel num_threads( EXP ) )
 #else
 #define THREADED(EXP)
@@ -166,6 +170,7 @@ static inline int omp_get_num_threads( void ) {
 }
 #endif
 
+void init_common_thread_data(struct common_thread_data *common);
 
 void setup_threading(struct Thread *threading, struct common_thread_data *common, struct level_struct *l);
 /* external means the caller gives us all info about threads, and is responsible to later set a proper barrier */

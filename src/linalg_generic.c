@@ -36,18 +36,16 @@ void global_norm_PRECISION_new( PRECISION *res, vector_PRECISION *x, int start, 
 
   int core_start, core_end;
   compute_core_start_end(start, end, &core_start, &core_end, l, threading); //thread == core here: distribute entries from start to end among cores
-  printf("global_norm_PRECISION_ %d: %d %d %d %d %d %d %d %d\n", nvec,start, core_start,end, core_end,thread, threading->n_core,threading->core,g.num_processes);
-  VECTOR_LOOP(j, nvec, jj, res[j+jj]=0;)//printf("norm res %g\n",res[j+jj]);)
+  //printf("global_norm_PRECISION_ %d: %d %d %d %d %d %d %d %d\n", nvec,start, core_start,end, core_end,thread, threading->n_core,threading->core,g.num_processes);
+  VECTOR_LOOP(j, nvec, jj, res[j+jj]=0;)
  
   for( i=core_start; i<core_end; i++)
     VECTOR_LOOP(j, nvec, jj, res[j+jj] += NORM_SQUARE_PRECISION(x->vector_buffer[i*x->num_vect+j+jj]);)
-      //      for( i=0; i<nvec; i++ ) printf("gnorm_in: %g\n",res[i]);
-      //      printf("global_norm_PRECISION: %d %d %d\n",threading->n_core,nvec,end);
+
   /////////////// communication -------------------------------------
   // sum over cores: be careful about overflow of workspace!!!!!!!! also potential problem using res directly
   START_NO_HYPERTHREADS(threading)
-    //    printf("global_norm_PRECISION: %d\n",threading->core);
-      VECTOR_LOOP(j, nvec, jj, ((PRECISION *)threading->workspace)[threading->core*nvec+j+jj] = res[j+jj];) //for( i=0; i<nvec; i++ ) printf("gnorm_in: %g\n",((PRECISION *)threading->workspace)[i]);
+  VECTOR_LOOP(j, nvec, jj, ((PRECISION *)threading->workspace)[threading->core*nvec+j+jj] = res[j+jj];) 
   END_NO_HYPERTHREADS(threading)
   // master sums up all results
   SYNC_CORES(threading)
@@ -109,26 +107,29 @@ void global_inner_product_PRECISION_new( complex_PRECISION *results, vector_PREC
     VECTOR_LOOP( j, nvec, jj, ((complex_PRECISION *)threading->workspace)[0*nvec+j+jj] += ((complex_PRECISION *)threading->workspace)[i*nvec+j+jj];)
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
-  VECTOR_LOOP( j, nvec, jj, local_alpha[j+jj] = ((complex_PRECISION *)threading->workspace)[0*nvec+j+jj];)
+      //  VECTOR_LOOP( j, nvec, jj, local_alpha[j+jj] = ((complex_PRECISION *)threading->workspace)[0*nvec+j+jj];)
+  VECTOR_LOOP( j, nvec, jj, results[j+jj] = ((complex_PRECISION *)threading->workspace)[0*nvec+j+jj];)
   
   if ( g.num_processes > 1 ) {
     START_MASTER(threading)
     PROF_PRECISION_START( _ALLR );
-    MPI_Allreduce( local_alpha, global_alpha, nvec, MPI_COMPLEX_PRECISION, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_PRECISION.level_comm );
+    //MPI_Allreduce( local_alpha, global_alpha, nvec, MPI_COMPLEX_PRECISION, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_PRECISION.level_comm );
+    MPI_Allreduce( results, global_alpha, nvec, MPI_COMPLEX_PRECISION, MPI_SUM, (l->depth==0)?g.comm_cart:l->gs_PRECISION.level_comm );
     PROF_PRECISION_STOP( _ALLR, 1 );
     VECTOR_LOOP( j, nvec, jj, ((complex_PRECISION *)threading->workspace)[0*nvec+j+jj] = global_alpha[j+jj];)
     END_MASTER(threading)
     // all threads need the result of the norm
     SYNC_MASTER_TO_ALL(threading)
-    VECTOR_LOOP( j, nvec, jj, global_alpha[j+jj] = ((complex_PRECISION *)threading->workspace)[0*nvec+j+jj];)
+      //VECTOR_LOOP( j, nvec, jj, global_alpha[j+jj] = ((complex_PRECISION *)threading->workspace)[0*nvec+j+jj];)
+    VECTOR_LOOP( j, nvec, jj, results[j+jj] = ((complex_PRECISION *)threading->workspace)[0*nvec+j+jj];)
   }
   PROF_PRECISION_STOP( _GIP, (double)(end-start)/(double)l->inner_vector_size, threading );  
-
+  /*
   if ( g.num_processes > 1 ) {//we are able to shorten using results directly in local_alpha
     VECTOR_LOOP( j, nvec, jj, results[j+jj] = global_alpha[j+jj]; )
   } else {
     VECTOR_LOOP( j, nvec, jj, results[j+jj] = local_alpha[j+jj]; )
-  }
+    }*/
 }
 
 // results <- (phi's, psi) processwise
@@ -150,15 +151,29 @@ void process_multi_inner_product_PRECISION_new( int count, complex_PRECISION *re
   if(thread == 0 && start != end)
     PROF_PRECISION_START( _PIP, threading );
   //  printf("process_multi_inner_product_PRECISION: num-now=%d\n",psi->num_vect_now);
-  int i, j, jj, nvec = psi->num_vect_now;//change!!!!!!!!
+  int i, c, j, jj, nvec = psi->num_vect_now;//change!!!!!!!!
   VECTOR_LOOP(j, count*nvec, jj, results[j+jj] = 0.0;)
 
-  for(int c=0; c<count; c++){
+  for( c = 0; c<count; c++ ){
     if ( phi[c].num_vect_now != psi->num_vect_now )
-      error0("process_multi_inner_product_PRECISION: phi->num_vect_now != psi->num_vect_now \n");
+      error0("process_multi_inner_product_PRECISION: phi->num_vect_now(%d) != psi->num_vect_now(%d) \n",phi[c].num_vect_now,psi->num_vect_now);
     for ( i=start; i<end; i++ )
       VECTOR_LOOP(j, nvec, jj, results[c*nvec+j+jj] += conj_PRECISION(phi[c].vector_buffer[i*phi[c].num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj];)//printf("%g ",creal(psi->vector_buffer[i*psi->num_vect+j+jj]));)
   }
+
+  START_NO_HYPERTHREADS(threading)
+  VECTOR_LOOP( j, count*nvec, jj,((complex_PRECISION *)threading->workspace)[threading->core*count*nvec+j+jj] = results[j+jj];)
+  END_NO_HYPERTHREADS(threading)
+  // master sums up all results
+  SYNC_CORES(threading)
+  START_MASTER(threading)
+  for( i=1; i<threading->n_core; i++)
+    VECTOR_LOOP( j, count*nvec, jj,((complex_PRECISION *)threading->workspace)[j+jj] += ((complex_PRECISION *)threading->workspace)[i*count*nvec+j+jj];)
+  END_MASTER(threading)
+  // all threads need the result of the norm
+  SYNC_MASTER_TO_ALL(threading)
+      //  for(int c=0; c<count; c++)
+    VECTOR_LOOP( j, count*nvec, jj, results[j+jj] = ((complex_PRECISION *)threading->workspace)[j+jj];)
 
   if(thread == 0 && start != end)
     PROF_PRECISION_STOP( _PIP, (double)(end-start)/(double)l->inner_vector_size, threading );
@@ -204,7 +219,9 @@ void gram_schmidt_PRECISION_new( vector_PRECISION *V, const int nvec, level_stru
   
   compute_core_start_end_custom( 0, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );//???????
 
+  START_LOCKED_MASTER(threading)
   vector_PRECISION_change_layout( V, V, _NVEC_INNER, no_threading );//just to be sure
+  END_LOCKED_MASTER(threading)
   for ( i=0; i<nvec; i++ ) {
     for ( j=0; j<i; j++ ) {
       //take inner product <i,j>
@@ -240,7 +257,7 @@ void gram_schmidt_PRECISION_new( vector_PRECISION *V, const int nvec, level_stru
 	global_alpha = local_alpha;
       }
       
-      // v_i -= alpha*v_j
+      // v_i -= alpha*v_j//may use function????
       for( k=start; k<end; k++) // for each core: do we need to divide into two parts like in aggregate version????????
         V->vector_buffer[k*V->num_vect+i] -= global_alpha*V->vector_buffer[k*V->num_vect+j];
     }
@@ -300,21 +317,27 @@ void gram_schmidt_on_aggregates_PRECISION_new( vector_PRECISION *phi, const int 
   PROF_PRECISION_START( _GRAM_SCHMIDT_ON_AGGREGATES, threading );
   SYNC_CORES(threading)
   SYNC_HYPERTHREADS(threading)
-    int i, j, k, k1, k2, nvec_phi = phi->num_vect;
+  int i, j, k, k1, k2, nvec_phi = phi->num_vect;
   int num_aggregates = l->s_PRECISION.num_aggregates;
   int aggregate_size = l->inner_vector_size / num_aggregates;
   int offset         = l->num_lattice_site_var/2;
       
   complex_PRECISION alpha1, alpha2;
-  vector_PRECISION v_pt1, v_pt2;
   PRECISION norm1, norm2;
-  int start = threading->start_index[l->depth];
-  int end   = threading->end_index[l->depth];
 
   if ( num_vect != phi->num_vect_now )
     error0("gram_schmidt_on_aggregates_PRECISION: assumptions are not met\n");
+  //printf("ram_schmidt_on_aggregates_PRECISION %d: %d %d %d %d %d\n",g.my_rank,threading->n_thread,threading->n_core,threading->core,threading->thread,num_aggregates);fflush(stdout);
+#if 0 // takes longer!!!!!!!
+  vector_PRECISION v_pt1, v_pt2;
+  int start = threading->start_index[l->depth];
+  int end   = threading->end_index[l->depth];
 
-  vector_PRECISION_change_layout( phi, phi, _NVEC_OUTER, no_threading );
+  START_LOCKED_MASTER(threading)
+  vector_PRECISION_change_layout( phi, phi, _NVEC_OUTER, no_threading );  
+  END_LOCKED_MASTER(threading)
+  SYNC_HYPERTHREADS(threading)
+    //SYNC_MASTER_TO_ALL(threading)
   for ( j=threading->n_thread*threading->core+threading->thread; j<num_aggregates; j+=threading->n_thread*threading->n_core ) {
     for ( k1=0; k1<num_vect; k1++ ) {
       v_pt1.vector_buffer = phi->vector_buffer + (k1*(phi->size) + j*aggregate_size);
@@ -336,7 +359,7 @@ void gram_schmidt_on_aggregates_PRECISION_new( vector_PRECISION *phi, const int 
             v_pt1.vector_buffer[i] -=  alpha2 * v_pt2.vector_buffer[i];
         }
       }
-      
+      //      printf("ram_schmidt_on_aggregates_PRECISION22 %d: \n",g.my_rank);fflush(stdout);     
       norm1 = 0; norm2 = 0;
       // V[k1] = V[k1]/norm(V[k1]) | 2*j-th and 2*j+1-st aggregate    
       for ( i=0; i<aggregate_size; ) {
@@ -356,8 +379,54 @@ void gram_schmidt_on_aggregates_PRECISION_new( vector_PRECISION *phi, const int 
       }
     }
   }
-
+  //SYNC_MASTER_TO_ALL(threading)
+  SYNC_HYPERTHREADS(threading)
+  START_LOCKED_MASTER(threading)
   vector_PRECISION_change_layout( phi, phi, _NVEC_INNER, no_threading );
+  END_LOCKED_MASTER(threading)
+#else
+  buffer_PRECISION phi_pt = phi->vector_buffer;
+  for ( j=threading->n_thread*threading->core+threading->thread; j<num_aggregates; j+=threading->n_thread*threading->n_core ) {
+    for ( k1=0; k1<num_vect; k1++ ) {
+      for ( k2=0; k2<k1; k2++ ) {
+	alpha1 = 0; alpha2 = 0;
+	  // V[k1] -= <V[k2],V[k1]> V[k2] | 2*j-th and 2*j+1-st aggregate
+        for ( i=0; i<aggregate_size; ) {
+          for ( k=0; k<offset; k++, i++ )//?????
+	    alpha1 += conj_PRECISION(phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k2]) * phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k1];
+          for ( k=0; k<offset; k++, i++ )
+            alpha2 += conj_PRECISION(phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k2]) * phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k1];
+        }
+        for ( i=0; i<aggregate_size; ) {
+          for ( k=0; k<offset; k++, i++ )
+	    phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k1] -= alpha1 * phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k2];
+          for ( k=0; k<offset; k++, i++ )
+	    phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k1] -= alpha2 * phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k2];
+        }
+      }
+      //      printf("ram_schmidt_on_aggregates_PRECISION22 %d: \n",g.my_rank);fflush(stdout);     
+      norm1 = 0; norm2 = 0;
+      // V[k1] = V[k1]/norm(V[k1]) | 2*j-th and 2*j+1-st aggregate    
+      for ( i=0; i<aggregate_size; ) {
+        for ( k=0; k<offset; k++, i++ )
+          norm1 += NORM_SQUARE_PRECISION(phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k1]);
+        for ( k=0; k<offset; k++, i++ )
+          norm2 += NORM_SQUARE_PRECISION(phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k2]);
+	//printf("%d %d: norm1 norm2 %g %g\n",j, k1,norm1,norm2);
+      }
+
+      norm1 = 1/sqrt(norm1); norm2 = 1/sqrt(norm2);
+      for ( i=0; i<aggregate_size; ) {
+        for ( k=0; k<offset; k++, i++ )
+          phi_pt[(j*aggregate_size+i)*nvec_phi+k1] =  norm1 * creal_PRECISION(phi_pt[(j*aggregate_size+i)*nvec_phi+k1]) + I*norm1* cimag_PRECISION(phi_pt[(j*aggregate_size+i)*nvec_phi+k1]);
+        for ( k=0; k<offset; k++, i++ )
+          phi_pt[(j*aggregate_size+i)*nvec_phi+k1] =  norm2 * creal_PRECISION(phi_pt[(j*aggregate_size+i)*nvec_phi+k1]) + I*norm2* cimag_PRECISION(phi_pt[(j*aggregate_size+i)*nvec_phi+k1]);
+      }
+    }
+  }
+#endif
+    //    SYNC_MASTER_TO_ALL(threading)
+    //printf("2ram_schmidt_on_aggregates_PRECISION2 %d %d: \n",g.my_rank,threading->core);fflush(stdout);
   SYNC_HYPERTHREADS(threading)
   SYNC_CORES(threading)
   PROF_PRECISION_STOP( _GRAM_SCHMIDT_ON_AGGREGATES, 1, threading );

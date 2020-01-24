@@ -480,7 +480,7 @@ void coarse_hopping_term_PRECISION_new( vector_PRECISION *out, vector_PRECISION 
   g.num_vect_pass1 = nvec;
   vector_PRECISION_duplicate( &in_pt, in, 0, l );
   vector_PRECISION_duplicate( &out_pt, out, 0, l );
-  printf("coarse_hopping_term_PRECISION: (%d %d) (%d %d) (%d %d)\n",in_pt.num_vect_now,out_pt.num_vect_now, in_pt.num_vect,out_pt.num_vect,in_pt.size,out_pt.size);
+  //printf("coarse_hopping_term_PRECISION: (%d %d) (%d %d) (%d %d)\n",in_pt.num_vect_now,out_pt.num_vect_now, in_pt.num_vect,out_pt.num_vect,in_pt.size,out_pt.size);
   int core_start;
   int core_end;
   
@@ -626,7 +626,7 @@ void coarse_n_hopping_term_PRECISION_new( vector_PRECISION *out, vector_PRECISIO
   
   if ( nvec_out < nvec )
     error0("coarse_n_hopping_term_PRECISION: assumptions are not met\n");
-  printf("coarse_n_hopping_term_PRECISION\n");
+  //printf("coarse_n_hopping_term_PRECISION\n");
   //  in_pt = *in;
   //  out_pt = *out;
   vector_PRECISION_duplicate( &in_pt, in, 0, l );

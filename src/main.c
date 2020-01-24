@@ -29,7 +29,7 @@ global_struct g;
 Hdf5_fileinfo h5info;
 #endif
 struct common_thread_data *commonthreaddata;
-struct Thread *no_threading;
+struct Thread *no_threading; // no_threading is global both in serial and thread pralel region
 
 int main( int argc, char **argv ) {
     
@@ -46,7 +46,11 @@ int main( int argc, char **argv ) {
   level_struct l;
   config_double hopp = NULL;
 
-  MPI_Init( &argc, &argv );  printf("main0\n");fflush(stdout);//MPI_Init_thread??????
+  int provided;
+  //MPI_Init( &argc, &argv );  printf("main0\n");fflush(stdout);//MPI_Init_thread??????
+  MPI_Init_thread( &argc, &argv, MPI_THREAD_FUNNELED, &provided);
+  if ( provided > MPI_THREAD_FUNNELED )
+    error0("MPI_THREAD_FUNNELED is not ensured\n");
   MPI_Comm_rank( MPI_COMM_WORLD, &(g.my_rank) );//predefine_rank( MPI_COMM_WORLD );//!!!!!!!
 
   if ( g.my_rank == 0 ) {
@@ -61,7 +65,7 @@ int main( int argc, char **argv ) {
   
   //------------ initialize and setup g and l according to the inputfile
   method_init( &argc, &argv, &l );
-  printf("main1\n");fflush(stdout);
+
   no_threading = (struct Thread *)malloc(sizeof(struct Thread));
   setup_no_threading(no_threading, &l);
   
@@ -73,7 +77,7 @@ int main( int argc, char **argv ) {
     read_conf( (double*)(hopp), g.in, &(g.plaq_hopp), &l );
 
   // store configuration, compute clover term
-  dirac_setup( hopp, &l );printf("main1n");
+  dirac_setup( hopp, &l );
   FREE( hopp, complex_double, 3*l.inner_vector_size );
 
   commonthreaddata = (struct common_thread_data *)malloc(sizeof(struct common_thread_data));
@@ -84,10 +88,10 @@ int main( int argc, char **argv ) {
     //------------------ allocate memory and set up for multigrid solver
     struct Thread threading;
     setup_threading(&threading, commonthreaddata, &l);
-    setup_no_threading(no_threading, &l);//is this redundant??????
-    printf("main2\n");
+    //setup_no_threading(no_threading, &l);//is this redundant??????
+    //printf("main2\n");
     // setup up initial MG hierarchy
-    method_setup( NULL, &l, &threading );printf("main3\n");
+    method_setup( NULL, &l, &threading );//printf("main3\n");
     
     // iterative part of the setup
     method_iterative_setup( l.setup_iter, &l, &threading );

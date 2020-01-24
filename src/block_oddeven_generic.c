@@ -720,7 +720,7 @@ void apply_block_schur_complement_PRECISION_new( vector_PRECISION *out, vector_P
   for (int i=0; i<2; i++ ) s->oe_buf[i].num_vect_now = in->num_vect_now;
 
   if ( out->num_vect < in->num_vect_now )
-    error0("block_solve_oddeven_PRECISION: assumptions are not met\n");
+    error0("apply_block_schur_complement_PRECISION: assumptions are not met\n");
 
   block_diag_ee_PRECISION_new( out, in, start, s, l, threading );
   START_LOCKED_MASTER(threading)
@@ -865,14 +865,14 @@ void block_solve_oddeven_PRECISION_new( vector_PRECISION *phi, vector_PRECISION 
   // even to odd
   block_n_hopping_term_PRECISION_new( &tmp[3], &tmp[2], start, _ODD_SITES, s, l, no_threading );
   block_diag_oo_inv_PRECISION_new( &tmp[2], &tmp[3], start, s, l, no_threading );
-  
+  //  printf0("block_solve_oddeven2\n");
   // update phi, latest_iter
   vector_PRECISION_copy_new( latest_iter, &tmp[2], start, end, l );
   vector_PRECISION_plus_new( phi, phi, &tmp[2], start, end, l );
   // update r
   vector_PRECISION_copy_new( r, &tmp[3], start, start+l->num_lattice_site_var*s->num_block_even_sites, l );
   vector_PRECISION_define_new( r, 0, start+l->num_lattice_site_var*s->num_block_even_sites, end, l );
-
+  //  printf0("block_solve_oddeven3\n");
   END_UNTHREADED_FUNCTION(threading)
 }
 
@@ -944,19 +944,24 @@ void block_oddeven_PRECISION_test_new( level_struct *l, struct Thread *threading
  
   int vs = s->block_vector_size * s->num_blocks;
  
-  PUBLIC_MALLOC( b1.vector_buffer, complex_PRECISION, vs*n_vect );
+  //PUBLIC_MALLOC( b1.vector_buffer, complex_PRECISION, vs*n_vect );
+  MALLOC( b1.vector_buffer, complex_PRECISION, vs*n_vect );
   b1.num_vect = n_vect;
   b1.num_vect_now = n_vect;
-  PUBLIC_MALLOC( b2.vector_buffer, complex_PRECISION, vs*n_vect );
+  //PUBLIC_MALLOC( b2.vector_buffer, complex_PRECISION, vs*n_vect );
+  MALLOC( b2.vector_buffer, complex_PRECISION, vs*n_vect );
   b2.num_vect = n_vect;
   b2.num_vect_now = n_vect;
-  PUBLIC_MALLOC( b3.vector_buffer, complex_PRECISION, vs*n_vect );
+  //PUBLIC_MALLOC( b3.vector_buffer, complex_PRECISION, vs*n_vect );
+  MALLOC( b3.vector_buffer, complex_PRECISION, vs*n_vect );
   b3.num_vect = n_vect;
   b3.num_vect_now = n_vect;
-  PUBLIC_MALLOC( b4.vector_buffer, complex_PRECISION, vs*n_vect );
+  //PUBLIC_MALLOC( b4.vector_buffer, complex_PRECISION, vs*n_vect );
+  MALLOC( b4.vector_buffer, complex_PRECISION, vs*n_vect );
   b4.num_vect = n_vect;
   b4.num_vect_now = n_vect;
-  PUBLIC_MALLOC( b5.vector_buffer, complex_PRECISION, vs*n_vect );
+  //PUBLIC_MALLOC( b5.vector_buffer, complex_PRECISION, vs*n_vect );
+  MALLOC( b5.vector_buffer, complex_PRECISION, vs*n_vect );
   b5.num_vect = n_vect;
   b5.num_vect_now = n_vect;
 

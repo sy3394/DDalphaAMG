@@ -138,7 +138,7 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
   }  
 
   //--------------- allocate memory for comm_PRECISION_struc (this is where comm_PRECISION_struc is allocated!!!!!)
-  printf("operator_PRECISION_alloc\n");
+  //printf("operator_PRECISION_alloc\n");
   if ( type != _ODDEVEN )
     operator_PRECISION_alloc_projection_buffers( op, l );
   

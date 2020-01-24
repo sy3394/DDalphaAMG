@@ -73,7 +73,9 @@ void test_routine_new( level_struct *l, struct Thread *threading ) {
     END_MASTER(threading)
   }
   //            error0("STOP\n");
+  START_LOCKED_MASTER(threading)
   g.num_vect_now=tmp;
+  END_LOCKED_MASTER(threading)
 /*
 #ifdef HAVE_TM1p1
   if( g.n_flavours==1 &&

@@ -247,7 +247,7 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
 
   if ( eta->num_vect < phi->num_vect_now )
     error0("d_plus_clover_PRECISION: assumptions are not met\n");
-    printf("d_plus_clover_PRECISION_new: %d %d %d %d\n",nvec,nvec_phi,nvec_eta,nvec_op);
+  //    printf("d_plus_clover_PRECISION_new: %d %d %d %d\n",nvec,nvec_phi,nvec_eta,nvec_op);
   compute_core_start_end(0, nv*n, &start, &end, l, threading );
   //vector_PRECISION_change_layout( phi, phi, _LV_SV_NV, no_threading );
   //vector_PRECISION_change_layout( eta, eta, _LV_SV_NV, no_threading );
@@ -377,8 +377,8 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
     prp_X_PRECISION_new( op->prnX+i, phi_pt, nvec, nvec_op, nvec_phi );
   }
   // start communication in negative direction
-  g.num_vect_pass1 = nvec; g.num_vect_pass2 = nvec_op;//temp fix!!!!!!
   START_LOCKED_MASTER(threading)
+  g.num_vect_pass1 = nvec; g.num_vect_pass2 = nvec_op;//temp fix!!!!!!
   ghost_sendrecv_PRECISION_new( op->prnT, T, -1, &(op->c), _FULL_SYSTEM, l );
   ghost_sendrecv_PRECISION_new( op->prnZ, Z, -1, &(op->c), _FULL_SYSTEM, l );
   ghost_sendrecv_PRECISION_new( op->prnY, Y, -1, &(op->c), _FULL_SYSTEM, l );

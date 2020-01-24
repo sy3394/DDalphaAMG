@@ -41,7 +41,7 @@ void interpolation_PRECISION_alloc( level_struct *l ) {
   */
   MALLOC( l->is_PRECISION.operator, complex_PRECISION, n*l->inner_vector_size );
 
-  vector_PRECISION_alloc(&(l->is_PRECISION.interpolation_vec), _ORDINARY, n, l, no_threading );//why  _ORDINARY?????
+  vector_PRECISION_alloc(&(l->is_PRECISION.interpolation_vec), _ORDINARY, n, l, no_threading );
   vector_PRECISION_alloc(&(l->is_PRECISION.test_vector_vec), _INNER, n, l, no_threading );
   l->is_PRECISION.interpolation_vec.num_vect_now = n;//???????
   l->is_PRECISION.test_vector_vec.num_vect_now = n;//???????????
@@ -54,11 +54,11 @@ void interpolation_PRECISION_alloc( level_struct *l ) {
 void interpolation_PRECISION_free( level_struct *l ) {
   
   int n = l->num_eig_vect;
-  
+  /*  
   for (int k=0; k<n; k++ ){
     //vector_PRECISION_free(&(l->is_PRECISION.interpolation[k]), l, no_threading );
     //vector_PRECISION_free(&(l->is_PRECISION.test_vector[k]), l, no_threading );
-  }
+    }*/
   FREE( l->is_PRECISION.eigenvalues, complex_PRECISION, n );
   //FREE( l->is_PRECISION.test_vector, vector_PRECISION, n );
   //FREE( l->is_PRECISION.interpolation, vector_PRECISION, n );
@@ -97,22 +97,23 @@ void define_interpolation_PRECISION_operator_new( vector_PRECISION *interpolatio
    *  l->is_PRECISION.operator: interpolation operator constructed out of test vectors
    *                            is in raw-major order and of inner_vector_size x num_eig_vect
    ***************************************/
-  int j, jj, num_eig_vect = l->num_eig_vect;
+  int i, j, jj, num_eig_vect = l->num_eig_vect;
   complex_PRECISION *operator = l->is_PRECISION.operator;
 
   int start = threading->start_index[l->depth];
-  int end = threading->end_index[l->depth];
+  int end   = threading->end_index[l->depth];
       
   if (interpolation->num_vect != num_eig_vect )
     error0("define_interpolation_PRECISION_operator: num_eig_vect and #vectors in interpolation are different\n");
-  printf("define_interpolation_PRECISION_operator: %d %d %d %d\n", start,end,interpolation->size,num_eig_vect);
+
   SYNC_CORES(threading)
   operator += start*num_eig_vect;
-  for ( int i=start; i<end; i++ )// operator is raw major!!!!!!!  
+  for ( i = start; i<end; i++ )
     VECTOR_LOOP( j, num_eig_vect, jj, *operator = interpolation->vector_buffer[i*interpolation->num_vect+j+jj]; operator++;)
   SYNC_CORES(threading)
 }
 
+//work not distributed among threads
 // used only in vcycle_PRECISION
 // _NO_RES: phi+=interpolate_PRECISION*phi_c
 // Assume: l->level is the level where phi is defined
@@ -143,7 +144,7 @@ void interpolate_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c, 
 
   if ( n_vect == 0 )
     error0("interpolate_PRECISION: assumptions are not met\n");
-  printf("inter:%d\n",n_vect);
+
   l->next_level->gs_PRECISION.transfer_buffer.num_vect_now = n_vect;
   START_LOCKED_MASTER(threading)
   vector_PRECISION_distribute_new( &(l->next_level->gs_PRECISION.transfer_buffer), phi_c, l->next_level );
@@ -157,7 +158,7 @@ void interpolate_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c, 
     for ( k=0; k<aggregate_sites; k++ ) {
       for ( k1=0; k1<2; k1++ ) {
 	for ( k2=0; k2<num_parent_eig_vect; k2++ ) {
-	  for ( j=0; j<num_eig_vect; j++ ) {//op raw major?????
+	  for ( j=0; j<num_eig_vect; j++ ) {
 	    VECTOR_LOOP(jj, n_vect, jjj, *phi_pt += (*operator) * phi_c_pt[j*n_vect_phic+jj+jjj]; phi_pt++;)
 	    operator++;
 	    phi_pt -= n_vect;
@@ -174,6 +175,7 @@ void interpolate_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c, 
   SYNC_HYPERTHREADS(threading)
 }
 
+//work not distributed among threads!!!!!
 // phi <- interpolate*phi_c (phi defined anew unlike interpolate_PRECISION above)
 // Assume: l->level is the level where phi is defined
 void interpolate3_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c, level_struct *l, struct Thread *threading ) {//what does this do???????
@@ -188,7 +190,7 @@ void interpolate3_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c,
   complex_PRECISION *operator, *phi_pt, *phi_c_pt;
   //complex_PRECISION *operator = l->is_PRECISION.operator, *phi_pt = phi->vector_buffer,
   // *phi_c_pt = l->next_level->gs_PRECISION.transfer_buffer.vector_buffer;
-  printf("inter3:%d\n",n_vect);
+  //printf("inter3:%d\n",n_vect);
   if ( n_vect == 0 )
     error0("interpolate3_PRECISION: assumptions are not met\n");
 
@@ -224,6 +226,7 @@ void interpolate3_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c,
   SYNC_HYPERTHREADS(threading)
 }
 
+//work not distributed among threads
 // phi_c <- restrict(phi)
 void restrict_PRECISION_new( vector_PRECISION *phi_c, vector_PRECISION *phi, level_struct *l, struct Thread *threading ) {
   /************************************************
@@ -251,7 +254,7 @@ void restrict_PRECISION_new( vector_PRECISION *phi_c, vector_PRECISION *phi, lev
   complex_PRECISION *operator, *phi_pt, *phi_c_pt;//!!!!!!!!
   //complex_PRECISION *operator = l->is_PRECISION.operator, *phi_pt = phi->vector_buffer,
   // *phi_c_pt = l->next_level->gs_PRECISION.transfer_buffer.vector_buffer;//do you need to initialize phi_pt and phi_pt_c?
-  printf("rest:%d\n",n_vect);
+  //printf("rest:%d\n",n_vect);
   //n_vect_min = MIN(n_vect, n_vect_c);
   //  if ( phi->num_vect_now != phi_c->num_vect_now )
   //    error0("Number of vectors to be restricted should be the same as the number of resulting restricted vectors\n");

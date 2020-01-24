@@ -43,7 +43,7 @@ complex_float  _COMPLEX_float_ZERO = (complex_float)0.0;
 
 
 // initialize global structure
-void g_init(){// level_struct *l ) {//!!!!!!!!!!
+void g_init(){
 
   var_table_init( &(g.vt) );
   operator_double_init( &(g.op_double) );
@@ -74,7 +74,7 @@ void g_init(){// level_struct *l ) {//!!!!!!!!!!
 }
 
 // initialize level structure
-void l_init( level_struct *l ) {//!!!!!!!!!!!
+void l_init( level_struct *l ) {
 
   level_double_init( l );
   level_float_init( l );
@@ -89,6 +89,7 @@ void method_init( int *argc, char ***argv, level_struct *l ) {
   /********************************************************************************* 
    * Sets up the global and level struct for the method and assignes values 
    * according to the inputfile. 
+   * Used outside of the OpenMP parallel region
    * - int *argc: Argument count of main function. Determines if inputfile is 
    *   provided.
    * - char ***argv: In case inputfile is provided, contains name of this file.
@@ -99,7 +100,6 @@ void method_init( int *argc, char ***argv, level_struct *l ) {
 
   //-------- open files for input and output ifdef WRITE_LOGFILE
   char inputfile[STRINGLENGTH];
-  printf("init\n");  
   if ( *argc > 1 ) {
     strcpy( inputfile, (*argv)[1] );
   } else {
@@ -113,9 +113,9 @@ void method_init( int *argc, char ***argv, level_struct *l ) {
   
   //------- initialize and set global and level structure according to the input file
   //predefine_rank( MPI_COMM_WORLD ); // already done in main.c//!!!!!!!!!
-  g_init();// l );//!!!!!!!!!!!
-  l_init( l );  printf("init1\n");  fflush(stdout);
-  lg_in( inputfile, l );  printf("init2\n");  fflush(stdout);
+  g_init();
+  l_init( l );
+  lg_in( inputfile, l );
   data_layout_init( l );
 
   g.Cart_rank   = MPI_Cart_rank;
@@ -130,14 +130,14 @@ void method_init( int *argc, char ***argv, level_struct *l ) {
   operator_double_alloc( &(g.op_double), _ORDINARY, l ); 
   operator_double_define( &(g.op_double), l );
   MALLOC( g.odd_even_table, int, l->num_inner_lattice_sites );
-  define_odd_even_table( l );  printf("init3\n");  fflush(stdout);
+  define_odd_even_table( l );
 }
 
 void method_setup( vector_double *V, level_struct *l, struct Thread *threading ) {
   
   double t0=0, t1=0;
 
-  printf0("method_setup: called at depth=%d\n",l->depth);
+  //  printf0("method_setup: called at depth=%d\n",l->depth);//debug
   ASSERT(l->depth == 0);//!!!!!!!!!!!
   
   START_LOCKED_MASTER(threading)
@@ -151,58 +151,17 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   if ( l->depth==0 )
     prof_init( l );
   
-  //-------------- Setup g.p for the solver part (gmres_PRECISION_struct in global_struct: used only in the solver part)????????
-  // take out!!!->allocate memory for g.op,g.odd_even_table,g.p_MP,g.p.op,g.p.eval_operator,g.p.b,g.p.x (p:gmres_PRECISION_struct for k-cycle)
-  /* moved from method_init->caused error as they are used in dirac_setup
-  operator_double_alloc( &(g.op_double), _ORDINARY, l );
-  operator_double_define( &(g.op_double), l );
-  MALLOC( g.odd_even_table, int, l->num_inner_lattice_sites );//not under if???
-  define_odd_even_table( l );// not under if ?????
-  */
-  if ( g.method > 0 ) {
-    g.num_vect_now=g.num_rhs_vect;//do they require eigenvectors??????  
+  //-------------- Setup g.p(_MP) for the solver part (gmres_PRECISION_struct in global_struct: used only in the solver part)
+  g.num_vect_now=g.num_rhs_vect;//do they require eigenvectors??????  
+  if ( g.method > 0 ) {//------------- FGMRES + alpha
 #ifdef INIT_ONE_PREC
-    if ( g.mixed_precision == 2 ) {printf("init\n");
+    if ( g.mixed_precision == 2 ) {// INIT_ONE_PREC is defiend in main.h
 #endif
-      // setup g.p_MP
+      // as of now, allocate unnecessary large memory to it!!!!!
       fgmres_MP_struct_alloc( g.restart, g.max_restart, _INNER,
                               g.tol, _RIGHT, vcycle_float_new, &(g.p_MP), l );
       g.p.op            = &(g.op_double);
       g.p.eval_operator = d_plus_clover_double_new;
-      //the below fields could be used only in inversion
-#if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
-#ifdef HAVE_TM1p1
-      vector_double_alloc( &(g.p.b), _INNER, 2*g.num_rhs_vect, l, no_threading );
-      vector_double_alloc( &(g.p.x), _INNER, 2*g.num_rhs_vect, l, no_threading );
-#else
-      vector_double_alloc( &(g.p.b), _INNER, g.num_rhs_vect, l, no_threading );
-      vector_double_alloc( &(g.p.x), _INNER, g.num_rhs_vect, l, no_threading );
-#endif
-#endif
-#ifdef INIT_ONE_PREC
-    } else {printf("init2\n");
-#endif
-      //why only double???????
-      // seup g.p
-      fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
-                                  _GLOBAL_FGMRES, _RIGHT, preconditioner_new,
-				  d_plus_clover_double_new, &(g.p), l );
-      
-    }
-#ifdef INIT_ONE_PREC
-  }
-#endif
-  else if ( g.method == 0 ) {// pure GMRES (no AMG)
-    g.num_vect_now=g.num_rhs_vect;//do they require eigenvectors??????
-#ifdef INIT_ONE_PREC
-    if ( g.mixed_precision == 2 ) {
-#endif
-      fgmres_MP_struct_alloc( g.restart, g.max_restart, _INNER,
-                              g.tol, _NOTHING, NULL, &(g.p_MP), l );
-      g.p.op = &(g.op_double);//moved from fgmres_MP_struct_alloc: why only double?
-      g.p.eval_operator = d_plus_clover_double_new;//moved from fgmres_MP_struct_alloc: why only double????
-      //the below fields could be used only in inversion
-      //g.p.op = &(g.op_double);//redundant
 #if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
 #ifdef HAVE_TM1p1
       vector_double_alloc( &(g.p.b), _INNER, 2*g.num_rhs_vect, l, no_threading );
@@ -215,7 +174,33 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 #ifdef INIT_ONE_PREC
     } else {
 #endif
-      // setup g.p
+      fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
+                                  _GLOBAL_FGMRES, _RIGHT, preconditioner_new,
+				  d_plus_clover_double_new, &(g.p), l );
+    }
+#ifdef INIT_ONE_PREC
+  }
+#endif
+  else if ( g.method == 0 ) {//------ pure GMRES (no AMG)
+#ifdef INIT_ONE_PREC
+    if ( g.mixed_precision == 2 ) {
+#endif
+      fgmres_MP_struct_alloc( g.restart, g.max_restart, _INNER,
+                              g.tol, _NOTHING, NULL, &(g.p_MP), l );
+      g.p.op = &(g.op_double);//moved from fgmres_MP_struct_alloc: why only double?
+      g.p.eval_operator = d_plus_clover_double_new;//moved from fgmres_MP_struct_alloc: why only double????
+#if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
+#ifdef HAVE_TM1p1
+      vector_double_alloc( &(g.p.b), _INNER, 2*g.num_rhs_vect, l, no_threading );
+      vector_double_alloc( &(g.p.x), _INNER, 2*g.num_rhs_vect, l, no_threading );
+#else
+      vector_double_alloc( &(g.p.b), _INNER, g.num_rhs_vect, l, no_threading );
+      vector_double_alloc( &(g.p.x), _INNER, g.num_rhs_vect, l, no_threading );
+#endif
+#endif
+#ifdef INIT_ONE_PREC
+    } else {
+#endif
       fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
                                   _GLOBAL_FGMRES, _NOTHING, NULL, d_plus_clover_double_new,
                                   &(g.p), l );
@@ -223,9 +208,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     }
 #endif
   } 
-  else if ( g.method == -1 ) {//pure CGN (no AMG) 
-    g.num_vect_now=g.num_rhs_vect;//do they require eigenvectors??????
-    // setup g.p
+  else if ( g.method == -1 ) {//----- pure CGN (no AMG) 
     fgmres_double_struct_alloc( 4, g.restart*g.max_restart, _INNER, g.tol,
                                 _GLOBAL_FGMRES, _NOTHING, NULL, d_plus_clover_double_new, &(g.p), l );
     fine_level_double_alloc( l );
@@ -233,16 +216,15 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   END_LOCKED_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
 
-  //------------------ Set the level structures recursively
-  // some top level structure defs are done in next_level_setup_new??????? confusing
+  //------------------ Set the level structure recursively
   if ( g.method >= 0 ) {
-    g.num_vect_now = ( g.num_rhs_vect < l->num_eig_vect )? l->num_eig_vect:g.num_rhs_vect;//initizlize w/ max!!!!!!!!
     START_LOCKED_MASTER(threading)
+    g.num_vect_now = ( g.num_rhs_vect < l->num_eig_vect )? l->num_eig_vect:g.num_rhs_vect;//initizlize w/ max!!!!!!!! not used 
     t0 = MPI_Wtime();
     if ( g.mixed_precision ) {
       smoother_float_def( l ); // define p_PRECISION(gmres:k-cycle) and s_PRECISION;  g.method=4 or 5 are taken care of here.for these, fgmres in l for smoother is initiazlied????
       if ( g.method >= 4 && g.odd_even )
-        oddeven_setup_float( &(g.op_double), l );//haven't checked!!!!????
+        oddeven_setup_float( &(g.op_double), l );//black box!!!!????
     } else {
       smoother_double_def( l );
       if ( g.method >= 4 && g.odd_even )
@@ -254,18 +236,18 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
       if ( g.interpolation && g.num_levels > 1 ) {
 	// allocate memory for interpolation and define interpolation op at depth == 0
 	if ( g.mixed_precision ){
+	  START_LOCKED_MASTER(threading)
 	  fine_level_float_alloc( l ); //p_PRECISION.b/x are allocated here.
 	  // The initial step of setting up the interpolation operator out of test vectors using only smoothing 
-	  START_LOCKED_MASTER(threading)//!!!!!!!
-	  interpolation_float_alloc( l );//!!!!!!
-	  END_LOCKED_MASTER(threading)//!!!!!!
-	  interpolation_float_define_new( V, l, threading ); //!!!!!!!
+	  interpolation_float_alloc( l );
+	  END_LOCKED_MASTER(threading)
+	  interpolation_float_define_new( V, l, threading );
 	} else {
+	  START_LOCKED_MASTER(threading)
 	  fine_level_double_alloc( l ); //p_PRECISION.b/x are allocated here.
 	  // The initial step of setting up the interpolation operator out of test vectors using only smoothing
-	  START_LOCKED_MASTER(threading) //!!!!!1
-	  interpolation_double_alloc( l );//!!!!!1
-	  END_LOCKED_MASTER(threading)//!!!!!!
+	  interpolation_double_alloc( l );
+	  END_LOCKED_MASTER(threading)
 	  interpolation_double_define_new( V, l, threading );  //!!!!!
 	}
         next_level_setup_new( V, l, threading );//recursive function: dictated by the chice of g.num_vect_now!!!!!!
@@ -397,9 +379,9 @@ void next_level_setup_new( vector_double *V, level_struct *l, struct Thread *thr
 
   if ( l->level > 0 ) {//if not at the bottom: safety net
     int mu;
-    g.num_vect_now = ( g.num_rhs_vect < l->num_eig_vect )? l->num_eig_vect:g.num_rhs_vect;//initizlize w/ max!!!!!!!! not next_level????
 
     START_LOCKED_MASTER(threading)
+    g.num_vect_now = ( g.num_rhs_vect < l->num_eig_vect )? l->num_eig_vect:g.num_rhs_vect;//initizlize w/ max!!!!!!!! not next_level????
 
     // allocate storage for next level parameters and initialize them
     MALLOC( l->next_level, level_struct, 1 );
@@ -425,7 +407,7 @@ void next_level_setup_new( vector_double *V, level_struct *l, struct Thread *thr
       if ( l->depth+2 < g.num_levels ) // if l->next_level->level > 0 , i.e., if the next level is not the bottom
         l->next_level->coarsening[mu] = g.global_lattice[l->depth+1][mu]/g.global_lattice[l->depth+2][mu];
       else                             // if the next level is the bottom, dims of aggregates at the next level = dims of local lattice
-        l->next_level->coarsening[mu] = g.local_lattice[l->depth+1][mu]; // at the bottom, each 
+        l->next_level->coarsening[mu] = g.local_lattice[l->depth+1][mu];
       
       l->next_level->num_processes_dir[mu] = l->next_level->global_lattice[mu]/l->next_level->local_lattice[mu];
       l->next_level->comm_offset[mu]       = (l->num_processes_dir[mu]/l->next_level->num_processes_dir[mu])*l->comm_offset[mu];
@@ -437,20 +419,20 @@ void next_level_setup_new( vector_double *V, level_struct *l, struct Thread *thr
     data_layout_init( l->next_level ); // distribution of lattice sites over ranks
     neighbor_define( l->next_level );  // rank neighbors
 
-    // update threading struct with size info of level
-    update_threading(no_threading, l);// We want to use ***_LOCKED_MASTER
+    // update threading struct for no threading with size info of the next level
+    update_threading(no_threading, l);
 
     END_LOCKED_MASTER(threading)
     SYNC_MASTER_TO_ALL(threading)
 
-    // update threading struct with size info of level
-    update_threading(threading, l);// We want to use ***_LOCKED_MASTER
+    // update threading struct with size info of the next level 
+    update_threading(threading, l); // each thread has its own threading struc
 
     //------ entrance to recursion: coarse_grid_correction_PRECISION_setup = recursive function (next_level_setup_new is called inside of this)
     if ( g.mixed_precision ) {
       START_LOCKED_MASTER(threading)
 	//if ( l->depth == 0 ) fine_level_float_alloc( l );//we can move this up in method_init??????
-      level_float_init( l->next_level );
+	//level_float_init( l->next_level );// in l_init( l->next_level ); redundant
       next_level_float_setup( l );// gmres_float_struct p_float (k-cycle) is defined here.
       END_LOCKED_MASTER(threading)
       if ( l->depth == 0 ) {//we can move this up in method_init??????  
@@ -463,7 +445,7 @@ void next_level_setup_new( vector_double *V, level_struct *l, struct Thread *thr
     } else {
       START_LOCKED_MASTER(threading)
 	//if ( l->depth == 0 ) fine_level_double_alloc( l );
-      level_double_init( l->next_level );
+	//level_double_init( l->next_level );
       next_level_double_setup( l );// gmres_double_struct p_double (k-cycle) is defined here. 
       END_LOCKED_MASTER(threading)
       if ( l->depth == 0 ) {//we can move this up in method_init??????  
@@ -500,10 +482,10 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
       m0_update( (complex_double)g.setup_m0, l, threading );
 #ifdef HAVE_TM
     }
-    if ( g.setup_mu != g.mu ) {
+    if ( g.setup_mu != g.mu ) {//printf0("iter pre 1\n");//here!!!
       tm_term_update( (complex_double)g.setup_mu, l, threading );
       finalize_operator_update( l, threading );
-    } else if (g.setup_m0 != g.m0) {
+    } else if (g.setup_m0 != g.m0) {//printf0("iter pre 2\n");
 #endif
       finalize_operator_update( l, threading );
     }
@@ -518,10 +500,10 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
       m0_update( (complex_double)g.m0, l, threading );
 #ifdef HAVE_TM
     }
-    if ( g.setup_mu != g.mu ) {
+    if ( g.setup_mu != g.mu ) {//printf0("iter post 1\n");//here!!!passed
       tm_term_update( (complex_double)g.mu, l, threading );
       finalize_operator_update( l, threading );
-    } else if (g.setup_m0 != g.m0) {
+    } else if (g.setup_m0 != g.m0) {//printf0("iter post 2\n");
 #endif
       finalize_operator_update( l, threading );
     }
@@ -542,7 +524,7 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
 #ifdef DEBUG
     test_routine_new( l, threading );
 #endif
-
+    //    printf0("iter init over!!!!\n");fflush(stdout);
   }
 }
 
@@ -550,7 +532,7 @@ void next_level_free( level_struct *l ) {
 
   if ( l->level > 0 ) {
     if ( g.mixed_precision ) {
-      if ( l->depth == 0 ) fine_level_float_free( l );
+      if ( l->depth == 0 ) fine_level_float_free( l );// perhaps we can move this to method_free
       next_level_float_free( l );
     } else {
       if ( l->depth == 0 ) fine_level_double_free( l );
@@ -584,17 +566,8 @@ void method_free( level_struct *l ) {
 #endif
     fgmres_MP_struct_free( &(g.p_MP), l );
 #if defined (INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
-#ifdef HAVE_TM1p1
     vector_double_free( &(g.p.b), l, no_threading );
     vector_double_free( &(g.p.x), l, no_threading );
-    //FREE( g.p.b, complex_double, 2*l->inner_vector_size );
-    //FREE( g.p.x, complex_double, 2*l->inner_vector_size );
-#else
-    vector_double_free( &(g.p.b), l, no_threading );
-    vector_double_free( &(g.p.x), l, no_threading );
-    //FREE( g.p.b, complex_double, l->inner_vector_size );
-    //FREE( g.p.x, complex_double, l->inner_vector_size );
-#endif
 #endif
 #ifdef INIT_ONE_PREC
   } else {

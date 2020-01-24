@@ -300,7 +300,7 @@ void oddeven_setup_PRECISION( operator_double_struct *in, level_struct *l ) {
   l->sp_PRECISION.v_end = op->num_even_sites*l->num_lattice_site_var;
 }
 
-
+// not checked!!!!!!
 void oddeven_free_PRECISION( level_struct *l ) {
   
   int mu, nu, nc_size = 9, lu_dec_size = 42,
