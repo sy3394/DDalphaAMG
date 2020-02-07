@@ -810,12 +810,12 @@ void finalize_operator_update( level_struct *l, struct Thread *threading ) {
         coarse_oddeven_float_set_self_couplings( l, threading );
       else
         coarse_operator_float_set_self_couplings( &(l->s_float.op), l, threading );
-    } else {
+    }/* else {
       if ( !l->idle && g.odd_even && ((g.method >= 4 && l->level > 0) || l->level == 0) )
         coarse_oddeven_double_set_self_couplings( l, threading );
       else
         coarse_operator_double_set_self_couplings( &(l->s_double.op), l, threading );
-    }
+	}*/
   }
 
   if ( g.interpolation && l->level > 0 )

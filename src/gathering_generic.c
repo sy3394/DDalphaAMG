@@ -233,6 +233,9 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
 void gathering_PRECISION_free( gathering_PRECISION_struct *gs, level_struct *l ) {
   
   int nvec = gs->transfer_buffer.num_vect;
+#ifdef HAVE_TM1p1
+  nvec *= 2;
+#endif
 
   if ( !l->idle ) {
     FREE( gs->gather_list, int, gs->gather_list_length );
@@ -243,11 +246,9 @@ void gathering_PRECISION_free( gathering_PRECISION_struct *gs, level_struct *l )
   
   MPI_Comm_free( &(gs->level_comm) );
   MPI_Group_free( &(gs->level_comm_group) );
-#ifdef HAVE_TM1p1
-  FREE( gs->transfer_buffer.vector_buffer, complex_PRECISION, 2 * gs->dist_inner_lattice_sites * l->num_lattice_site_var * nvec );
-#else
+
   FREE( gs->transfer_buffer.vector_buffer, complex_PRECISION, gs->dist_inner_lattice_sites * l->num_lattice_site_var * nvec );
-#endif
+
 }
 //intact
 void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_struct *in, level_struct *l ) {
@@ -425,17 +426,15 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
   l->dummy_p_PRECISION.eval_operator = apply_coarse_operator_PRECISION_new;
 }
 
-// if aggregate exists over ranks???
-// when #process decreases in going deeper???!!! Then, gather entries needed to do restriction from other ranks to the parent, and parent hold phi_c entries
+// when #process decreases in going deeper, gather entries needed to do restriction from other ranks to the parent, and parent hold phi_c entries
 // otherwise, simply gath <- dist after reordering
-// gather entries from other ranks to the parent rank
-// used in restriction
 void vector_PRECISION_gather_new( vector_PRECISION *gath, vector_PRECISION *dist, level_struct *l ) {
   /*************************
+   * Description: gather values on the sites also belongin to the child processes to the parent process
    * Input:
-   *   vector_PRECISION *dist: vectors to be sent to the parent rank
+   *   vector_PRECISION *dist: local vector to be sent to the parent rank
    * Output:
-   *   vector_PRECISION *gath: vectors from other ranks gathered
+   *   vector_PRECISION *gath: a new local vector consisting of entries including the ones gathered from child/idle ranks
    * note: need to send all vectors in dist irrespective of how many are currently used as the data are consecutive
    ************************/
 
@@ -475,18 +474,13 @@ void vector_PRECISION_gather_new( vector_PRECISION *gath, vector_PRECISION *dist
   }
 }
 
-// if aggregate exists over ranks???
-// when #process decreases in going deeper???!!!  Then, distribute entries to other ranks, and each rank computes entries of interpolated phi belonging to the rank
-// otherwise, simply dist <- gath after reordering
-// distribute from the parent rank to other ranks
-// used in inerpolation
 void vector_PRECISION_distribute_new( vector_PRECISION *dist, vector_PRECISION *gath, level_struct *l ) {
     /*************************
      * Description: send values on the sites also belongin to the child processes from the parent process
      * Input:
-     *   vector_PRECISION *gath: vectors to be sent around other ranks
+     *   vector_PRECISION *gath: vector on the parent rank to be send around child/idle ranks
      * Output:
-     *   vector_PRECISION *dist: vectors from other ranks gathered
+     *   vector_PRECISION *dist: updated local vector distributed from parent rank
      * note: need to send all vectors in dist irrespective of how many are currently used as the data are consecutive
      ************************/
 

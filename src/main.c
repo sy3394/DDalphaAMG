@@ -104,7 +104,7 @@ int main( int argc, char **argv ) {
   method_free( &l );
   method_finalize( &l );
   finalize_common_thread_data(commonthreaddata); // free workspace in commonthreaddata
-  finalize_no_threading(no_threading);// free workspace in no_threading
+  finalize_no_threading(no_threading);           // free workspace in no_threading
   free(commonthreaddata);
   free(no_threading);
 

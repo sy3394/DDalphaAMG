@@ -143,7 +143,6 @@ void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operato
         }
 #endif // else
       while ( leta < leta_end ) {
-	//	printf("clo tes\n");
 	site_clover_PRECISION_new( leta, lphi, clover, nvec, nvec_eta, nvec_phi );
 	leta += 12*nvec_eta; lphi += 12*nvec_phi;
 	clover+=42;
@@ -190,7 +189,7 @@ static void spin0and1_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECIS
     while ( leta < eta_end ) {
       for( i=0; i<6; i++ ){
         VECTOR_LOOP(j, nvec, jj, *leta = (*lphi)*(*clover); leta++; lphi++;) 
-	leta += nvec_eta-nvec; lphi += nvec_phi-nvec;//!!!!!
+	leta += nvec_eta-nvec; lphi += nvec_phi-nvec;
         clover++;
       }
       for( i=0; i<6; i++ ){
@@ -223,7 +222,7 @@ static void spin2and3_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECIS
       }
       for( i=0; i<6; i++ ){
         VECTOR_LOOP(j, nvec, jj, *leta = (*lphi)*(*clover); leta++; lphi++;)//!!!!!!!!+= -> =
-	leta += nvec_eta-nvec; lphi += nvec_phi-nvec;//!!!!!  
+	leta += nvec_eta-nvec; lphi += nvec_phi-nvec;
         clover++;
       }
     }
@@ -249,8 +248,6 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
     error0("d_plus_clover_PRECISION: assumptions are not met\n");
   //    printf("d_plus_clover_PRECISION_new: %d %d %d %d\n",nvec,nvec_phi,nvec_eta,nvec_op);
   compute_core_start_end(0, nv*n, &start, &end, l, threading );
-  //vector_PRECISION_change_layout( phi, phi, _LV_SV_NV, no_threading );
-  //vector_PRECISION_change_layout( eta, eta, _LV_SV_NV, no_threading );
 
   SYNC_MASTER_TO_ALL(threading)
   clover_PRECISION_new( eta, phi, op, start, end, l, threading );//eta=op*phi where clover term of op is applied
@@ -408,7 +405,6 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
     mvmh_PRECISION_new( op->prpX+j, D_pt, pbuf, nvec, nvec_op, nvec );
     mvmh_PRECISION_new( op->prpX+j+3*nvec_op, D_pt, pbuf+3*nvec, nvec, nvec_op, nvec ); D_pt += 9;
   }
-  //  printf0("dplus proj\n");  
   // start communication in positive direction
   START_LOCKED_MASTER(threading)
   ghost_sendrecv_PRECISION_new( op->prpT, T, +1, &(op->c), _FULL_SYSTEM, l );
@@ -421,7 +417,6 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
   ghost_wait_PRECISION_new( op->prnY, Y, -1, &(op->c), _FULL_SYSTEM, l );
   ghost_wait_PRECISION_new( op->prnX, X, -1, &(op->c), _FULL_SYSTEM, l );
   END_LOCKED_MASTER(threading)
-    //    printf0("dplus proj10\n");fflush(stdout);
   // multiply with U and lift up minus dir
   for ( eta_pt=eta->vector_buffer+start*nvec_eta, end_pt=eta->vector_buffer+end*nvec_eta, D_pt = op->D+start*3, nb_pt=neighbor+(start/12)*4; eta_pt<end_pt; eta_pt+=12*nvec_eta ) {
     // T dir
@@ -453,7 +448,6 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
   ghost_wait_PRECISION_new( op->prpY, Y, +1, &(op->c), _FULL_SYSTEM, l );
   ghost_wait_PRECISION_new( op->prpX, X, +1, &(op->c), _FULL_SYSTEM, l );
   END_LOCKED_MASTER(threading)
-    //    printf0("dplus proj 0\n");fflush(stdout);
   // lift up plus dir
   for ( i=start*nvec_op/2, eta_pt=eta->vector_buffer+start*nvec_eta; i<end*nvec_op/2; i+=6*nvec_op, eta_pt+=12*nvec_eta ) {
     pbn_su3_T_PRECISION_new( op->prpT+i, eta_pt, nvec, nvec_op, nvec_eta );
@@ -464,9 +458,6 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
 /*#ifdef HAVE_TM1p1
   }
 #endif*/
-//  printf0("dplus proj2\n");
-  //vector_PRECISION_change_layout( phi, phi, _NV_LV_SV, no_threading );
-  //vector_PRECISION_change_layout( eta, eta, _NV_LV_SV, no_threading );
   
   START_MASTER(threading)
   PROF_PRECISION_STOP( _NC, 1 );
@@ -484,7 +475,7 @@ void block_d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION 
     error0("block_d_plus_clover_PRECISION: assumptions are not met\n");
   
   int n = s->num_block_sites, *length = s->dir_length, **index = s->index, *neighbor = s->op.neighbor_table, nv = l->num_lattice_site_var;
-  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;//!!!!!!!!
+  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
   buffer_PRECISION lphi = phi->vector_buffer+start*nvec_phi, leta = eta->vector_buffer+start*nvec_eta;
   //  printf("block_d_plus_clover_PRECISION: %d %d %d\n",nvec,nvec_eta,nvec_phi);
   // clover term: in schwarz_PRECISION_struc?????
@@ -626,7 +617,7 @@ void block_d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION 
 
 /********************  aggreagate operators ************************************************/
 
-// 
+// used in coarse_operator_PRECISION_setup: no_threading  
 void diagonal_aggregate_PRECISION_new( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, config_PRECISION diag, level_struct *l ) {
 
   int i, j, jj, nvec = phi->num_vect_now, nvec_eta1 = eta1->num_vect, nvec_eta2 = eta2->num_vect, nvec_phi = phi->num_vect;
@@ -651,6 +642,7 @@ void diagonal_aggregate_PRECISION_new( vector_PRECISION *eta1, vector_PRECISION 
 }
 
 // <- phi????
+// used in coarse_operator_PRECISION_setup: no_threading
 void d_plus_clover_aggregate_PRECISION_new( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, schwarz_PRECISION_struct *s, level_struct *l ) {
   
   int i, length, index1, index2, *index_dir, *neighbor = s->op.neighbor_table;
@@ -661,7 +653,7 @@ void d_plus_clover_aggregate_PRECISION_new( vector_PRECISION *eta1, vector_PRECI
     
   if ( nvec_eta1 != nvec_eta2 || nvec_eta1 < nvec_phi )
     error0("d_plus_clover_aggregate_PRECISION: assumptions are not met\n");
-  //  printf("d_plus_clover_aggregate_PRECISION: %d %d %d %d\n",nvec, nvec_eta1, nvec_eta2, nvec_phi );
+
   // add clover term/shift
   spin0and1_clover_PRECISION_new( eta1, phi, s->op.clover, l );
   spin2and3_clover_PRECISION_new( eta2, phi, s->op.clover, l );
@@ -744,6 +736,7 @@ void d_plus_clover_aggregate_PRECISION_new( vector_PRECISION *eta1, vector_PRECI
   }
 }
 
+// used in coarse_operator_PRECISION_setup: no_threading  
 void d_neighbor_aggregate_PRECISION_new( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, const int mu, schwarz_PRECISION_struct *s, level_struct *l ) {
   
   int i, length, index1, index2, *index_dir, *neighbor;
@@ -859,8 +852,7 @@ void operator_updates_PRECISION( level_struct *l, struct Thread *threading ) {
   if ( l->level > 0 ) {
     if ( !l->idle ) {
       START_LOCKED_MASTER(threading)
-	coarse_operator_PRECISION_setup_new( &(l->is_PRECISION.interpolation_vec), l );
-
+      coarse_operator_PRECISION_setup_new( &(l->is_PRECISION.interpolation_vec), l );
       conf_PRECISION_gather( &(l->next_level->s_PRECISION.op), &(l->next_level->op_PRECISION), l->next_level );
       END_LOCKED_MASTER(threading)
       if ( !l->next_level->idle && l->next_level->level > 0 ) {

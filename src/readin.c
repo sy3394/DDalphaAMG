@@ -182,7 +182,7 @@ static void read_no_default_info( FILE *in ) {//, level_struct *l ) {//!!!!!!!!
   save_pt = g.local_lattice[0];
   read_parameter( &save_pt, "d0 local lattice:", "%d", 4, in, _NO_DEFAULT_SET );
 
-  // local lattice
+  // block decomposition
   save_pt = g.block_lattice[0];
   read_parameter( &save_pt, "d0 block lattice:", "%d", 4, in, _NO_DEFAULT_SET );
 

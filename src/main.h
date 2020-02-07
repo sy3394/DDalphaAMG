@@ -50,6 +50,9 @@
 
   #define INIT_ONE_PREC // flag undef for enabling additional features in the lib
 
+//#define CHANGE_LAY
+//  #define CLOOP
+
   // These explicit repetitions are faster than for-loops.
   #define FORN( N, e ) _Pragma( "unroll (N)" ) for(int i=0; i < N; i++){ e }; // suggestion
   #define FOR2( e )  { e e }
@@ -92,7 +95,9 @@
   #define pow_float powf
   #define abs_double fabs
   #define abs_float fabsf
-  
+  //  printf("malloc of %s (%s:%d) kind: %s length: %d\n",#variable, __FILE__, (int)__LINE__, #kind, (int) length); \
+  //printf("free of %s (%s:%d) kind: %s length: %d\n",#variable, __FILE__, (int)__LINE__, #kind, (int) length); \
+
   #define MALLOC( variable, kind, length ) do{ if ( variable != NULL ) { \
   printf0("malloc of \"%s\" failed: pointer is not NULL (%s:%d).\n", #variable, __FILE__, __LINE__ ); } \
   if ( (length) > 0 ) { variable = (kind*) malloc( sizeof(kind) * (length) ); } \
@@ -327,8 +332,8 @@
     int clover_size;
     int block_size;
     // buffer vectors: vbuf has num_eig_vect many vectors
-    vector_float vbuf_float[9], vtmp_float[2], sbuf_float[2];
-    vector_double vbuf_double[9], vtmp_double[2], sbuf_double[2];
+    vector_float vbuf_float[10], sbuf_float[2];
+    vector_double vbuf_double[10], sbuf_double[2];
     // storage + daggered-operator bufferes
     vector_double x;
     // local solver parameters

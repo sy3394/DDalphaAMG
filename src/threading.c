@@ -135,7 +135,7 @@ void update_threading(struct Thread *threading, struct level_struct *l)
 }
 
 void finalize_common_thread_data( struct common_thread_data *common ) {
-  FREE( common->workspace, char, 4*128*sizeof(double));
+  FREE( common->workspace, char, 50*4*128*sizeof(double));
 }
 
 
@@ -150,7 +150,7 @@ void compute_core_start_end(int start, int end, int *core_start, int *core_end,
 {
     // due to loop unrolling in low level functions
   int min_per_core = 3*40; // minimum entries per core
-
+  // where is this used and how this becomes critical??????
   compute_core_start_end_custom(start, end, core_start, core_end, l, threading, min_per_core);
 }
 

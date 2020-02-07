@@ -736,7 +736,7 @@ static void block_diag_ee_PRECISION_new( vector_PRECISION *eta, vector_PRECISION
  
   START_UNTHREADED_FUNCTION(threading)  
     int n1 = s->num_block_even_sites, nv = l->num_lattice_site_var;//+s->num_block_odd_sites
-  clover_PRECISION_new( eta, phi, &(s->op), start, start+nv*n1, l, threading ); 
+  clover_PRECISION_new( eta, phi, &(s->op), start, start+nv*n1, l, no_threading ); //!!!! changed to no_threading
 
   END_UNTHREADED_FUNCTION(threading)
 }
@@ -753,7 +753,7 @@ static void block_diag_oo_PRECISION_new( vector_PRECISION *eta, vector_PRECISION
   vector_PRECISION leta, lphi;
   vector_PRECISION_duplicate( &leta, eta, n1+start/12, l );
   vector_PRECISION_duplicate( &lphi, phi, n1+start/12, l );
-
+  //  printf("block_diag_oo_: %d\n",l->num_lattice_site_var);
   if ( nvec_eta < nvec )
     error0("block_diag_oo_PRECISION: assunmptions are not met\n");
 
@@ -819,11 +819,12 @@ static void block_diag_oo_inv_PRECISION_new( vector_PRECISION *eta, vector_PRECI
       int block_num = start/12/(n1+n2);
 #ifndef HAVE_TM
       config_PRECISION clover = s->op.clover_oo_inv+(start/12-(block_num)*n1)*42;
-      LLH_perform_fwd_bwd_subs_PRECISION_new( &leta, &lphi, clover, 0, n2 );
+      //    LU_perform_fwd_bwd_subs_PRECISION_new( &leta, &lphi, clover, 0, n2 );
 #else
       config_PRECISION clover = s->op.clover_oo_inv+(start/12-(block_num)*n1)*72;
-      LU_perform_fwd_bwd_subs_PRECISION_new( &leta, &lphi, clover, 0, n2 );
+      //    LU_perform_fwd_bwd_subs_PRECISION_new( &leta, &lphi, clover, 0, n2 );
 #endif
+      LU_perform_fwd_bwd_subs_PRECISION_new( &leta, &lphi, clover, 0, n2 );
     } else {
       config_PRECISION clover = s->op.clover+n1*12+start;
 #ifndef HAVE_TM
@@ -944,37 +945,36 @@ void block_oddeven_PRECISION_test_new( level_struct *l, struct Thread *threading
  
   int vs = s->block_vector_size * s->num_blocks;
  
-  //PUBLIC_MALLOC( b1.vector_buffer, complex_PRECISION, vs*n_vect );
   MALLOC( b1.vector_buffer, complex_PRECISION, vs*n_vect );
   b1.num_vect = n_vect;
   b1.num_vect_now = n_vect;
-  //PUBLIC_MALLOC( b2.vector_buffer, complex_PRECISION, vs*n_vect );
+
   MALLOC( b2.vector_buffer, complex_PRECISION, vs*n_vect );
   b2.num_vect = n_vect;
   b2.num_vect_now = n_vect;
-  //PUBLIC_MALLOC( b3.vector_buffer, complex_PRECISION, vs*n_vect );
+
   MALLOC( b3.vector_buffer, complex_PRECISION, vs*n_vect );
   b3.num_vect = n_vect;
   b3.num_vect_now = n_vect;
-  //PUBLIC_MALLOC( b4.vector_buffer, complex_PRECISION, vs*n_vect );
+
   MALLOC( b4.vector_buffer, complex_PRECISION, vs*n_vect );
   b4.num_vect = n_vect;
   b4.num_vect_now = n_vect;
-  //PUBLIC_MALLOC( b5.vector_buffer, complex_PRECISION, vs*n_vect );
+
   MALLOC( b5.vector_buffer, complex_PRECISION, vs*n_vect );
   b5.num_vect = n_vect;
   b5.num_vect_now = n_vect;
 
   vector_PRECISION_define_random_new( &b1, 0, vs, l );
 
-  for (int i = 0; i< s->num_blocks; i++ ) {
+  for (int i = 0; i< s->num_blocks; i++ ) {//printf("block: %d %d\n",s->block[i].start,s->num_block_even_sites);
     block_diag_ee_PRECISION_new( &b2, &b1, s->block[i].start*l->num_lattice_site_var, s, l, no_threading );
     block_diag_oo_PRECISION_new( &b2, &b1, s->block[i].start*l->num_lattice_site_var, s, l, no_threading );
     block_hopping_term_PRECISION_new( &b2, &b1, s->block[i].start*l->num_lattice_site_var, _FULL_SYSTEM, s, l, no_threading );
     
     block_d_plus_clover_PRECISION_new( &b3, &b1, s->block[i].start*l->num_lattice_site_var, s, l, no_threading );
   }
-  
+  //  for(int i=0;i<vs*n_vect;i++)printf0("%d %d %d %13g %g %g\n",i/n_vect/l->num_lattice_site_var,(i/n_vect)%l->num_lattice_site_var,i%n_vect,creal_PRECISION(b3.vector_buffer[i]-b2.vector_buffer[i]),creal_PRECISION(b3.vector_buffer[i]),creal_PRECISION(b2.vector_buffer[i]));   
   vector_PRECISION_minus_new( &b3, &b3, &b2, 0, vs, l );
   global_norm_PRECISION_new( diff1, &b3, 0, vs, l, no_threading );
   global_norm_PRECISION_new( diff2, &b2, 0, vs, l, no_threading );
@@ -1007,6 +1007,6 @@ void block_oddeven_PRECISION_test_new( level_struct *l, struct Thread *threading
   FREE( b3.vector_buffer, complex_PRECISION, vs*n_vect );
   FREE( b4.vector_buffer, complex_PRECISION, vs*n_vect );
   FREE( b5.vector_buffer, complex_PRECISION, vs*n_vect );
-
+  //  error0("stop\n");
   END_UNTHREADED_FUNCTION(threading)
 }

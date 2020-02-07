@@ -94,10 +94,13 @@ void set_boundary_PRECISION_new( vector_PRECISION *phi, complex_PRECISION alpha,
   PROF_PRECISION_START( _SET, threading );
   int i, j, jj, nvec = phi->num_vect;
   int start, end;
+#ifdef CLOOP
+  compute_core_start_end( l->inner_vector_size, l->vector_size , &start, &end, l, threading );
+#else
+  compute_core_start_end_custom( l->inner_vector_size, l->vector_size , &start, &end, l, threading, num_loop );
+#endif
+
   SYNC_CORES(threading)
-  
-  //THREADED_VECTOR_FOR( i, l->inner_vector_size, l->vector_size, phi->vector_buffer[i] = alpha, i++, l, threading );
-    compute_core_start_end( l->inner_vector_size, l->vector_size , &start, &end, l, threading );//printf("set bd:%ld %ld %d %d\n",l->inner_vector_size,l->vector_size, start,end);
   for( i=start; i<end; i++ )
     VECTOR_LOOP( j, nvec, jj, phi->vector_buffer[i*nvec+j+jj] = alpha; ) 
 
@@ -295,7 +298,7 @@ void vector_PRECISION_saxpy_new( vector_PRECISION *z, vector_PRECISION *x, vecto
 
 // float is used in MP setting!!!!!!!??????
 void vector_PRECISION_multi_saxpy_new( vector_PRECISION *z, vector_PRECISION *V, complex_PRECISION *alpha,
-				       int sign, int count, level_struct *l, struct Thread *threading ) {
+				       int sign, int count, int start, int end, level_struct *l, struct Thread *threading ) {
   /********************************
    * z <- z + sign*alpha*V
    * z: a vector
@@ -304,8 +307,8 @@ void vector_PRECISION_multi_saxpy_new( vector_PRECISION *z, vector_PRECISION *V,
    * complex_PRECISION *alpha: contains count many sets of z->num_vect_now many entries
    ********************************/
   
-  int c, i, j, jj, start, end, nvec = z->num_vect_now;
-  compute_core_start_end(0, z->size, &start, &end, l, threading);
+  int c, i, j, jj, nvec = z->num_vect_now;//took out start,end
+  //compute_core_start_end(0, z->size, &start, &end, l, threading);
   int thread = omp_get_thread_num();
   if (thread == 0 && start != end )
     PROF_PRECISION_START( _LA8 );
@@ -490,6 +493,101 @@ void trans_back_PRECISION_new( vector_double *out, vector_PRECISION *in, int *tt
   SYNC_CORES(threading)
 }
 
+//should be intra-process permutation!!!!!!!!!!
+void trans_PRECISION2_new( vector_PRECISION *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading ) {
+  /*********************************************************************************************************************
+   * Assume: in->num_vect == out->num_vect && l->depth == 0 && *in and *out have separate memory allocations
+   * Description: Permute the order of *in according to the translation table *tt and store the result in *out
+   *              *out = P[*in]
+   *********************************************************************************************************************/
+
+  if ( l->depth != 0 || (double *) out->vector_buffer == (double *) in->vector_buffer )
+    error0("trans_PRECISION: assumptions are not met0\n");
+  if ( in->num_vect_now > out->num_vect )
+    error0("trans_PRECISION: assumptions are not met1\n");
+
+  int i, j, jj, k, index;
+  buffer_PRECISION out_pt = out->vector_buffer; buffer_PRECISION in_pt = in->vector_buffer;
+  int start = threading->start_site[l->depth];
+  int end   = threading->end_site[l->depth];
+  //compute_core_start_end(0, in->size, &start, &end, l, threading);
+
+  // this function seems to do some data reordering, barriers ensure that everything is in sync
+  SYNC_CORES(threading)
+  START_NO_HYPERTHREADS(threading)
+#ifdef HAVE_TM1p1//??????
+  if( g.n_flavours == 2 )
+    for ( i=start; i<end; i++ ) {
+      index = tt[i];
+      out_pt = out->vector_buffer + 24*index;
+      in_pt  = in->vector_buffer + 24*i;
+      VECTOR_LOOP( *out_pt = (complex_PRECISION) *in_pt; out_pt++; in_pt++; )//?????
+    }
+  else
+#endif
+  for ( i=start; i<end; i++ ) {
+    index = tt[i];
+    out_pt = out->vector_buffer + 12*index*out->num_vect;
+    in_pt  = in->vector_buffer + 12*i*in->num_vect;
+    for( k=0; k<12; k++){
+      VECTOR_LOOP(j, in->num_vect_now, jj, *out_pt = (complex_PRECISION) *in_pt;
+                                            out_pt++;
+                                            in_pt++;)
+      out_pt += out->num_vect-in->num_vect_now;
+      in_pt  += in->num_vect-in->num_vect_now;
+    }
+  }
+  END_NO_HYPERTHREADS(threading)
+  SYNC_CORES(threading)
+}
+
+// should be intra-process permutation!!!!!!!!!!
+void trans_back_PRECISION2_new( vector_PRECISION *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading ) {
+  /*********************************************************************************************************************
+   * Assume: in->num_vect == out->num_vect && l->depth == 0 && *in and *out have separate memory allocations
+   * Description: Permute back the order of *in according to the translation table *tt and store the result in *out
+   *              *out = P[*in] 
+   *********************************************************************************************************************/
+
+  if ( l->depth != 0 || (double *) out->vector_buffer == (double *) in->vector_buffer )
+    error0("trans_PRECISION: assumptions are not met\n");
+  if ( in->num_vect_now > out->num_vect )
+    error0("trans_PRECISION: assumptions are not met\n");
+  
+  int i, j, jj, k, index;
+  buffer_PRECISION out_pt = out->vector_buffer; buffer_PRECISION in_pt = in->vector_buffer;
+  int start = threading->start_site[l->depth];
+  int end   = threading->end_site[l->depth];
+  
+  // this function seems to do some data reordering, barriers ensure that everything is in sync
+  SYNC_CORES(threading)
+  START_NO_HYPERTHREADS(threading)
+#ifdef HAVE_TM1p1//??????
+  if( g.n_flavours == 2 )
+    for ( i=start; i<end; i++ ) {
+      index = tt[i];
+      in_pt = in->vector_buffer + 24*index;
+      out_pt = out->vector_buffer + 24*i;
+      FOR24( *out_pt = (complex_PRECISION) *in_pt; out_pt++; in_pt++; )
+    }
+  else
+#endif
+  for ( i=start; i<end; i++ ) {
+    index = tt[i];
+    in_pt = in->vector_buffer + 12*index*in->num_vect;
+    out_pt = out->vector_buffer + 12*i*out->num_vect;
+    for( k=0; k<12; k++){
+      VECTOR_LOOP(j, in->num_vect_now, jj, *out_pt = (complex_PRECISION) *in_pt;
+                                            out_pt++;
+                                            in_pt++;)
+      out_pt += out->num_vect-in->num_vect_now;
+      in_pt  += in->num_vect-in->num_vect_now;
+    }
+  }
+  END_NO_HYPERTHREADS(threading)
+  SYNC_CORES(threading)
+}
+
 /*******************  TEST ROUTINES  ********************************************/
 
 void vector_PRECISION_test_routine( level_struct *l, struct Thread *threading ) {
@@ -615,8 +713,7 @@ void free_alloc_PRECISION( level_struct *l, int n_v_old, int n_v_new ) {
 #else
   for ( i=0; i<4; i++ ) {
     vector_PRECISION_init( &(s->buf[i]) );
-    if ( i==0 ) vector_PRECISION_alloc( &(s->buf[i]), (l->depth==0)?_INNER:_ORDINARY, n_v_new*tm1p1, l, no_threading );
-    else        vector_PRECISION_alloc( &(s->buf[i]), _SCHWARZ, n_v_new*tm1p1, l, no_threading );
+    vector_PRECISION_alloc( &(s->buf[i]), (i==0)?((l->depth==0)?_INNER:_ORDINARY):_SCHWARZ, n_v_new*tm1p1, l, no_threading );
   }
   
   if ( g.method == 1 ){

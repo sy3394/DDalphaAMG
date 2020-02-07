@@ -37,25 +37,25 @@
 
 #ifdef HAVE_TM1p1
     if( g.n_flavours == 2 ) {
-      tau1_gamma5_PRECISION( &(l->vbuf_PRECISION[6]), input, l, threading );
+      tau1_gamma5_PRECISION( &(l->vbuf_PRECISION[7]), input, l, threading );
     } else
 #endif
       {
-        gamma5_PRECISION_new( &(l->vbuf_PRECISION[6]), input, l, threading );
+        gamma5_PRECISION_new( &(l->vbuf_PRECISION[7]), input, l, threading );
 #ifdef HAVE_TM
         //TODO: change_mu_sign_PRECISION( p->op, l, threading );
 #endif
       }
 
-    apply_operator_PRECISION( &(l->vbuf_PRECISION[7]), &(l->vbuf_PRECISION[6]), p, l, threading );
+    apply_operator_PRECISION( &(l->vbuf_PRECISION[8]), &(l->vbuf_PRECISION[6]), p, l, threading );
 
 #ifdef HAVE_TM1p1
     if( g.n_flavours == 2 ) {
-      tau1_gamma5_PRECISION( output,&(l->vbuf_PRECISION[7]), l, threading );
+      tau1_gamma5_PRECISION( output,&(l->vbuf_PRECISION[8]), l, threading );
     } else
 #endif
       {
-        gamma5_PRECISION_new( output, &(l->vbuf_PRECISION[7]), l, threading );
+        gamma5_PRECISION_new( output, &(l->vbuf_PRECISION[8]), l, threading );
 #ifdef HAVE_TM
         //TODO: change_mu_sign_PRECISION( p->op, l, threading );
 #endif

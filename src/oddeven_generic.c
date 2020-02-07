@@ -303,7 +303,7 @@ void oddeven_setup_PRECISION( operator_double_struct *in, level_struct *l ) {
 // not checked!!!!!!
 void oddeven_free_PRECISION( level_struct *l ) {
   
-  int mu, nu, nc_size = 9, lu_dec_size = 42,
+  int mu, nu, nc_size = 9, lu_dec_size = 42, nvec = l->oe_op_PRECISION.pr_num_vect,
       *ll = l->local_lattice, n = l->num_inner_lattice_sites, bs;
 #ifdef HAVE_TM
   lu_dec_size = 72;
@@ -339,10 +339,10 @@ void oddeven_free_PRECISION( level_struct *l ) {
   }
   FREE( l->oe_op_PRECISION.buffer, vector_PRECISION, 2 );
 #ifdef HAVE_TM1p1
-  FREE( l->oe_op_PRECISION.prnT, complex_PRECISION, 2*(l->num_lattice_site_var/2)*l->num_lattice_sites*8 );
+  FREE( l->oe_op_PRECISION.prnT, complex_PRECISION, 2*(l->num_lattice_site_var/2)*l->num_lattice_sites*8*nvec );
   FREE( l->oe_op_PRECISION.clover_doublet_oo_inv, complex_PRECISION, 288*n );
 #else
-  FREE( l->oe_op_PRECISION.prnT, complex_PRECISION, (l->num_lattice_site_var/2)*l->num_lattice_sites*8 );
+  FREE( l->oe_op_PRECISION.prnT, complex_PRECISION, (l->num_lattice_site_var/2)*l->num_lattice_sites*8*nvec );
 #endif
 }
 

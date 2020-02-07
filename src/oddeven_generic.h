@@ -257,12 +257,12 @@ static inline void LU_multiply_PRECISION_new( vector_PRECISION *y, vector_PRECIS
 	  for ( i=0; i<6; i++ ) {
             VECTOR_LOOP( jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] = LU[i*(6+1)]*x_pt[i*nvec_x+jj+jjj];)
 	    for ( j=i+1; j<6; j++ )
-              VECTOR_LOOP( jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] = y_pt[i*nvec_y+jj+jjj] + LU[i*6+j]*x_pt[j*nvec_x+jj+jjj];)
+              VECTOR_LOOP( jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] += LU[i*6+j]*x_pt[j*nvec_x+jj+jjj];)
 	  }
 	  // multiplication with L
 	  for ( i=6-1; i>0; i-- )
 	    for ( j=0; j<i; j++ )
-	      VECTOR_LOOP(jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] = y_pt[i*nvec_y+jj+jjj] + LU[i*6+j]*y_pt[j*nvec_y+jj+jjj];)
+	      VECTOR_LOOP(jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] += LU[i*6+j]*y_pt[j*nvec_y+jj+jjj];)
 
 	  x_pt+=6*nvec_x;
 	  y_pt+=6*nvec_y;

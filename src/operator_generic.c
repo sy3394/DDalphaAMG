@@ -138,7 +138,6 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
   }  
 
   //--------------- allocate memory for comm_PRECISION_struc (this is where comm_PRECISION_struc is allocated!!!!!)
-  //printf("operator_PRECISION_alloc\n");
   if ( type != _ODDEVEN )
     operator_PRECISION_alloc_projection_buffers( op, l );
   
@@ -263,8 +262,8 @@ static void operator_PRECISION_alloc_projection_buffers( operator_PRECISION_stru
 
 static void operator_PRECISION_free_projection_buffers( operator_PRECISION_struct *op, level_struct *l ) {
 
-  if ( l->depth == 0 ) {
-    int n_vect = (g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!g.num_rhs_vect 
+  if ( l->depth == 0 ) {//printf0("operator_PRECISION_free %d %d\n",op->pr_num_vect,(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect);
+    int n_vect = op->pr_num_vect;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!g.num_rhs_vect 
     int its = (l->num_lattice_site_var/2)*l->num_lattice_sites*n_vect;
 #ifdef HAVE_TM1p1
     its *= 2;

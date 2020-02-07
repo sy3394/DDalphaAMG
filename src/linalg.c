@@ -28,7 +28,7 @@
 // results <- (phi's, psi) processwise 
 // assume resutls have phi->num_vect_now fields 
 void process_multi_inner_product_MP_new( int count, complex_double *results, vector_float *phi,
-					 vector_float *psi, level_struct *l, struct Thread *threading ) {
+					 vector_float *psi, int start, int end, level_struct *l, struct Thread *threading ) {
   /*****************************************
    * Assume: each vector set in phi contains the same #used vectors as in psi
    * Input:
@@ -39,19 +39,25 @@ void process_multi_inner_product_MP_new( int count, complex_double *results, vec
    *  complex_double *results: stores the inner products (count x psi->num_vect_now) of each vector in the basis phi and the given vector psi on each process
    *****************************************/
 
-  int start, end;
-  compute_core_start_end(0, psi->size, &start, &end, l, threading);
+  int c, i, j, jj, nvec = psi->num_vect_now;
+  int core_start, core_end;
+#ifdef CLOOP
+    compute_core_start_end(start, end, &core_start, &core_end, l, threading);
+#else
+    compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, num_loop);
+#endif
+
   int thread = omp_get_thread_num();
-  if ( thread == 0 && start != end)
+  if ( thread == 0 && core_start != core_end)
     PROF_float_START( _PIP, threading );
   
-  int c, i, j, jj, nvec = psi->num_vect_now;
+  SYNC_CORES(threading)//????necessary? in the original
   VECTOR_LOOP(j, count*nvec, jj, results[j+jj] = 0.0;)
 
   for ( c=0; c<count; c++ ) {
     if ( phi[c].num_vect_now != psi->num_vect_now )
       error0("process_multi_inner_product_MP: phi[%d]->num_vect_now != psi->num_vect_now \n",c);
-    for ( i=start; i<end; i++ )
+    for ( i=core_start; i<core_end; i++ )
       VECTOR_LOOP(j, nvec, jj, results[c*nvec+j+jj] += (complex_double) conj_float(phi[c].vector_buffer[i*phi[c].num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj])
   }
 
@@ -68,26 +74,32 @@ void process_multi_inner_product_MP_new( int count, complex_double *results, vec
   SYNC_MASTER_TO_ALL(threading)
   VECTOR_LOOP( j, count*nvec, jj, results[j+jj] = ((complex_double *)threading->workspace)[j+jj];)
 
-  if(thread == 0 && start != end)
-    PROF_float_STOP( _PIP, (double)(end-start)/(double)l->inner_vector_size, threading );
+  if(thread == 0 && core_start != core_end)
+    PROF_float_STOP( _PIP, (double)(core_end-core_start)/(double)l->inner_vector_size, threading );
 }
 
-void global_norm_MP_new( double *res, vector_float *x, level_struct *l, struct Thread *threading ) {
+void global_norm_MP_new( double *res, vector_float *x, int start, int end, level_struct *l, struct Thread *threading ) {
   /*********************
    * res <- norms of vectors in x: contains x->num_vect_now elements
    ********************/
 
-  int start, end;
-  compute_core_start_end(0, x->size, &start, &end, l, threading);
+  int core_start, core_end;
+#ifdef CLOOP
+  compute_core_start_end(start, end, &core_start, &core_end, l, threading);
+#else
+  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, num_loop);//!!!!  
+#endif
+
   int thread = omp_get_thread_num();
-  if(thread == 0 && start != end)
+  if(thread == 0 && core_start != core_end)
     PROF_float_START( _GIP, threading );
 
   int i, j, jj, nvec = x->num_vect_now;
   double global_alpha[nvec];
   VECTOR_LOOP(j, nvec, jj, res[j+jj]=0;)
-  
-  for( i=start; i<end; i++ )
+
+  SYNC_CORES(threading)//????necessary? in the original
+  for( i=core_start; i<core_end; i++ )
     VECTOR_LOOP(j, nvec, jj, res[j+jj] += NORM_SQUARE_float(x->vector_buffer[i*x->num_vect+j+jj]);)
 
   // communication  -------------------------------------
@@ -117,6 +129,6 @@ void global_norm_MP_new( double *res, vector_float *x, level_struct *l, struct T
   
   VECTOR_LOOP(j, nvec, jj, res[j+jj] = (double)sqrt((double)res[j+jj]);)
   
-  if(thread == 0 && start != end)
-    PROF_float_STOP( _GIP, (double)(end-start)/(double)l->inner_vector_size, threading );
+  if(thread == 0 && core_start != core_end)
+    PROF_float_STOP( _GIP, (double)(core_end-core_start)/(double)l->inner_vector_size, threading );
 }

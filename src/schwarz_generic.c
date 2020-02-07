@@ -275,25 +275,17 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
   MALLOC( s->local_minres_buffer[1], complex_PRECISION, svs*nvec );
   MALLOC( s->local_minres_buffer[2], complex_PRECISION, svs*nvec );
 #else
-  //for ( i=0; i<4; i++ )
-    //vector_PRECISION_init( &(s->buf[i]) );
-
+  //  printf("sc alloc %d\n",(i==0)?((l->depth==0)?_INNER:_ORDINARY):_SCHWARZ);
   for ( i=0; i<4; i++ ) 
-    vector_PRECISION_alloc( &(s->buf[0]), (i==0)?((l->depth==0)?_INNER:_ORDINARY):_SCHWARZ, nvec, l, no_threading );
-  /*
-  vector_PRECISION_alloc( &(s->buf[0]), (l->depth==0)?_INNER:_ORDINARY, nvec, l, no_threading );
-  for ( i=1; i<4; i++ )
-    vector_PRECISION_alloc( &(s->buf[i]), _SCHWARZ, nvec, l, no_threading );
-  */
+    vector_PRECISION_alloc( &(s->buf[i]), (i==0)?((l->depth==0)?_INNER:_ORDINARY):_SCHWARZ, nvec, l, no_threading );
+
   if ( g.method == 1 ){
     //vector_PRECISION_init( &(s->buf[4]) );
     vector_PRECISION_alloc( &(s->buf[4]), _SCHWARZ, nvec, l, no_threading );
   }
 
-  for ( i=0; i<2; i++ ) {
-    //vector_PRECISION_init( &(l->sbuf_PRECISION[i]) );
+  for ( i=0; i<2; i++ )
     vector_PRECISION_alloc( &(l->sbuf_PRECISION[i]), (l->depth==0)?_INNER:_ORDINARY, nvec, l, no_threading );
-    }
   
   // these buffers are introduced to make local_minres_PRECISION thread-safe
   for ( i=0; i<3; i++)
@@ -370,7 +362,7 @@ void schwarz_PRECISION_free( schwarz_PRECISION_struct *s, level_struct *l ) {
   FREE( s->block, block_struct, s->num_blocks );
 
   //------------- free buffer memories
-  int nvec = (g.num_rhs_vect<l->num_eig_vect)?l->num_eig_vect:g.num_rhs_vect;
+  int nvec = s->buf[0].num_vect;//(g.num_rhs_vect<l->num_eig_vect)?l->num_eig_vect:g.num_rhs_vect;
   int svs = l->schwarz_vector_size;
 
 #ifdef HAVE_TM1p1
@@ -1479,7 +1471,7 @@ void schwarz_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *D_phi, vect
           // local minres updates x, r and latest iter
           PROF_PRECISION_START( _SM4 );
           END_MASTER(threading)
-          block_solve( x, r, latest_iter, s->block[i].start*l->num_lattice_site_var, s, l, no_threading );
+	    block_solve( x, r, latest_iter, s->block[i].start*l->num_lattice_site_var, s, l, no_threading );//no_!!!!!!
           START_MASTER(threading)
           PROF_PRECISION_STOP( _SM4, 1 );
           END_MASTER(threading)
@@ -1500,8 +1492,8 @@ void schwarz_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *D_phi, vect
   // via updating the residual from odd to even
   if ( D_phi != NULL ) {
     START_LOCKED_MASTER(threading)
+    g.num_vect_pass2 = latest_iter->num_vect;
     for ( mu=0; mu<4; mu++ ) {
-      g.num_vect_pass2 = latest_iter->num_vect;
       ghost_update_PRECISION_new( latest_iter, mu, +1, &(s->op.c), l );
       ghost_update_PRECISION_new( latest_iter, mu, -1, &(s->op.c), l );
     }
@@ -1803,9 +1795,11 @@ void red_black_schwarz_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *D
   int start, end;
   compute_core_start_end_custom(0, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );
 
+  //---- initialization
   g.num_vect_pass1 = nvec;
   r->num_vect_now = nvec; Dphi->num_vect_now = nvec; latest_iter->num_vect_now = nvec; x->num_vect_now = nvec;
   if ( res == _NO_RES ) {
+    // if the initial guess is zero: r <- eta, x = 0????
     vector_PRECISION_copy_new( r, eta, start, end, l );
     vector_PRECISION_define_new( x, 0, start, end, l );
     START_MASTER(threading)
@@ -1813,6 +1807,7 @@ void red_black_schwarz_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *D
     END_MASTER(threading)
     SYNC_CORES(threading)
   } else {
+    // if phi contains the initial guess, x <- phi and update the ghost shell
     vector_PRECISION_copy_new( x, phi, start, end, l );
     START_LOCKED_MASTER(threading)
       g.num_vect_pass2 = x->num_vect;
@@ -1824,7 +1819,8 @@ void red_black_schwarz_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *D
   }
 
   g.num_vect_pass2 = (k==0 && step < 6 && init_res == _RES)?x->num_vect:latest_iter->num_vect;
-  // perform the Schwarz iteration, solve the block systems
+  //--- perform the Schwarz iteration, solve the block systems
+  // outer iteration over Scwarz cycles
   for ( k=0; k<cycles; k++ ) {
     for ( step=0; step<8; step++ ) {
       for ( i=block_thread_start[step]; i<block_thread_end[step]; i++ ) {
@@ -1862,7 +1858,7 @@ void red_black_schwarz_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *D
         END_LOCKED_MASTER(threading)
 	} else {//printf0("before syn core\n");fflush(stdout);
         SYNC_CORES(threading)
-      }
+	}
       
       if ( k==0 && step == 5 ) res = _RES;
       if ( k==0 && step == 1 ) res_comm = _RES;

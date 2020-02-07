@@ -46,12 +46,14 @@ void vector_PRECISION_copy_new2( vector_PRECISION *z, vector_PRECISION *x, int l
   void vector_PRECISION_minus_new( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l );
   void vector_PRECISION_saxpy_new( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, complex_PRECISION *alpha, int k, int sign, int start, int end, level_struct *l );
   void vector_PRECISION_multi_saxpy_new( vector_PRECISION *z, vector_PRECISION *V, complex_PRECISION *alpha,
-					 int sign, int count, level_struct *l, struct Thread *threading );
+					 int sign, int count, int start, int end, level_struct *l, struct Thread *threading );
 
   void vector_PRECISION_check_comp( vector_PRECISION *vec1, vector_PRECISION *vec2 );
   void vector_PRECISION_change_layout( vector_PRECISION *vec_out, vector_PRECISION *vec_in, const int layout, struct Thread *threading );
   void trans_PRECISION_new( vector_PRECISION *out, vector_double *in, int *tt, level_struct *l, struct Thread *threading );
   void trans_back_PRECISION_new( vector_double *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading );
+  void trans_PRECISION2_new( vector_PRECISION *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading );
+  void trans_back_PRECISION2_new( vector_PRECISION *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading );
 
   void vector_PRECISION_test_routine( level_struct *l, struct Thread *threading );
   void free_alloc_PRECISION( level_struct *l, int n_v_old, int n_v_new ); 

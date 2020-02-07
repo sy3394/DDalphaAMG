@@ -34,12 +34,12 @@
 
 //struct Thread *no_threading;//my proposal
 
-complex_double _COMPLEX_double_ONE = (complex_double)1.0;
-complex_double _COMPLEX_double_MINUS_ONE = (complex_double)(-1.0);
-complex_double _COMPLEX_double_ZERO = (complex_double)0.0;
-complex_float  _COMPLEX_float_ONE = (complex_float)1.0;
-complex_float  _COMPLEX_float_MINUS_ONE = (complex_float)(-1.0);
-complex_float  _COMPLEX_float_ZERO = (complex_float)0.0;
+complex_double _COMPLEX_double_ONE       = (complex_double) 1.0;
+complex_double _COMPLEX_double_MINUS_ONE = (complex_double) (-1.0);
+complex_double _COMPLEX_double_ZERO      = (complex_double) 0.0;
+complex_float  _COMPLEX_float_ONE        = (complex_float)  1.0;
+complex_float  _COMPLEX_float_MINUS_ONE  = (complex_float)  (-1.0);
+complex_float  _COMPLEX_float_ZERO       = (complex_float)  0.0;
 
 
 // initialize global structure
@@ -112,7 +112,6 @@ void method_init( int *argc, char ***argv, level_struct *l ) {
 #endif
   
   //------- initialize and set global and level structure according to the input file
-  //predefine_rank( MPI_COMM_WORLD ); // already done in main.c//!!!!!!!!!
   g_init();
   l_init( l );
   lg_in( inputfile, l );
@@ -121,7 +120,6 @@ void method_init( int *argc, char ***argv, level_struct *l ) {
   g.Cart_rank   = MPI_Cart_rank;
   g.Cart_coords = MPI_Cart_coords;
   cart_define( MPI_COMM_WORLD, l );
-  //data_layout_init( l );//used to be here
 
   //no_threading = (struct Thread *)malloc(sizeof(struct Thread));//my porosal
   //setup_no_threading(no_threading, l);//my proposal
@@ -137,8 +135,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   
   double t0=0, t1=0;
 
-  //  printf0("method_setup: called at depth=%d\n",l->depth);//debug
-  ASSERT(l->depth == 0);//!!!!!!!!!!!
+  ASSERT(l->depth == 0);
   
   START_LOCKED_MASTER(threading)
   g.in_setup = 1;
@@ -146,12 +143,11 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     l->level = g.num_levels-1;
   }
   
-  //prof_float_init( l );//in prof_init( l )...
-  //prof_double_init( l );//in prof_init( l )...
   if ( l->depth==0 )
     prof_init( l );
   
   //-------------- Setup g.p(_MP) for the solver part (gmres_PRECISION_struct in global_struct: used only in the solver part)
+  //                  if g.mixed_precision == 2, prec = vcycle_float; otherwise, prec = preconditioner
   g.num_vect_now=g.num_rhs_vect;//do they require eigenvectors??????  
   if ( g.method > 0 ) {//------------- FGMRES + alpha
 #ifdef INIT_ONE_PREC
@@ -217,14 +213,15 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   SYNC_MASTER_TO_ALL(threading)
 
   //------------------ Set the level structure recursively
+  //                     l->p_PRECISION at the top level is not allocated as it is not used  
   if ( g.method >= 0 ) {
     START_LOCKED_MASTER(threading)
     g.num_vect_now = ( g.num_rhs_vect < l->num_eig_vect )? l->num_eig_vect:g.num_rhs_vect;//initizlize w/ max!!!!!!!! not used 
     t0 = MPI_Wtime();
     if ( g.mixed_precision ) {
-      smoother_float_def( l ); // define p_PRECISION(gmres:k-cycle) and s_PRECISION;  g.method=4 or 5 are taken care of here.for these, fgmres in l for smoother is initiazlied????
+      smoother_float_def( l ); // define s_PRECISION and p_PRECISION(gmres:k-cycle) if g.method=4 or 5. are taken care of here.for these, fgmres in l for smoother is initiazlied????
       if ( g.method >= 4 && g.odd_even )
-        oddeven_setup_float( &(g.op_double), l );//black box!!!!????
+        oddeven_setup_float( &(g.op_double), l );
     } else {
       smoother_double_def( l );
       if ( g.method >= 4 && g.odd_even )
@@ -232,6 +229,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     }
     END_LOCKED_MASTER(threading)
     SYNC_MASTER_TO_ALL(threading)
+      //      printf("init: %d %d\n",g.my_rank,threading->core);
     if ( g.method > 0 )
       if ( g.interpolation && g.num_levels > 1 ) {
 	// allocate memory for interpolation and define interpolation op at depth == 0
@@ -431,30 +429,18 @@ void next_level_setup_new( vector_double *V, level_struct *l, struct Thread *thr
     //------ entrance to recursion: coarse_grid_correction_PRECISION_setup = recursive function (next_level_setup_new is called inside of this)
     if ( g.mixed_precision ) {
       START_LOCKED_MASTER(threading)
-	//if ( l->depth == 0 ) fine_level_float_alloc( l );//we can move this up in method_init??????
-	//level_float_init( l->next_level );// in l_init( l->next_level ); redundant
+      level_double_init( l->next_level );
       next_level_float_setup( l );// gmres_float_struct p_float (k-cycle) is defined here.
       END_LOCKED_MASTER(threading)
-      if ( l->depth == 0 ) {//we can move this up in method_init??????  
-        //START_LOCKED_MASTER(threading)
-	//interpolation_float_alloc( l );
-        //END_LOCKED_MASTER(threading)
-	//interpolation_float_define_new( V, l, threading ); // The initial step of setting up the interpolation operator out of test vectors using only smoothing
+      if ( l->depth == 0 )
         coarse_grid_correction_float_setup_new( l, threading );//recursive function
-      }
     } else {
       START_LOCKED_MASTER(threading)
-	//if ( l->depth == 0 ) fine_level_double_alloc( l );
-	//level_double_init( l->next_level );
+      level_double_init( l->next_level );
       next_level_double_setup( l );// gmres_double_struct p_double (k-cycle) is defined here. 
       END_LOCKED_MASTER(threading)
-      if ( l->depth == 0 ) {//we can move this up in method_init??????  
-        //START_LOCKED_MASTER(threading)
-        //interpolation_double_alloc( l );
-        //END_LOCKED_MASTER(threading)
-	//interpolation_double_define_new( V, l, threading ); // The initial step of setting up the interpolation operator out of test vectors using only smoothing
+      if ( l->depth == 0 )
         coarse_grid_correction_double_setup_new( l, threading );//recursive function
-      }
     }
   }
   
@@ -468,10 +454,10 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
   if ( g.method > 0 && g.interpolation && g.num_levels > 1 && setup_iter > 0 ) {
     
     double t0=0, t1=0;
-    
+    //    printf("init: %d %d\n",g.my_rank,threading->core);  
     START_LOCKED_MASTER(threading)
     g.in_setup = 1;
-    if ( l->depth==0 )//is this here to rest profiler???
+    if ( l->depth==0 )//is this here to reset profiler????
       prof_init( l );
     END_LOCKED_MASTER(threading)
 
@@ -482,12 +468,12 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
       m0_update( (complex_double)g.setup_m0, l, threading );
 #ifdef HAVE_TM
     }
-    if ( g.setup_mu != g.mu ) {//printf0("iter pre 1\n");//here!!!
+    if ( g.setup_mu != g.mu ) {
       tm_term_update( (complex_double)g.setup_mu, l, threading );
       finalize_operator_update( l, threading );
-    } else if (g.setup_m0 != g.m0) {//printf0("iter pre 2\n");
+    } else if (g.setup_m0 != g.m0) {
 #endif
-      finalize_operator_update( l, threading );
+      finalize_operator_update( l, threading );//test routine
     }
     
     if ( g.mixed_precision )
@@ -500,10 +486,10 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
       m0_update( (complex_double)g.m0, l, threading );
 #ifdef HAVE_TM
     }
-    if ( g.setup_mu != g.mu ) {//printf0("iter post 1\n");//here!!!passed
+    if ( g.setup_mu != g.mu ) {
       tm_term_update( (complex_double)g.mu, l, threading );
       finalize_operator_update( l, threading );
-    } else if (g.setup_m0 != g.m0) {//printf0("iter post 2\n");
+    } else if (g.setup_m0 != g.m0) {
 #endif
       finalize_operator_update( l, threading );
     }
@@ -524,20 +510,17 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
 #ifdef DEBUG
     test_routine_new( l, threading );
 #endif
-    //    printf0("iter init over!!!!\n");fflush(stdout);
   }
 }
 
+// next_level_free -> next_level_PRECISION_free -> coarse_grid_correction_PRECISION_free -> next_level_free
 void next_level_free( level_struct *l ) {
 
-  if ( l->level > 0 ) {
-    if ( g.mixed_precision ) {
-      if ( l->depth == 0 ) fine_level_float_free( l );// perhaps we can move this to method_free
+  if ( l->level > 0 ) { 
+    if ( g.mixed_precision )
       next_level_float_free( l );
-    } else {
-      if ( l->depth == 0 ) fine_level_double_free( l );
+    else
       next_level_double_free( l );
-    }
     FREE( l->next_level, level_struct, 1 );
   }
 }
@@ -555,8 +538,13 @@ void method_free( level_struct *l ) {
       smoother_double_free( l );
     }
     if ( g.method > 0 )
-      if ( g.interpolation )
+      if ( g.interpolation ) {
+	if ( g.mixed_precision )
+	  fine_level_float_free( l );
+	else
+	  fine_level_double_free( l );
         next_level_free( l );
+      }
   } else if ( g.method == -1 ) {
     fine_level_double_free( l );
   }

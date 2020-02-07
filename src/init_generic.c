@@ -103,39 +103,32 @@ double prof_PRECISION_print( level_struct *l ) {
 
 void fine_level_PRECISION_alloc( level_struct *l ) {//only p_PRECISION.b/x are allocated here??????
   
-  int n = 8;
-  int nvecs = ( g.num_rhs_vect < l->num_eig_vect )? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now; //!!!!!!!!!!!
+  int i, nvecs = ( g.num_rhs_vect < l->num_eig_vect )? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now; //!!!!!!!!!!!
 
 #ifdef HAVE_TM1p1
   nvecs *= 2;
-#else
-  for ( int i=0; i<n; i++ )
-    vector_PRECISION_alloc( &(l->vbuf_PRECISION[i]), _ORDINARY, nvecs, l, no_threading );
-  //  for ( int i=0; i<2; i++ )
-    //vector_PRECISION_alloc( &(l->vtmp_PRECISION[i]), _ORDINARY, nvecs, l, no_threading );// not used anywhere!!!!!
+#endif
+  for ( i=0; i<9; i++ )
+    vector_PRECISION_alloc( &(l->vbuf_PRECISION[i]), _ORDINARY, (i>3&&i<7)?num_loop:nvecs, l, no_threading );
   vector_PRECISION_alloc( &(l->p_PRECISION.b), _INNER, nvecs, l, no_threading );
   vector_PRECISION_alloc( &(l->p_PRECISION.x), _INNER, nvecs, l, no_threading ); 
-#endif
+
 }
 
 void fine_level_PRECISION_free( level_struct *l ) {
   
-  int n = 8;
+  int n = 9;
 
   for ( int i=0; i<n; i++ )
     vector_PRECISION_free( &(l->vbuf_PRECISION[i]), l, no_threading );
-  //for ( int i=0; i<2; i++ )
-    //vector_PRECISION_free( &(l->vtmp_PRECISION[i]), l, no_threading );
   vector_PRECISION_free( &(l->p_PRECISION.b), l, no_threading );
   vector_PRECISION_free( &(l->p_PRECISION.x), l, no_threading );
 }
 
 void level_PRECISION_init( level_struct *l ) {
 
-  for ( int i=0; i<9; i++ )
+  for ( int i=0; i<10; i++ )
     vector_PRECISION_init( &(l->vbuf_PRECISION[i]) );
-  for ( int i=0; i<2; i++ )
-    vector_PRECISION_init( &(l->vtmp_PRECISION[i]) );
   
   operator_PRECISION_init( &(l->op_PRECISION) );
   operator_PRECISION_init( &(l->oe_op_PRECISION) );
@@ -145,7 +138,6 @@ void level_PRECISION_init( level_struct *l ) {
   fgmres_PRECISION_struct_init( &(l->sp_PRECISION) );
 }
 
-// allocate memory for gmres_PRECISION_struct p_PRECISION, p_PRECISION.b, p_PRECISION.x
 void next_level_PRECISION_setup( level_struct *l ) {
 
   prof_float_init( l->next_level );
@@ -156,21 +148,27 @@ void next_level_PRECISION_setup( level_struct *l ) {
   if ( !l->idle ) {
     g.num_vect_now = ( g.num_rhs_vect < l->next_level->num_eig_vect )? l->next_level->num_eig_vect:g.num_rhs_vect;//??????
 
-    coarsening_index_table_PRECISION_alloc( &(l->is_PRECISION), l );//not next_level??????? although it's about coarsened lattice structure on the next level
-    coarsening_index_table_PRECISION_define( &(l->is_PRECISION), &(l->s_PRECISION), l );//not next_level??????? although it's about coarsened lattice structure on the next level 
+    // used in coarse_operator_PRECISION_setup to define the coarse op on the next_level
+    coarsening_index_table_PRECISION_alloc( &(l->is_PRECISION), l );
+    coarsening_index_table_PRECISION_define( &(l->is_PRECISION), &(l->s_PRECISION), l );
 
-    if ( l->level == 1 && !l->next_level->idle ) {// if the next level is the bottom and I am not the idle process, set the coarsest gmres_PRECISION_struct as a coarse GMRES solver
+    // allocate l->next_level->p_PRECISION or just l->next_level->p_PRECISION.b&x
+    if ( l->level == 1 && !l->next_level->idle ) {
+      // if the next level is the bottom and I am not the idle process, set the coarsest gmres_PRECISION_struct as a coarse GMRES solver
       fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol, 
                                      _COARSE_GMRES, _NOTHING, NULL,
 				     g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
                                      &(l->next_level->p_PRECISION), l->next_level );
     } else {
-      if ( g.kcycle ) { //if the next level is not the bottom and K-cycle is chosen as a preconditioner
+      // if the next level is not the bottom
+      if ( g.kcycle ) { 
+	// and K-cycle is chosen as a preconditioner;
         fgmres_PRECISION_struct_alloc( g.kcycle_restart, g.kcycle_max_restart, _ORDINARY, g.kcycle_tol, 
                                        _K_CYCLE, _RIGHT, vcycle_PRECISION_new,
 				       apply_coarse_operator_PRECISION_new,
                                        &(l->next_level->p_PRECISION), l->next_level );
-      } else {//otherwise only p_PRECISION.b/x are used
+      } else {
+	// otherwise only p_PRECISION.b/x are used
         vector_PRECISION_init(&(l->next_level->p_PRECISION.b));
         vector_PRECISION_init(&(l->next_level->p_PRECISION.x));
 #ifdef HAVE_TM1p1
@@ -185,16 +183,13 @@ void next_level_PRECISION_setup( level_struct *l ) {
       }
     }
 
-    int i, n = (l->next_level->level>0)?6:4;
-    for ( i=0; i<n; i++ ){
+    // alocate vbuf_PRECISION
+    int i, n = (l->next_level->level>0)?7:4, nvec = ( g.num_rhs_vect < l->next_level->num_eig_vect )? l->next_level->num_eig_vect:g.num_rhs_vect;
 #ifdef HAVE_TM1p1
-      vector_PRECISION_alloc( &(l->next_level->vbuf_PRECISION[i]), _ORDINARY, 2*l->next_level->num_eig_vect, l->next_level, no_threading );//!!!!!!!!!!!!!
-#else
-      vector_PRECISION_alloc( &(l->next_level->vbuf_PRECISION[i]), _ORDINARY, l->next_level->num_eig_vect, l->next_level, no_threading );//!!!!!!1
+    nvec *= 2;
 #endif
-    }
-    //for ( int i=0; i<2; i++ )
-      //vector_PRECISION_alloc( &(l->next_level->vtmp_PRECISION[i]), _ORDINARY, g.num_rhs_vect, l->next_level, no_threading );// don't know where it is used????
+    for ( i=0; i<n; i++ )
+      vector_PRECISION_alloc( &(l->next_level->vbuf_PRECISION[i]), _ORDINARY, (i>3&&i<7)?num_loop:nvec, l->next_level, no_threading );//!!!!!
   }
 }
 
@@ -210,7 +205,7 @@ void next_level_PRECISION_free( level_struct *l ) {
       vector_PRECISION_free( &(l->next_level->p_PRECISION.x), l->next_level, no_threading );
     }
   
-    int i, n = (l->next_level->level>0)?6:4;  
+    int i, n = (l->next_level->level>0)?7:4;  
     for ( i=0; i<n; i++)
       vector_PRECISION_free( &(l->next_level->vbuf_PRECISION[i]), l->next_level, no_threading );
     coarsening_index_table_PRECISION_free( &(l->is_PRECISION), l );

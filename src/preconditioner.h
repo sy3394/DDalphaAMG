@@ -34,4 +34,6 @@
 
   void preconditioner_new( vector_double *phi, vector_double *Dphi, vector_double *eta,
                        const int res, level_struct *l, struct Thread *threading );
+//  void preconditioner2_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRECISION *eta,
+//                       const int res, level_struct *l, struct Thread *threading );
 #endif
