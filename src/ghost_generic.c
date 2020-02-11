@@ -26,7 +26,7 @@
 
 void ghost_alloc_PRECISION( int buffer_size, comm_PRECISION_struct *c, level_struct *l ) {
   
-  int mu, nu, factor=1, n_vect = (g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//!!!!!!!
+  int mu, nu, factor=1, n_vect = num_loop;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//!!!!!!!
   
   if ( l->depth > 0 ) {
     c->offset = l->num_lattice_site_var;
@@ -79,7 +79,7 @@ void ghost_alloc_PRECISION( int buffer_size, comm_PRECISION_struct *c, level_str
     MALLOC( l->vbuf_PRECISION[9].vector_buffer, complex_PRECISION, l->vector_size*n_vect );
     l->vbuf_PRECISION[9].type = _ORDINARY;
     l->vbuf_PRECISION[9].size = l->vector_size;
-    l->vbuf_PRECISION[9].num_vect = n_vect; // is this correct if HAVE_TM1p1?????
+    l->vbuf_PRECISION[9].num_vect = n_vect; 
     l->vbuf_PRECISION[9].l = l;
   }
   c->num_vect = n_vect;
@@ -327,7 +327,6 @@ void ghost_wait_PRECISION_new( buffer_PRECISION phi, const int mu, const int dir
   }
 }
 
-//!!!!!!!!!
 // used only in Schwarz method: update the full ghost shell
 // assume: phi is of size _SCHWARZ
 void ghost_update_PRECISION_new( vector_PRECISION *phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l ) {
@@ -434,9 +433,6 @@ void negative_sendrecv_PRECISION_new( vector_PRECISION *phi, const int mu, comm_
     for ( i=0; i<num_boundary_sites; i++ ) {
       tmp_pt = phi->vector_buffer + n*boundary_table[i]*nvec;
       VECTOR_LOOP( j, n*nvec, jj, *buffer_pt = *tmp_pt; buffer_pt++; tmp_pt++;)
-      
-      /* for ( j=0; j<n*nvec; j++, buffer_pt++, tmp_pt++ )//why not VECTOR_LOOP????
-       *buffer_pt = *tmp_pt;*/
     }
     
     // recieve ghost cells of positive mu boundary from the process in the pos mu dir

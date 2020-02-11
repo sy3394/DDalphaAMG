@@ -96,10 +96,10 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 
   solve( &solution, &source, l, threading );
 
-  //START_LOCKED_MASTER(threading)//my addition
+  START_LOCKED_MASTER(threading)//my addition
   if(g.bc==2)
     apply_twisted_bc_to_vector_double_new( &solution, &solution, minus_twisted_bc, l);
-  //END_LOCKED_MASTER(threading)//my addition
+  END_LOCKED_MASTER(threading)//my addition
 
   global_norm_double_new( norm, &solution, 0, l->inner_vector_size, l, threading );
   START_MASTER(threading)
@@ -190,8 +190,8 @@ static void solve( vector_double *solution, vector_double *source, level_struct 
 static int wilson_driver( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading ) {
   
   int iter = 0, start = threading->start_index[l->depth], end = threading->end_index[l->depth];
-  vector_double rhs = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.b:g.p.b; rhs.num_vect_now = g.num_rhs_vect;
-  vector_double sol = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.x:g.p.x; sol.num_vect_now = g.num_rhs_vect;
+  vector_double rhs = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.b:g.p.b; rhs.num_vect_now = num_loop;
+  vector_double sol = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.x:g.p.x; sol.num_vect_now = num_loop;
 
 #ifdef WILSON_BENCHMARK
   START_MASTER(threading)
@@ -202,17 +202,18 @@ static int wilson_driver( vector_double *solution, vector_double *source, level_
   for ( int i=0; i<100; i++ ) {
     double tmp_t = -MPI_Wtime();
 #endif
-    //loop
-  vector_double_copy_new( &rhs, source, start, end, l );
-  if ( g.method == -1 ) {
-    cgn_double( &(g.p), l, threading );
-  } else if ( g.mixed_precision == 2 ) {
-    iter = fgmres_MP( &(g.p_MP), l, threading );
-  } else {
-    iter = fgmres_double( &(g.p), l, threading );
+  for ( int i=0; i<g.num_rhs_vect; i+=num_loop ) {
+    vector_double_copy2_new( &rhs, source, i, num_loop, 1, start, end, l );
+    if ( g.method == -1 ) {
+      cgn_double( &(g.p), l, threading );
+    } else if ( g.mixed_precision == 2 ) {
+      iter = fgmres_MP( &(g.p_MP), l, threading );
+    } else {
+      iter = fgmres_double( &(g.p), l, threading );
+    }
+    vector_double_copy2_new( solution, &sol, i*num_loop, num_loop, -1, start, end, l );
   }
-  vector_double_copy_new( solution, &sol, start, end, l );
-  
+
 #ifdef WILSON_BENCHMARK
     tmp_t += MPI_Wtime();
     if ( tmp_t < t_min )

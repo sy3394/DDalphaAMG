@@ -51,7 +51,7 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
   
   // define data merging
   // define data gathering permutation
-  int i, mu, current_rank, offset, offset_sum, nvect = (g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//!!!!!!!!!
+  int i, mu, current_rank, offset, offset_sum, nvect = num_loop;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//!!!!!!!!!
   int process_coords[4] = {0,0,0,0}, parent_coords[4] = {0,0,0,0}, *process_list = NULL;
   // for sites in the child processes
   MALLOC( process_list, int, l->num_processes );

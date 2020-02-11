@@ -30,11 +30,11 @@
   typedef struct {
     buffer_PRECISION vector_buffer;
     int num_vect;
-    int num_vect_now;
+    int num_vect_now;//may not be needed
     int layout;
     int type;
     int size;
-    int start, end;
+    int start, end;//not needed
     struct level_struct *l;
   } vector_PRECISION;
 

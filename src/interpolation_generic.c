@@ -52,9 +52,7 @@ void interpolation_PRECISION_free( level_struct *l ) {
 //??????
 void interpolation_PRECISION_dummy_alloc( level_struct *l ) {
   
-  int n = g.num_rhs_vect;
-  //MALLOC( l->is_PRECISION.test_vector, vector_PRECISION, l->num_eig_vect );
-  //MALLOC( l->is_PRECISION.interpolation, vector_PRECISION, l->num_eig_vect );
+  int n = num_loop;//g.num_rhs_vect;
 
   vector_PRECISION_alloc(&(l->is_PRECISION.interpolation_vec), _ORDINARY, n, l, no_threading );
   vector_PRECISION_alloc(&(l->is_PRECISION.test_vector_vec), _INNER, n, l, no_threading );
@@ -63,9 +61,6 @@ void interpolation_PRECISION_dummy_alloc( level_struct *l ) {
 //??????
 void interpolation_PRECISION_dummy_free( level_struct *l ) {
   
-  //FREE( l->is_PRECISION.test_vector, vector_PRECISION, l->num_eig_vect );
-  //FREE( l->is_PRECISION.interpolation, vector_PRECISION, l->num_eig_vect );
-
   vector_PRECISION_free(&(l->is_PRECISION.interpolation_vec), l, no_threading );
   vector_PRECISION_free(&(l->is_PRECISION.test_vector_vec), l, no_threading );
 }

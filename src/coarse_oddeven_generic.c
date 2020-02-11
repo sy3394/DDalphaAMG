@@ -25,7 +25,6 @@
 
 #include "main.h"
 
-static void coarse_oddeven_PRECISION_set_couplings( level_struct *l, struct Thread *threading );
 static void coarse_selfcoupling_LU_decomposition_PRECISION( config_PRECISION output, operator_PRECISION_struct *op, int index, level_struct *l );
 #ifdef HAVE_TM1p1
 static void coarse_selfcoupling_LU_doublet_decomposition_PRECISION( config_PRECISION output, operator_PRECISION_struct *op, int index, level_struct *l );
@@ -36,7 +35,7 @@ void coarse_oddeven_alloc_PRECISION( level_struct *l ) {
 
   int nv = l->num_parent_eig_vect, oe_offset=0, mu, **bt = NULL,
     *eot = NULL, *nt = NULL, *tt = NULL, t, z, y, x, le[4], N[4];
-  int nvec = (g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;
+  int nvec = num_loop;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;
   operator_PRECISION_struct *op = &(l->oe_op_PRECISION);
 
   operator_PRECISION_alloc( op, _ODDEVEN, l );
@@ -46,7 +45,7 @@ void coarse_oddeven_alloc_PRECISION( level_struct *l ) {
   for (int k=0; k<2; k++ ){
     vector_PRECISION_init( &(op->buffer[k]) );
 #ifdef HAVE_TM1p1
-    vector_PRECISION_alloc( &(op->buffer[k]), _ORDINARY, 2*nvec, l, no_threading );//!!!!!!!!!!
+    vector_PRECISION_alloc( &(op->buffer[k]), _ORDINARY, 2*nvec, l, no_threading );
 #else
     vector_PRECISION_alloc( &(op->buffer[k]), _ORDINARY, nvec, l, no_threading );
 #endif
@@ -194,14 +193,8 @@ void coarse_oddeven_setup_PRECISION( operator_PRECISION_struct *in, int reorder,
   epsbar_term_PRECISION_setup( in->epsbar, in->epsbar_ig5_even_shift, in->epsbar_ig5_odd_shift, op, l, threading );
 #endif
   
-  coarse_oddeven_PRECISION_set_couplings( l, threading );
+  coarse_oddeven_PRECISION_set_self_couplings( l, threading );
   
-}
-
-static void coarse_oddeven_PRECISION_set_couplings( level_struct *l, struct Thread *threading ) {
-
-    coarse_oddeven_PRECISION_set_self_couplings( l, threading );
-
 }
 
 void coarse_oddeven_PRECISION_set_self_couplings( level_struct *l, struct Thread *threading ) {
@@ -209,7 +202,6 @@ void coarse_oddeven_PRECISION_set_self_couplings( level_struct *l, struct Thread
   operator_PRECISION_struct *op = &(l->oe_op_PRECISION);
   int nv = l->num_parent_eig_vect, start, end;
 
-  //  coarse_operator_PRECISION_set_self_couplings( op, l, threading );
   compute_core_start_end_custom( 0, op->num_odd_sites, &start, &end, l, threading, 1);
 
   int size = SQUARE(2*nv);
@@ -479,7 +471,7 @@ void coarse_hopping_term_PRECISION_new( vector_PRECISION *out, vector_PRECISION 
   g.num_vect_pass1 = nvec;
   vector_PRECISION_duplicate( &in_pt, in, 0, l );
   vector_PRECISION_duplicate( &out_pt, out, 0, l );
-  //printf("coarse_hopping_term_PRECISION: (%d %d) (%d %d) (%d %d)\n",in_pt.num_vect_now,out_pt.num_vect_now, in_pt.num_vect,out_pt.num_vect,in_pt.size,out_pt.size);
+
   int core_start;
   int core_end;
   
@@ -898,8 +890,8 @@ void coarse_odd_even_PRECISION_test_new( vector_PRECISION *out, vector_PRECISION
     vector_PRECISION_define_new( out, 0, l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var, l->inner_vector_size, l );
     END_LOCKED_MASTER(threading)
 
-    coarse_hopping_term_PRECISION_new( out, &buf[0], &(l->oe_op_PRECISION), _ODD_SITES, l, threading );//printfv_PRECISION(out);
-    coarse_diag_oo_inv_PRECISION_new( &buf[1], out, &(l->oe_op_PRECISION), l, threading );//printfv_PRECISION(&buf[1]);//!!!!
+    coarse_hopping_term_PRECISION_new( out, &buf[0], &(l->oe_op_PRECISION), _ODD_SITES, l, threading );
+    coarse_diag_oo_inv_PRECISION_new( &buf[1], out, &(l->oe_op_PRECISION), l, threading );
 
     START_LOCKED_MASTER(threading)
     vector_PRECISION_plus_new( &buf[0], &buf[0], &buf[1], l->oe_op_PRECISION.num_even_sites*l->num_lattice_site_var, l->inner_vector_size, l );

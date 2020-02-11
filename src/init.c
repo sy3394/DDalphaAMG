@@ -133,6 +133,7 @@ void method_init( int *argc, char ***argv, level_struct *l ) {
 
 void method_setup( vector_double *V, level_struct *l, struct Thread *threading ) {
   
+  int nvec = num_loop;
   double t0=0, t1=0;
 
   ASSERT(l->depth == 0);
@@ -148,24 +149,20 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   
   //-------------- Setup g.p(_MP) for the solver part (gmres_PRECISION_struct in global_struct: used only in the solver part)
   //                  if g.mixed_precision == 2, prec = vcycle_float; otherwise, prec = preconditioner
-  g.num_vect_now=g.num_rhs_vect;//do they require eigenvectors??????  
+#ifdef HAVE_TM1p1
+  nvec *= 2;
+#endif
   if ( g.method > 0 ) {//------------- FGMRES + alpha
 #ifdef INIT_ONE_PREC
     if ( g.mixed_precision == 2 ) {// INIT_ONE_PREC is defiend in main.h
 #endif
-      // as of now, allocate unnecessary large memory to it!!!!!
       fgmres_MP_struct_alloc( g.restart, g.max_restart, _INNER,
                               g.tol, _RIGHT, vcycle_float_new, &(g.p_MP), l );
       g.p.op            = &(g.op_double);
       g.p.eval_operator = d_plus_clover_double_new;
 #if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
-#ifdef HAVE_TM1p1
-      vector_double_alloc( &(g.p.b), _INNER, 2*g.num_rhs_vect, l, no_threading );
-      vector_double_alloc( &(g.p.x), _INNER, 2*g.num_rhs_vect, l, no_threading );
-#else
-      vector_double_alloc( &(g.p.b), _INNER, g.num_rhs_vect, l, no_threading );
-      vector_double_alloc( &(g.p.x), _INNER, g.num_rhs_vect, l, no_threading );
-#endif
+      vector_double_alloc( &(g.p.b), _INNER, nvec, l, no_threading );
+      vector_double_alloc( &(g.p.x), _INNER, nvec, l, no_threading );
 #endif
 #ifdef INIT_ONE_PREC
     } else {
@@ -183,16 +180,11 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 #endif
       fgmres_MP_struct_alloc( g.restart, g.max_restart, _INNER,
                               g.tol, _NOTHING, NULL, &(g.p_MP), l );
-      g.p.op = &(g.op_double);//moved from fgmres_MP_struct_alloc: why only double?
+      g.p.op = &(g.op_double);//moved from fgmres_MP_struct_alloc: why only double? double at the top; single below????
       g.p.eval_operator = d_plus_clover_double_new;//moved from fgmres_MP_struct_alloc: why only double????
 #if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
-#ifdef HAVE_TM1p1
-      vector_double_alloc( &(g.p.b), _INNER, 2*g.num_rhs_vect, l, no_threading );
-      vector_double_alloc( &(g.p.x), _INNER, 2*g.num_rhs_vect, l, no_threading );
-#else
-      vector_double_alloc( &(g.p.b), _INNER, g.num_rhs_vect, l, no_threading );
-      vector_double_alloc( &(g.p.x), _INNER, g.num_rhs_vect, l, no_threading );
-#endif
+      vector_double_alloc( &(g.p.b), _INNER, nvec, l, no_threading );
+      vector_double_alloc( &(g.p.x), _INNER, nvec, l, no_threading );
 #endif
 #ifdef INIT_ONE_PREC
     } else {
@@ -216,10 +208,9 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   //                     l->p_PRECISION at the top level is not allocated as it is not used  
   if ( g.method >= 0 ) {
     START_LOCKED_MASTER(threading)
-    g.num_vect_now = ( g.num_rhs_vect < l->num_eig_vect )? l->num_eig_vect:g.num_rhs_vect;//initizlize w/ max!!!!!!!! not used 
     t0 = MPI_Wtime();
     if ( g.mixed_precision ) {
-      smoother_float_def( l ); // define s_PRECISION and p_PRECISION(gmres:k-cycle) if g.method=4 or 5. are taken care of here.for these, fgmres in l for smoother is initiazlied????
+      smoother_float_def( l ); // define s_PRECISION, and p_PRECISION(gmres:k-cycle) if g.method=4 or 5 why here????
       if ( g.method >= 4 && g.odd_even )
         oddeven_setup_float( &(g.op_double), l );
     } else {
@@ -229,7 +220,6 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     }
     END_LOCKED_MASTER(threading)
     SYNC_MASTER_TO_ALL(threading)
-      //      printf("init: %d %d\n",g.my_rank,threading->core);
     if ( g.method > 0 )
       if ( g.interpolation && g.num_levels > 1 ) {
 	// allocate memory for interpolation and define interpolation op at depth == 0
@@ -379,8 +369,6 @@ void next_level_setup_new( vector_double *V, level_struct *l, struct Thread *thr
     int mu;
 
     START_LOCKED_MASTER(threading)
-    g.num_vect_now = ( g.num_rhs_vect < l->num_eig_vect )? l->num_eig_vect:g.num_rhs_vect;//initizlize w/ max!!!!!!!! not next_level????
-
     // allocate storage for next level parameters and initialize them
     MALLOC( l->next_level, level_struct, 1 );
     l_init( l->next_level );
@@ -454,7 +442,6 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
   if ( g.method > 0 && g.interpolation && g.num_levels > 1 && setup_iter > 0 ) {
     
     double t0=0, t1=0;
-    //    printf("init: %d %d\n",g.my_rank,threading->core);  
     START_LOCKED_MASTER(threading)
     g.in_setup = 1;
     if ( l->depth==0 )//is this here to reset profiler????

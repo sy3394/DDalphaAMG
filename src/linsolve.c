@@ -53,7 +53,7 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
 *********************************************************************************/  
 
   long int total=0; 
-  int i, k=0, nvec=g.num_vect_now;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!! can take it as input//more efficient if g.num_vect_now
+  int i, k=0, nvec=num_loop;//g.num_vect_now;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!! can take it as input//more efficient if g.num_vect_now
 
   // double                                       // single
   p->dp.restart_length = m;                       p->sp.restart_length = m;           
@@ -118,8 +118,6 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
   
   //--------------------------- single precision part
   p->sp.num_vect = nvec;
-  //  total = 0;
-  //  p->sp.total_storage = total; // precomputed storage amount
 
   // allocate connected memory for V and Z
   MALLOC( p->sp.V, vector_float, m+1 );
@@ -149,7 +147,6 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
     }
   }
   
-  //  ASSERT( p->sp.total_storage == total );
 }  
    
    
@@ -194,14 +191,14 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   int start;
   int end;
   
-  int i,jj, j=-1, finish=0, iter=0, il, ol, n_vect=g.num_vect_now;//!!!!!!!
+  int i,jj, j=-1, finish=0, iter=0, il, ol, n_vect=num_loop;//g.num_vect_now;//!!!!!!!
   double beta[n_vect];
 
   double t0=0, t1=0;
   double norm_r0[n_vect], gamma_jp1[n_vect], gamma0_real[n_vect], gamma_tot, H_tot, gamma_tot2;//norm_r0=1, gamma_jp1=1
   complex_float gamma_float[n_vect];
 
-  if ( p->sp.num_vect < g.num_vect_now )
+  if ( p->sp.num_vect < num_loop )
     error0("fgmres: memory corruption\n");
   //  printf("fgmres_MP\n");
   p->dp.w.num_vect_now = n_vect; p->dp.x.num_vect_now = n_vect; p->dp.r.num_vect_now = n_vect; p->dp.b.num_vect_now = n_vect;

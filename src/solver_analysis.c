@@ -26,7 +26,7 @@
 
 void test_routine_new( level_struct *l, struct Thread *threading ) {
   int tmp = g.num_vect_now;
-  g.num_vect_now=g.num_rhs_vect;
+  g.num_vect_now=num_loop;//g.num_rhs_vect;
   if ( g.method >= 0 ) {
     START_MASTER(threading)
     g.test = 0;

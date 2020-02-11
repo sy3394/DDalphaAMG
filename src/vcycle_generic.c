@@ -33,19 +33,20 @@ void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector
 			   int res, level_struct *l, struct Thread *threading ) {
 
   if ( g.interpolation && l->level>0 ) {
-    //int nvec = eta->num_vect_now;// we might just use this #????
+    int nvec = num_loop;//eta->num_vect_now;// we might just use this #????
     for ( int i=0; i<l->n_cy; i++ ) {
       //--- compute the residual //presmoohting????
       SYNC_MASTER_TO_ALL(threading)
       if ( i==0 && res == _NO_RES ) {
 	// if the initial guess is 0, the resid on the next level is restircted rhs
-	l->next_level->p_PRECISION.b.num_vect_now = eta->num_vect_now;//!!!!!!!
+	l->next_level->p_PRECISION.b.num_vect_now = nvec;//eta->num_vect_now;//!!!!!!!
         restrict_PRECISION_new( &(l->next_level->p_PRECISION.b), eta, l, threading );
       } else {
 	// otherwise, compute R(b_l - D_l eta_l)
         int start = threading->start_index[l->depth];
         int end   = threading->end_index[l->depth];
-	l->vbuf_PRECISION[2].num_vect_now = phi->num_vect_now; l->vbuf_PRECISION[3].num_vect_now = eta->num_vect_now; l->next_level->p_PRECISION.b.num_vect_now = eta->num_vect_now;
+	//l->vbuf_PRECISION[2].num_vect_now = phi->num_vect_now; l->vbuf_PRECISION[3].num_vect_now = eta->num_vect_now; l->next_level->p_PRECISION.b.num_vect_now=eta->num_vect_now;
+	l->vbuf_PRECISION[2].num_vect_now = nvec; l->vbuf_PRECISION[3].num_vect_now = nvec; l->next_level->p_PRECISION.b.num_vect_now = nvec;
         apply_operator_PRECISION( &(l->vbuf_PRECISION[2]), phi, &(l->p_PRECISION), l, threading );
         vector_PRECISION_minus_new( &(l->vbuf_PRECISION[3]), eta, &(l->vbuf_PRECISION[2]), start, end, l );
         restrict_PRECISION_new( &(l->next_level->p_PRECISION.b), &(l->vbuf_PRECISION[3]), l, threading );
@@ -56,15 +57,14 @@ void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector
         START_MASTER(threading)
 	if ( l->depth == 0 )
 	  g.coarse_time -= MPI_Wtime();
-        END_MASTER(threading)
+        END_MASTER(threading) 
 	if ( l->level > 1 ) {
 	  // If the next level is not at the bottom
 	  if ( g.kcycle )//default
-	    fgmres_PRECISION( &(l->next_level->p_PRECISION), l->next_level, threading );//in this function, call vcycle as p_PRECISION use it as prec; also use g.num_vect_now!!!!!
+	    fgmres_PRECISION( &(l->next_level->p_PRECISION), l->next_level, threading );//in this function, call vcycle as p_PRECISION use it as prec
 	  else {
 	    // dive one level down 
-	    SYNC_MASTER_TO_ALL(threading)//my addition
-	    l->next_level->p_PRECISION.x.num_vect_now = l->next_level->p_PRECISION.b.num_vect_now;//!!!!!!????????
+	    l->next_level->p_PRECISION.x.num_vect_now = nvec;//l->next_level->p_PRECISION.b.num_vect_now;//!!!!!!????????
 	    vcycle_PRECISION_new( &(l->next_level->p_PRECISION.x), NULL, &(l->next_level->p_PRECISION.b), _NO_RES, l->next_level, threading );
 	  }
 	} else { 
@@ -81,13 +81,16 @@ void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector
         END_MASTER(threading)
       }
       //--- interpolate the correction      
-      l->next_level->p_PRECISION.x.num_vect_now = phi->num_vect_now;
+      l->next_level->p_PRECISION.x.num_vect_now = num_loop;//phi->num_vect_now;
       if( i == 0 && res == _NO_RES )
         interpolate3_PRECISION_new( phi, &(l->next_level->p_PRECISION.x), l, threading );
       else
         interpolate_PRECISION_new( phi, &(l->next_level->p_PRECISION.x), l, threading );
       //--- Perform post smoothing
       smoother_PRECISION_new( phi, Dphi, eta, l->post_smooth_iter, _RES, l, threading );
+
+      if ( !g.kcycle )//my addition
+	vector_PRECISION_copy_new( &(l->p_PRECISION.x), phi, threading->start_index[l->depth], threading->end_index[l->depth], l );
       res = _RES;
     }
   } else { // if AMG is not chosen or at the bottom

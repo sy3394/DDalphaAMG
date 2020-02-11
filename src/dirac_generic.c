@@ -35,7 +35,6 @@ void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operato
   int i, j, jj;
   int nv = l->num_lattice_site_var, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
   
-  //phi->start = start; eta->start = start; eta->end = end;//!!!!!!!
   buffer_PRECISION lphi = phi->vector_buffer+start*nvec_phi, leta = eta->vector_buffer+start*nvec_eta;
   buffer_PRECISION leta_end = eta->vector_buffer+end*nvec_eta;
 #ifdef PROFILING
@@ -242,11 +241,10 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
   int i, j, *nb_pt;
   buffer_PRECISION phi_pt, eta_pt, end_pt;
   config_PRECISION D_pt;
-  //int phi_shift = (phi->num_vect == 1)?0:phi->size*n_vec, eta_shift = (eta->num_vect == 1)?0:eta->size*n_vec;
 
   if ( eta->num_vect < phi->num_vect_now )
     error0("d_plus_clover_PRECISION: assumptions are not met\n");
-  //    printf("d_plus_clover_PRECISION_new: %d %d %d %d\n",nvec,nvec_phi,nvec_eta,nvec_op);
+
   compute_core_start_end(0, nv*n, &start, &end, l, threading );
 
   SYNC_MASTER_TO_ALL(threading)
@@ -365,9 +363,8 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
   } else {
 #endif
 */
-    complex_PRECISION pbuf[6*nvec];//pay attention to #vectors in op->prn* defined in operator_PRECISION_alloc_projection_buffers!!!!
-  //  g.num_vect_pass = op->pr_num_vect;
-  for ( i=start*nvec_op/2, phi_pt=phi->vector_buffer+start*nvec_phi; i<end*nvec_op/2; i+=6*nvec_op, phi_pt+=12*nvec_phi ) {//!!!!!!
+  complex_PRECISION pbuf[6*nvec];//pay attention to #vectors in op->prn* defined in operator_PRECISION_alloc_projection_buffers!!!!
+  for ( i=start*nvec_op/2, phi_pt=phi->vector_buffer+start*nvec_phi; i<end*nvec_op/2; i+=6*nvec_op, phi_pt+=12*nvec_phi ) {
     prp_T_PRECISION_new( op->prnT+i, phi_pt, nvec, nvec_op, nvec_phi );
     prp_Z_PRECISION_new( op->prnZ+i, phi_pt, nvec, nvec_op, nvec_phi );
     prp_Y_PRECISION_new( op->prnY+i, phi_pt, nvec, nvec_op, nvec_phi );
@@ -477,8 +474,7 @@ void block_d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION 
   int n = s->num_block_sites, *length = s->dir_length, **index = s->index, *neighbor = s->op.neighbor_table, nv = l->num_lattice_site_var;
   int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
   buffer_PRECISION lphi = phi->vector_buffer+start*nvec_phi, leta = eta->vector_buffer+start*nvec_eta;
-  //  printf("block_d_plus_clover_PRECISION: %d %d %d\n",nvec,nvec_eta,nvec_phi);
-  // clover term: in schwarz_PRECISION_struc?????
+
   clover_PRECISION_new(eta, phi, &(s->op), start, start+nv*n, l, no_threading );
 
   int i, j, k, *ind;
@@ -832,8 +828,6 @@ void apply_twisted_bc_to_vector_PRECISION_new( vector_PRECISION *eta, vector_PRE
           } else
 #endif*/
 	  for (i=0; i<12; i++){
-            //VECTOR_LOOP(j, nvec, jj, *eta->vector_buffer = (*phi->vector_buffer)*twisted_bc; phi->vector_buffer++;  eta->vector_buffer++;)//!!!!!!!!
-	    //eta->vector_buffer += nvec_eta-nvec; phi->vector_buffer += nvec_phi-nvec;//!!!!!!!
 	    VECTOR_LOOP(j, nvec, jj, *eta_pt = (*phi_pt)*twisted_bc; phi_pt++;  eta_pt++;)
 	    eta_pt += nvec_eta-nvec; phi_pt += nvec_phi-nvec;
           }

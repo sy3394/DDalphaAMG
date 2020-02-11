@@ -3,8 +3,8 @@ CC = mpiicc
 #intel mpiicc
 #gnu mpicc
 # --- CFLAGS -----------------------------------------
-CFLAGS_gnu = -std=gnu99 -Wall -pedantic -O3 -ffast-math -msse4.2 -fopenmp -g3
-CFLAGS_intel = -std=gnu99 -Wall -pedantic -O3 -xAVX -qopenmp -g3
+CFLAGS_gnu = -std=gnu99 -Wall -pedantic -O3 -ffast-math -msse4.2  -fopenmp -g3
+CFLAGS_intel = -std=gnu99 -Wall -pedantic -O3 -xAVX -qopenmp -g3 #-vec-report
 CFLAGS = $(CFLAGS_intel)
 
 # --- DO NOT CHANGE -----------------------------------

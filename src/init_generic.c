@@ -101,15 +101,15 @@ double prof_PRECISION_print( level_struct *l ) {
 
 /*********** LEVEL STRUCTURE  ******************************************************************/
 
-void fine_level_PRECISION_alloc( level_struct *l ) {//only p_PRECISION.b/x are allocated here??????
+void fine_level_PRECISION_alloc( level_struct *l ) {
   
-  int i, nvecs = ( g.num_rhs_vect < l->num_eig_vect )? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now; //!!!!!!!!!!!
+  int i, nvecs = num_loop;
 
 #ifdef HAVE_TM1p1
   nvecs *= 2;
 #endif
   for ( i=0; i<9; i++ )
-    vector_PRECISION_alloc( &(l->vbuf_PRECISION[i]), _ORDINARY, (i>3&&i<7)?num_loop:nvecs, l, no_threading );
+    vector_PRECISION_alloc( &(l->vbuf_PRECISION[i]), _ORDINARY, nvecs, l, no_threading );
   vector_PRECISION_alloc( &(l->p_PRECISION.b), _INNER, nvecs, l, no_threading );
   vector_PRECISION_alloc( &(l->p_PRECISION.x), _INNER, nvecs, l, no_threading ); 
 
@@ -146,7 +146,10 @@ void next_level_PRECISION_setup( level_struct *l ) {
   gathering_PRECISION_setup( &(l->next_level->gs_PRECISION), l->next_level );
   
   if ( !l->idle ) {
-    g.num_vect_now = ( g.num_rhs_vect < l->next_level->num_eig_vect )? l->next_level->num_eig_vect:g.num_rhs_vect;//??????
+    int nvec = num_loop;
+#ifdef HAVE_TM1p1
+    nvec *= 2;
+#endif
 
     // used in coarse_operator_PRECISION_setup to define the coarse op on the next_level
     coarsening_index_table_PRECISION_alloc( &(l->is_PRECISION), l );
@@ -171,25 +174,15 @@ void next_level_PRECISION_setup( level_struct *l ) {
 	// otherwise only p_PRECISION.b/x are used
         vector_PRECISION_init(&(l->next_level->p_PRECISION.b));
         vector_PRECISION_init(&(l->next_level->p_PRECISION.x));
-#ifdef HAVE_TM1p1
-        vector_PRECISION_alloc( &(l->next_level->p_PRECISION.b), _ORDINARY, 2*g.num_vect_now, l->next_level, no_threading );
-        vector_PRECISION_alloc( &(l->next_level->p_PRECISION.x), _ORDINARY, 2*g.num_vect_now, l->next_level, no_threading );
-#else
-        vector_PRECISION_alloc( &(l->next_level->p_PRECISION.b), _ORDINARY, g.num_vect_now, l->next_level, no_threading );
-        vector_PRECISION_alloc( &(l->next_level->p_PRECISION.x), _ORDINARY, g.num_vect_now, l->next_level, no_threading );
-#endif
-        l->next_level->p_PRECISION.v_start = 0;
-        l->next_level->p_PRECISION.v_end = l->next_level->inner_vector_size;
+        vector_PRECISION_alloc( &(l->next_level->p_PRECISION.b), _ORDINARY, nvec, l->next_level, no_threading );
+        vector_PRECISION_alloc( &(l->next_level->p_PRECISION.x), _ORDINARY, nvec, l->next_level, no_threading );
       }
     }
 
     // alocate vbuf_PRECISION
-    int i, n = (l->next_level->level>0)?7:4, nvec = ( g.num_rhs_vect < l->next_level->num_eig_vect )? l->next_level->num_eig_vect:g.num_rhs_vect;
-#ifdef HAVE_TM1p1
-    nvec *= 2;
-#endif
+    int i, n = (l->next_level->level>0)?7:4;
     for ( i=0; i<n; i++ )
-      vector_PRECISION_alloc( &(l->next_level->vbuf_PRECISION[i]), _ORDINARY, (i>3&&i<7)?num_loop:nvec, l->next_level, no_threading );//!!!!!
+      vector_PRECISION_alloc( &(l->next_level->vbuf_PRECISION[i]), _ORDINARY, nvec, l->next_level, no_threading );
   }
 }
 

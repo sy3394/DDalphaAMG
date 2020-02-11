@@ -35,7 +35,7 @@ void preconditioner_new( vector_double *phi, vector_double *Dphi, vector_double 
     if ( g.mixed_precision ) {
       START_LOCKED_MASTER(threading)// my addition
       for ( int i=0; i<2; i++ ) 
-	l->sbuf_float[i].num_vect_now = eta->num_vect_now;//g.num_vect_now;//!!!!!!!!!!!
+	l->sbuf_float[i].num_vect_now = num_loop;//eta->num_vect_now;//g.num_vect_now;//!!!!!!!!!!!
       END_LOCKED_MASTER(threading)
       trans_float_new( &(l->sbuf_float[0]), eta, l->s_float.op.translation_table, l, threading );
       vcycle_float_new( &(l->sbuf_float[1]), NULL, &(l->sbuf_float[0]), res, l, threading );
@@ -43,7 +43,7 @@ void preconditioner_new( vector_double *phi, vector_double *Dphi, vector_double 
     } else {
       START_LOCKED_MASTER(threading)// my addition  
       for ( int i=0; i<2; i++ ) 
-	l->sbuf_double[i].num_vect_now = eta->num_vect_now;//g.num_vect_now;//!!!!!!!!!!!
+	l->sbuf_double[i].num_vect_now = num_loop;//eta->num_vect_now;//g.num_vect_now;//!!!!!!!!!!!
       END_LOCKED_MASTER(threading)
       trans_double_new( &(l->sbuf_double[0]), eta, l->s_double.op.translation_table, l, threading );
       vcycle_double_new( &(l->sbuf_double[1]), NULL, &(l->sbuf_double[0]), res, l, threading );
@@ -52,8 +52,8 @@ void preconditioner_new( vector_double *phi, vector_double *Dphi, vector_double 
   } else {
     if ( g.mixed_precision ) {
       START_LOCKED_MASTER(threading)
-      l->sp_float.x.num_vect_now = eta->num_vect_now;//g.num_vect_now;//!!!!!!!!
-      l->sp_float.b.num_vect_now = phi->num_vect_now;//g.num_vect_now;//!!!!!!!!
+	l->sp_float.x.num_vect_now = num_loop;//eta->num_vect_now;//g.num_vect_now;//!!!!!!!!
+      l->sp_float.b.num_vect_now = num_loop;//phi->num_vect_now;//g.num_vect_now;//!!!!!!!!
       l->sp_float.num_restart = l->n_cy;
       l->sp_float.initial_guess_zero = res;
       END_LOCKED_MASTER(threading)
@@ -62,8 +62,8 @@ void preconditioner_new( vector_double *phi, vector_double *Dphi, vector_double 
       oddeven_to_serial_float_new( phi, &(l->sp_float.x), l, threading );
     } else {
       START_LOCKED_MASTER(threading)
-      l->sp_double.x.num_vect_now = eta->num_vect_now;//g.num_vect_now;//!!!!!!!!
-      l->sp_double.b.num_vect_now = phi->num_vect_now;//g.num_vect_now;//!!!!!!!!
+      l->sp_double.x.num_vect_now = num_loop;//eta->num_vect_now;//g.num_vect_now;//!!!!!!!!
+      l->sp_double.b.num_vect_now = num_loop;//phi->num_vect_now;//g.num_vect_now;//!!!!!!!!
       l->sp_double.num_restart = l->n_cy;
       l->sp_double.initial_guess_zero = res;
       END_LOCKED_MASTER(threading)

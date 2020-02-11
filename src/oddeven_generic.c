@@ -277,7 +277,7 @@ void oddeven_setup_PRECISION( operator_double_struct *in, level_struct *l ) {
   bt = op->c.boundary_table;
   define_eo_bt( bt, eot, op->c.num_even_boundary_sites, op->c.num_odd_boundary_sites, op->c.num_boundary_sites, N, l );
   
-  nvec = (g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!g.num_rhs_vect!!!!!!!!
+  nvec = num_loop;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!g.num_rhs_vect!!!!!!!!
   op->pr_num_vect = nvec;
   j = (l->num_lattice_site_var/2)*l->num_lattice_sites*nvec;
 #ifdef HAVE_TM1p1
@@ -522,7 +522,7 @@ void hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, o
   int start=0, plus_dir_param=_FULL_SYSTEM, minus_dir_param=_FULL_SYSTEM;
   int n         = l->num_inner_lattice_sites;
   int *neighbor = op->neighbor_table;
-  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta=eta->num_vect, nvec_op = op->pr_num_vect;
+  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect, nvec_op = op->pr_num_vect;
 
   SYNC_CORES(threading)  
     
@@ -672,7 +672,7 @@ void hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, o
     }
     // start communication in negative direction
     START_LOCKED_MASTER(threading)
-      g.num_vect_pass2 = nvec_op;printf("hopping_term_PRECISION_new: %d\n",nvec_op);
+    g.num_vect_pass2 = nvec_op;
     ghost_sendrecv_PRECISION_new( op->prnT, T, -1, &(op->c), minus_dir_param, l );
     ghost_sendrecv_PRECISION_new( op->prnZ, Z, -1, &(op->c), minus_dir_param, l );
     ghost_sendrecv_PRECISION_new( op->prnY, Y, -1, &(op->c), minus_dir_param, l );
@@ -765,9 +765,9 @@ void hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, o
 void apply_schur_complement_PRECISION_new( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op,
     level_struct *l, struct Thread *threading ) {
 
-/*********************************************************************************
-* Applies the Schur complement to a vector.
-*********************************************************************************/
+  /*********************************************************************************
+   * Applies the Schur complement to a vector.
+   *********************************************************************************/
 
   // start and end indices for vector functions depending on thread
   int start_even, end_even, start_odd, end_odd;
@@ -937,8 +937,8 @@ void solve_oddeven_PRECISION_new( gmres_PRECISION_struct *p, operator_PRECISION_
   int start;
   int end;
   compute_core_start_end(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start, &end, l, threading);
-  printf(" solve_oddeven_PRECISION_new\n");
-  int j, jj, nvec = g.num_vect_now;//!!!!!!!!
+
+  int j, jj, nvec = num_loop;//g.num_vect_now;//!!!!!!!!
   complex_PRECISION factor[nvec];
   VECTOR_LOOP(j, nvec, jj, factor[j+jj] = -1;)
 
@@ -1049,19 +1049,19 @@ void oddeven_PRECISION_test_new( level_struct *l ) {
   
   vector_double d[3];
   vector_PRECISION f[5];
-  double diff1_d[g.num_rhs_vect], diff2_d[g.num_rhs_vect];
-  PRECISION diff1[g.num_rhs_vect], diff2[g.num_rhs_vect];
+  double diff1_d[num_loop], diff2_d[num_loop];
+  PRECISION diff1[num_loop], diff2[num_loop];
 
   for(int i=0; i<3; i++){
     vector_double_init( &d[i] );
-    vector_double_alloc( &d[i], _INNER, g.num_rhs_vect, l, no_threading );
-    d[i].num_vect_now = g.num_rhs_vect;
+    vector_double_alloc( &d[i], _INNER, num_loop, l, no_threading );
+    d[i].num_vect_now = num_loop;
   }
 
   for(int i=0; i<5; i++){                                                                 
     vector_PRECISION_init( &f[i] );                                                          
-    vector_PRECISION_alloc( &f[i], _INNER, g.num_rhs_vect, l, no_threading );                             
-    f[i].num_vect_now =g.num_rhs_vect;
+    vector_PRECISION_alloc( &f[i], _INNER, num_loop, l, no_threading );                             
+    f[i].num_vect_now = num_loop;
   } 
 
   vector_double_define_random_new( &d[0], 0, l->inner_vector_size, l ); 

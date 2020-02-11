@@ -49,7 +49,7 @@ void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect
 
   vec->type         = type;
   vec->num_vect     = num_vect;
-  vec->num_vect_now = 0;
+  vec->num_vect_now = num_loop;//!!!!
   vec->start        = 0;
   vec->end          = vec->size*num_vect;
   vec->layout       = _NVEC_INNER;//default layout is vector runs fastest
@@ -119,7 +119,6 @@ void vector_PRECISION_define_random_new( vector_PRECISION *phi, int start, int e
     int n_vect = phi->num_vect;
     for ( i=start*n_vect; i<end*n_vect; i++ )
       phi->vector_buffer[i] = (PRECISION)(((double)rand()/(double)RAND_MAX))-0.5 + ( (PRECISION)((double)rand()/(double)RAND_MAX)-0.5)*_Complex_I;
-      //      phi->vector_buffer[i] = 
   } else {
     error0("Error in \"vector_PRECISION_define_random\": pointer is null\n");
   }
@@ -145,25 +144,36 @@ void vector_PRECISION_duplicate( vector_PRECISION *z, vector_PRECISION *x, int s
 }
 
 // dir == 1: z <-x[i]; dir==-1: z[i] <- x
-void vector_PRECISION_copy_new2( vector_PRECISION *z, vector_PRECISION *x, int loc, int dir,  level_struct *l ) {
+void vector_PRECISION_copy2_new( vector_PRECISION *z, vector_PRECISION *x, int vec_ind, int length, int dir, int start, int end,  level_struct *l ) {
 
   //if(z == x) return;
+
+  if ( !(length % num_loop ==0 || length == 1) )
+    error0("vector_PRECISION_copy2: assumptions are not met\n");
 
   int i, j, jj;
   int thread = omp_get_thread_num();
   if(thread == 0)
     PROF_PRECISION_START( _CPY );
 
-  //  printf("vector_PRECISION_copy_new2: %d %d\n",z->size,x->size);
-  if ( dir == 1 )
-    for( i=0; i<z->size; i++)//change to min!!!!
-      z->vector_buffer[i*z->num_vect] = x->vector_buffer[i*x->num_vect+loc];
-  else 
-    for( i=0; i<z->size; i++)
-      z->vector_buffer[i*z->num_vect+loc] = x->vector_buffer[i*x->num_vect];
+  if ( length == 1) {
+    if ( dir == 1 )
+      for( i=start; i<end; i++)
+	z->vector_buffer[i*z->num_vect] = x->vector_buffer[i*x->num_vect+vec_ind];
+    else 
+      for( i=start; i<end; i++)
+	z->vector_buffer[i*z->num_vect+vec_ind] = x->vector_buffer[i*x->num_vect];
+  } else{
+    if ( dir == 1 )
+      for( i=start; i<end; i++)
+	VECTOR_LOOP(j, length, jj, z->vector_buffer[i*z->num_vect+j+jj] = x->vector_buffer[i*x->num_vect+vec_ind+j+jj];)
+    else
+      for( i=start; i<end; i++)
+	VECTOR_LOOP(j, length, jj, z->vector_buffer[i*z->num_vect+vec_ind+j+jj] = x->vector_buffer[i*x->num_vect+j+jj];)
+  }
 
   if(thread == 0)
-    PROF_PRECISION_STOP( _CPY, (double)(z->size)/(double)l->inner_vector_size );//???
+    PROF_PRECISION_STOP( _CPY, (double)(z->size)/(double)l->inner_vector_size );
 }
 
 // z <- x

@@ -36,7 +36,7 @@
   void vector_PRECISION_define_random_new( vector_PRECISION *phi, int start, int end, level_struct *l ); 
 
 void vector_PRECISION_duplicate( vector_PRECISION *z, vector_PRECISION *x, int start, level_struct *l );
-void vector_PRECISION_copy_new2( vector_PRECISION *z, vector_PRECISION *x, int loc, int dir,  level_struct *l );
+void vector_PRECISION_copy2_new( vector_PRECISION *z, vector_PRECISION *x, int start_ind, int length, int dir, int start, int end,  level_struct *l );
   void vector_PRECISION_copy_new( vector_PRECISION *z, vector_PRECISION *x, int start, int end, level_struct *l );
   void vector_PRECISION_scale_new( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION *alpha, int k, int start, int end, level_struct *l );
   void vector_PRECISION_real_scale_new( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION *alpha,

@@ -72,7 +72,7 @@ void operator_PRECISION_init( operator_PRECISION_struct *op ) {
 void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, level_struct *l ) {
   
   /*********************************************************************************
-   * Allocates space for setting up an operator and compute neighbor tables.
+   * Allocates space for the operator struc and define index tables and comminicator for its application
    * - operator_PRECISION_struct *op: operator struct for which space is allocated.
    * - const int type: Defines the data layout type of the operator.
    *                   Possible values are: { _ORDINARY, _SCHWARZ }
@@ -103,7 +103,20 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
   MALLOC( op->epsbar_term, complex_PRECISION, block_site_size*l->num_inner_lattice_sites );
 #endif
 
-  //------------ allocate memory for index tables
+  if ( type == _SCHWARZ && l->depth == 0 && g.odd_even ) {
+    if( g.csw ) {
+#ifdef HAVE_TM //we use LU here
+      MALLOC( op->clover_oo_inv, complex_PRECISION, 72*(l->num_inner_lattice_sites/2+1) );
+#else
+      MALLOC( op->clover_oo_inv, complex_PRECISION, clover_site_size*(l->num_inner_lattice_sites/2+1) );
+#endif
+    }
+#ifdef HAVE_TM1p1
+    MALLOC( op->clover_doublet_oo_inv, complex_PRECISION, 12*12*2*(l->num_inner_lattice_sites/2+1) );
+#endif
+  }  
+
+  //---------------- allocate memory for index tables
   if ( type ==_SCHWARZ ) {
     its_boundary = 2; // postive and negative boundaries???
   } else {
@@ -123,21 +136,7 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
   }
   MALLOC( op->translation_table, int, l->num_inner_lattice_sites );
 
-  ///////////////////////////// ????????
-  if ( type == _SCHWARZ && l->depth == 0 && g.odd_even ) {
-    if( g.csw ) {
-#ifdef HAVE_TM //we use LU here
-      MALLOC( op->clover_oo_inv, complex_PRECISION, 72*(l->num_inner_lattice_sites/2+1) );
-#else
-      MALLOC( op->clover_oo_inv, complex_PRECISION, clover_site_size*(l->num_inner_lattice_sites/2+1) );
-#endif
-    }
-#ifdef HAVE_TM1p1
-    MALLOC( op->clover_doublet_oo_inv, complex_PRECISION, 12*12*2*(l->num_inner_lattice_sites/2+1) );
-#endif
-  }  
-
-  //--------------- allocate memory for comm_PRECISION_struc (this is where comm_PRECISION_struc is allocated!!!!!)
+  //-------------- allocate memory for comm_PRECISION_struc (this is where comm_PRECISION_struc is allocated!!!!!)
   if ( type != _ODDEVEN )
     operator_PRECISION_alloc_projection_buffers( op, l );
   
@@ -247,7 +246,7 @@ static void operator_PRECISION_alloc_projection_buffers( operator_PRECISION_stru
 
   // when used as preconditioner we usually do not need the projection buffers, unless
   // g.method >= 4: then oddeven_setup_float() is called in init.c, method_setup(). ???????
-  int n_vect = (g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!g.num_rhs_vect
+  int n_vect = num_loop;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!g.num_rhs_vect
   if ( l->depth == 0 ) {
     int its = (l->num_lattice_site_var/2)*l->num_lattice_sites*n_vect; // half of spinor d.o.f. projected out
 #ifdef HAVE_TM1p1
@@ -262,8 +261,8 @@ static void operator_PRECISION_alloc_projection_buffers( operator_PRECISION_stru
 
 static void operator_PRECISION_free_projection_buffers( operator_PRECISION_struct *op, level_struct *l ) {
 
-  if ( l->depth == 0 ) {//printf0("operator_PRECISION_free %d %d\n",op->pr_num_vect,(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect);
-    int n_vect = op->pr_num_vect;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!g.num_rhs_vect 
+  if ( l->depth == 0 ) {
+    int n_vect = op->pr_num_vect;
     int its = (l->num_lattice_site_var/2)*l->num_lattice_sites*n_vect;
 #ifdef HAVE_TM1p1
     its *= 2;
@@ -354,7 +353,7 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
 * If enabled, also tests odd even preconditioning.
 *********************************************************************************/ 
 
-  int ivs = l->inner_vector_size, n_vect=g.num_rhs_vect;
+  int ivs = l->inner_vector_size, n_vect=num_loop;
   double diff, diff1[n_vect], diff2[n_vect];
   
   vector_double vd[4];

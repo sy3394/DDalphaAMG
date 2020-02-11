@@ -185,7 +185,7 @@
   #define DEBUGOUTPUT( A, FORMAT )
   #endif
   
-  #include "vectorization_control.h"
+//  #include "vectorization_control.h"
   #include "threading.h"
 
   // enumerations
@@ -335,7 +335,7 @@
     vector_float vbuf_float[10], sbuf_float[2];
     vector_double vbuf_double[10], sbuf_double[2];
     // storage + daggered-operator bufferes
-    vector_double x;
+    vector_double x; // used in io.c
     // local solver parameters
     double tol, relax_fac;
     int n_cy, post_smooth_iter, block_iter, setup_iter;
@@ -399,7 +399,7 @@
     int bc; 
     
     // number of rhs vectors (b) to be solved at the same time (hopefully)
-    int num_rhs_vect, num_vect_now, num_vect_pass1, num_vect_pass2;
+    int num_rhs_vect, num_vect_now, num_vect_pass1, num_vect_pass2;// num_vect_now unnecessary!!!
     
 
     complex_double **gamma;

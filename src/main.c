@@ -97,7 +97,7 @@ int main( int argc, char **argv ) {
     method_iterative_setup( l.setup_iter, &l, &threading );
 
     //----------------- solve
-    g.num_vect_now=g.num_rhs_vect;//!!!!!!!!!!!
+    g.num_vect_now=num_loop;//g.num_rhs_vect;//!!!!!!!!!!!
     solve_driver( &l, &threading );
   }
   printf0("Number of rhs vectors = %d\n", g.num_rhs_vect);
