@@ -52,10 +52,7 @@ void vector_PRECISION_copy2_new( vector_PRECISION *z, vector_PRECISION *x, int s
   void vector_PRECISION_change_layout( vector_PRECISION *vec_out, vector_PRECISION *vec_in, const int layout, struct Thread *threading );
   void trans_PRECISION_new( vector_PRECISION *out, vector_double *in, int *tt, level_struct *l, struct Thread *threading );
   void trans_back_PRECISION_new( vector_double *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading );
-  void trans_PRECISION2_new( vector_PRECISION *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading );
-  void trans_back_PRECISION2_new( vector_PRECISION *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading );
 
-  void vector_PRECISION_test_routine( level_struct *l, struct Thread *threading );
   void free_alloc_PRECISION( level_struct *l, int n_v_old, int n_v_new ); 
 
 #endif

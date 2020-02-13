@@ -416,7 +416,6 @@ static void inv_iter_2lvl_extension_setup_PRECISION_new( int setup_iter, level_s
   }
 }
 
-// recursive
 static void inv_iter_inv_fcycle_PRECISION_new( int setup_iter, level_struct *l, struct Thread *threading ) {
   
   START_LOCKED_MASTER(threading)
@@ -425,7 +424,7 @@ static void inv_iter_inv_fcycle_PRECISION_new( int setup_iter, level_struct *l, 
   END_LOCKED_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
 
-  int nvec = l->num_eig_vect;//!!!!
+  int nvec = l->num_eig_vect;
   l->p_PRECISION.x.num_vect_now = num_loop;//nvec;
   
   if ( !l->idle ) {
@@ -436,7 +435,7 @@ static void inv_iter_inv_fcycle_PRECISION_new( int setup_iter, level_struct *l, 
 #endif
       
       START_LOCKED_MASTER(threading)
-      if ( g.print > 0 ) printf0("depth: %d, bootstrap step number %d...\n", l->depth, j+1 );//printf0("inv_iter %d %d\n",l->depth,g.num_vect_now);
+      if ( g.print > 0 ) printf0("depth: %d, bootstrap step number %d...\n", l->depth, j+1 );
 #ifdef DEBUG
       if ( g.print > 0 ) { printf0("\033[0;42m\033[1;37m|"); if ( g.my_rank == 0 ) fflush(0); }
 #endif
@@ -473,7 +472,6 @@ static void inv_iter_inv_fcycle_PRECISION_new( int setup_iter, level_struct *l, 
         vector_PRECISION_copy2_new( &buf, &(l->is_PRECISION.test_vector_vec), i, num_loop, 1, start, end, l );	
 	// apply K-cycle
 	vcycle_PRECISION_new( &(l->p_PRECISION.x), NULL, &buf, _NO_RES, l, threading );
-	// update test vectors: need to make sure the case l->num_eig_vect > l->next_level->num_eig_vect!!!!!!!
 	test_vector_PRECISION_update_new( i, l, threading );
       }
 

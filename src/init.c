@@ -457,7 +457,7 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
     }
     if ( g.setup_mu != g.mu ) {
       tm_term_update( (complex_double)g.setup_mu, l, threading );
-      finalize_operator_update( l, threading );
+      finalize_operator_update( l, threading );//D_c is not updated????
     } else if (g.setup_m0 != g.m0) {
 #endif
       finalize_operator_update( l, threading );//test routine

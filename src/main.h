@@ -36,8 +36,12 @@
 
   // macros
   #define num_loop 4
- 
-  #define VECTOR_LOOP(j, jmax, jj, instructions) for( j=0; j<jmax; j+=num_loop) {_Pragma("unroll") _Pragma("vector aligned") _Pragma("ivdep") for( jj=0; jj<num_loop; jj++) { instructions; }} 
+
+  #if num_loop == 1
+    #define VECTOR_LOOP(j, jmax, jj, instructions) for( j=0; j<jmax; j++) { jj=0; instructions; }
+  #else
+    #define VECTOR_LOOP(j, jmax, jj, instructions) for( j=0; j<jmax; j+=num_loop) {_Pragma("unroll") _Pragma("vector aligned") _Pragma("ivdep") for( jj=0; jj<num_loop; jj++) { instructions; }} 
+  #endif
 
   #define STRINGLENGTH 500
   
@@ -49,9 +53,6 @@
   //#define HAVE_TM1p1   // flag for enable doublet for twisted mass
 
   #define INIT_ONE_PREC // flag undef for enabling additional features in the lib
-
-//#define CHANGE_LAY
-//  #define CLOOP
 
   // These explicit repetitions are faster than for-loops.
   #define FORN( N, e ) _Pragma( "unroll (N)" ) for(int i=0; i < N; i++){ e }; // suggestion
@@ -119,10 +120,6 @@
   #define ROUND_UP_TO_FULL_PAGE(x) \
     (((x) + HUGE_PAGE_SIZE - 1) / HUGE_PAGE_SIZE * HUGE_PAGE_SIZE)
   
-//   void *tmppointer = (void*)(variable);
-//   posix_memalign( &tmppointer, alignment, sizeof(kind)*(length));
-//   variable = (kind*)tmppointer; }
-  
   #define MALLOC_HUGEPAGES( variable, kind, length, alignment ) do { if ( variable != NULL ) { \
   printf0("malloc of \"%s\" failed: pointer is not NULL (%s:%d).\n", #variable, __FILE__, __LINE__ ); } \
   if ( (length) > 0 ) { \
@@ -185,7 +182,6 @@
   #define DEBUGOUTPUT( A, FORMAT )
   #endif
   
-//  #include "vectorization_control.h"
   #include "threading.h"
 
   // enumerations

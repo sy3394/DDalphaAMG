@@ -16,11 +16,6 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * copied:11/30/2019
- * minor change from sbacchio
- * checked:12/04/2019
- * glanced over:12/18/2019
- * confirmed:not changed much from milla:0102/2020
  */
 
 #include "main.h"
@@ -42,7 +37,7 @@ void interpolation_PRECISION_struct_init( interpolation_PRECISION_struct *is ) {
 
 void coarsening_index_table_PRECISION_alloc( interpolation_PRECISION_struct *is, level_struct *l ) {
   
-  int i, j, mu, t, z, y, x, a0, b0, c0, d0, agg_split[4], agg_size[4], *count[4];
+  int vol, sur, mu, agg_split[4], agg_size[4];
   
   is->num_agg = 1;
   for ( mu=0; mu<4; mu++ ) {
@@ -50,44 +45,16 @@ void coarsening_index_table_PRECISION_alloc( interpolation_PRECISION_struct *is,
     agg_size[mu]  = l->coarsening[mu];                      // dims of each aggregate
     is->num_agg  *= agg_split[mu];                          // total #aggregates in a local lattice
   }
+  vol = l->local_lattice[T]*l->local_lattice[Z]*l->local_lattice[Y]*l->local_lattice[X];
 
-  count[T]=&t; count[Z]=&z; count[Y]=&y; count[X]=&x;
   for ( mu=0; mu<4; mu++ ) {
-#ifdef USE_LEGACY
-    //count[T]=&t; count[Z]=&z; count[Y]=&y; count[X]=&x;//my porposal
-    i = 0; j = 0;
-    for ( d0=0; d0<agg_split[T]; d0++ )
-      for ( c0=0; c0<agg_split[Z]; c0++ )
-        for ( b0=0; b0<agg_split[Y]; b0++ )
-          for ( a0=0; a0<agg_split[X]; a0++ )
-            
-            for ( t=d0*agg_size[T]; t<(d0+1)*agg_size[T]; t++ )
-              for ( z=c0*agg_size[Z]; z<(c0+1)*agg_size[Z]; z++ )
-                for ( y=b0*agg_size[Y]; y<(b0+1)*agg_size[Y]; y++ )
-                  for ( x=a0*agg_size[X]; x<(a0+1)*agg_size[X]; x++ )
-                    
-                    if ( (*(count[mu])+1) % agg_size[mu] != 0 )
-                      i++;
-                    else
-                      j++;
-                    
+    sur = vol/l->local_lattice[mu];
     // number of lattice sites in local volume
     // that have a neighbor site in mu-direction which belongs to the same aggregate
-    is->agg_length[mu] = i;
+    is->agg_length[mu] = (agg_size[mu]-1)*sur*agg_split[mu];
     // number of lattice sites in local volume
     // that have a neighbor site in mu-direction which belongs to a different aggregate
-    is->agg_boundary_length[mu] = j;
-#else
-    int k=1;//can be moved or use another already defind var!!!!!!!!
-    for(int nu=0;nu<4;nu++) if(nu!=mu) k *= l->local_lattice[nu];
-    //printf("coarsening_index_table_PRECISION_alloc:i,j,i_t,j_t=%d %d %d %d\n",i,j,(agg_size[mu]-1)*k*agg_split[mu],k*agg_split[mu]);
-    // number of lattice sites in local volume
-    // that have a neighbor site in mu-direction which belongs to the same aggregate
-    is->agg_length[mu] = (agg_size[mu]-1)*k*agg_split[mu];
-    // number of lattice sites in local volume
-    // that have a neighbor site in mu-direction which belongs to a different aggregate
-    is->agg_boundary_length[mu] = k*agg_split[mu];
-#endif
+    is->agg_boundary_length[mu] = sur*agg_split[mu];
   }
   
   // index table for contributions to the self couplings of the coarse operator

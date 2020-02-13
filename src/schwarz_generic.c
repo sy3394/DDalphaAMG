@@ -23,7 +23,7 @@
  */
 
 #include "main.h"
-//#define TEST
+
 void smoother_PRECISION_def( level_struct *l ) {
   
   if ( g.method >= 0 )
@@ -83,23 +83,6 @@ void schwarz_PRECISION_init( schwarz_PRECISION_struct *s, level_struct *l ) {
   s->index[T]    = NULL;
   s->oe_index[T] = NULL;
   s->block       = NULL;
-#ifdef USE_LEGACY
-  //why don't you use loop????????
-  vector_PRECISION_init(&(s->buf[0]));
-  vector_PRECISION_init(&(s->buf[1]));
-  vector_PRECISION_init(&(s->buf[2]));
-  vector_PRECISION_init(&(s->buf[3]));
-  vector_PRECISION_init(&(s->buf[4]));
-  vector_PRECISION_init(&(l->sbuf_PRECISION[0]));
-  vector_PRECISION_init(&(l->sbuf_PRECISION[1]));
-  vector_PRECISION_init(&(s->oe_buf[0]));
-  vector_PRECISION_init(&(s->oe_buf[1]));
-  vector_PRECISION_init(&(s->oe_buf[2]));
-  vector_PRECISION_init(&(s->oe_buf[3]));
-  s->local_minres_buffer[0] = NULL;
-  s->local_minres_buffer[1] = NULL;
-  s->local_minres_buffer[2] = NULL;
-#else
   for( i=0; i<5; i++ )
     vector_PRECISION_init(&(s->buf[i]));
   for ( i=0; i<2; i++ )
@@ -108,8 +91,6 @@ void schwarz_PRECISION_init( schwarz_PRECISION_struct *s, level_struct *l ) {
     vector_PRECISION_init(&(s->oe_buf[i]));
   for( i=0; i<3; i++ )
     s->local_minres_buffer[i] = NULL;
-#endif
-
   s->block_list        = NULL;
   s->block_list_length = NULL;
   s->num_colors        = 0;
@@ -140,25 +121,6 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
 
   //--------- compute the size of index tables and allocate memory for them
   // initialize dir_length (#block lattice sites excluding inner boundary sites in mu dir)
-#ifdef USE_LEGACY
-  s->dir_length[T] = (bl[T]-1)*bl[Z]*bl[Y]*bl[X];
-  s->dir_length[Z] = bl[T]*(bl[Z]-1)*bl[Y]*bl[X];
-  s->dir_length[Y] = bl[T]*bl[Z]*(bl[Y]-1)*bl[X];
-  s->dir_length[X] = bl[T]*bl[Z]*bl[Y]*(bl[X]-1);
-  // allocate memory for index[mu] accordingly  
-  MALLOC( s->index[T], int, MAX(1,s->dir_length[T]+s->dir_length[Z]+s->dir_length[Y]+s->dir_length[X]) );
-  s->index[Z] = s->index[T]+s->dir_length[T];
-  s->index[Y] = s->index[Z]+s->dir_length[Z];
-  s->index[X] = s->index[Y]+s->dir_length[Y];
-
-  if ( l->depth == 0 && g.odd_even ) {
-    // allocate memory for oe_index[mu]
-    MALLOC( s->oe_index[T], int, MAX(1,s->dir_length[T]+s->dir_length[Z]+s->dir_length[Y]+s->dir_length[X]) );
-    s->oe_index[Z] = s->oe_index[T]+s->dir_length[T];
-    s->oe_index[Y] = s->oe_index[Z]+s->dir_length[Z];
-    s->oe_index[X] = s->oe_index[Y]+s->dir_length[Y];
-  }
-#else
  for( mu=0; mu<4; mu++ ) 
     s->dir_length[mu] = bl[T]*bl[Z]*bl[Y]*bl[X]/bl[mu]*(bl[mu]-1);
   // allocate memory for index[mu] accordingly  
@@ -172,7 +134,6 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
     for( mu=1; mu<4; mu++ )
       s->oe_index[mu] = s->oe_index[mu-1]+s->dir_length[mu-1];
   }
-#endif
   
   //------------ compute info associated with blocking and allocate memory for block struc
   // compute #blcoks and #sites in the block
@@ -207,16 +168,7 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
      s->block_boundary_length[2*mu+1] : starting index of inner and outer boundary sites in neg mu dir */
   n = 0; 
   for ( mu=0; mu<4; mu++ ) {
-#ifdef USE_LEGACY
-    i = 1;
-    for ( nu=0; nu<4; nu++ ) {
-      if ( mu != nu ) {
-        i *= bl[nu];
-      }
-    }
-#else
     i = bl[T]*bl[Z]*bl[Y]*bl[X]/bl[mu];
-#endif
     s->block_boundary_length[2*mu] = n;       // plus mu dir
     s->block_boundary_length[2*mu+1] = n+2*i; // minus mu dir: 2*2(extra 2 for neighber)
     n += 4*i;
@@ -241,45 +193,11 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
     for ( i=0; i<4; i++ ) 
       vector_PRECISION_alloc( &(s->oe_buf[i]), _INNER, nvec, l, no_threading );
   
-#ifdef USE_LEGACY
-#ifdef TEST
-  vector_PRECISION_init( &(s->buf[0]) );
-  vector_PRECISION_init( &(s->buf[1]) );
-  vector_PRECISION_init( &(s->buf[2]) );
-  vector_PRECISION_init( &(s->buf[3]) );
-#endif
-  vector_PRECISION_alloc( &(s->buf[0]), (l->depth==0)?_INNER:_ORDINARY, nvec, l, no_threading );
-  vector_PRECISION_alloc( &(s->buf[1]), _SCHWARZ, nvec, l, no_threading );
-  vector_PRECISION_alloc( &(s->buf[2]), _SCHWARZ, nvec, l, no_threading );
-  vector_PRECISION_alloc( &(s->buf[3]), _SCHWARZ, nvec, l, no_threading );
-    
-  if ( g.method == 1 ){
-#ifdef TEST
-    vector_PRECISION_init( &(s->buf[4]) );
-#endif
-    vector_PRECISION_alloc( &(s->buf[4]), _SCHWARZ, nvec, l, no_threading );
-  }
-
-  for ( i=0; i<2; i++ ) {
-#ifdef TEST
-    vector_PRECISION_init( &(l->sbuf_PRECISION[i]) );
-#endif
-    vector_PRECISION_alloc( &(l->sbuf_PRECISION[i]), (l->depth==0)?_INNER:_ORDINARY, nvec, l, no_threading ); 
-  }
-
-  // these buffers are introduced to make local_minres_PRECISION thread-safe
-  MALLOC( s->local_minres_buffer[0], complex_PRECISION, svs*nvec );
-  MALLOC( s->local_minres_buffer[1], complex_PRECISION, svs*nvec );
-  MALLOC( s->local_minres_buffer[2], complex_PRECISION, svs*nvec );
-#else
-  //  printf("sc alloc %d\n",(i==0)?((l->depth==0)?_INNER:_ORDINARY):_SCHWARZ);
   for ( i=0; i<4; i++ ) 
     vector_PRECISION_alloc( &(s->buf[i]), (i==0)?((l->depth==0)?_INNER:_ORDINARY):_SCHWARZ, nvec, l, no_threading );
 
-  if ( g.method == 1 ){
-    //vector_PRECISION_init( &(s->buf[4]) );
+  if ( g.method == 1 )
     vector_PRECISION_alloc( &(s->buf[4]), _SCHWARZ, nvec, l, no_threading );
-  }
 
   for ( i=0; i<2; i++ )
     vector_PRECISION_alloc( &(l->sbuf_PRECISION[i]), (l->depth==0)?_INNER:_ORDINARY, nvec, l, no_threading );
@@ -287,7 +205,6 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
   // these buffers are introduced to make local_minres_PRECISION thread-safe
   for ( i=0; i<3; i++)
     MALLOC( s->local_minres_buffer[i], complex_PRECISION, svs*nvec );
-#endif  
 }
 
 
@@ -302,19 +219,6 @@ void schwarz_PRECISION_free( schwarz_PRECISION_struct *s, level_struct *l ) {
   operator_PRECISION_free( &(s->op), _SCHWARZ, l );
   
   //------------ free memory for index tables
-#ifdef USE_LEGACY
-  FREE( s->index[T], int, MAX(1,s->dir_length[T]+s->dir_length[Z]+s->dir_length[Y]+s->dir_length[X]) );
-  s->index[Z] = NULL;
-  s->index[Y] = NULL;
-  s->index[X] = NULL;
-  
-  if ( l->depth == 0 && g.odd_even ) {
-    FREE( s->oe_index[T], int, MAX(1,s->dir_length[T]+s->dir_length[Z]+s->dir_length[Y]+s->dir_length[X]) );
-    s->oe_index[Z] = NULL;
-    s->oe_index[Y] = NULL;
-    s->oe_index[X] = NULL;
-  }
-#else
   FREE( s->index[T], int, MAX(1,s->dir_length[T]+s->dir_length[Z]+s->dir_length[Y]+s->dir_length[X]) );
   for ( mu=1; mu<4; mu++)
     s->index[mu] = NULL;
@@ -323,29 +227,10 @@ void schwarz_PRECISION_free( schwarz_PRECISION_struct *s, level_struct *l ) {
     for (mu=1; mu<4; mu++)
       s->oe_index[mu] = NULL;
   }
-#endif
   
   //---------------- free memory for block struc
-#ifdef USE_LEGACY
-  n = 0;
-  for ( mu=0; mu<4; mu++ ) {
-    i = 1;
-    for ( nu=0; nu<4; nu++ ) {
-      if ( mu != nu ) {
-        i *= bl[nu];
-      }
-    }
-    n += 4*i;
-  }
-  //  printf0("sch free: %d %d\n",s->block_boundary_length[8], n); //were equal
-  
-  for ( i=0; i<s->num_blocks; i++ ) {
-    FREE( s->block[i].bt, int, n );
-  }
-#else
   for ( i=0; i<s->num_blocks; i++ )
     FREE( s->block[i].bt, int, s->block_boundary_length[8] );
-#endif
   if ( g.method == 3 ) {
     FREE( s->block_list[0], int, s->num_blocks );
     FREE( s->block_list, int*, 16 );
@@ -359,7 +244,7 @@ void schwarz_PRECISION_free( schwarz_PRECISION_struct *s, level_struct *l ) {
   FREE( s->block, block_struct, s->num_blocks );
 
   //------------- free buffer memories
-  int nvec = s->buf[0].num_vect;//(g.num_rhs_vect<l->num_eig_vect)?l->num_eig_vect:g.num_rhs_vect;
+  int nvec = s->buf[0].num_vect;
   int svs = l->schwarz_vector_size;
 
 #ifdef HAVE_TM1p1
@@ -369,15 +254,8 @@ void schwarz_PRECISION_free( schwarz_PRECISION_struct *s, level_struct *l ) {
     for ( i=0; i<4; i++ )
       vector_PRECISION_free( &(s->oe_buf[i]), l, no_threading );
   
-#ifdef USE_LEGACY
-  vector_PRECISION_free( &(s->buf[0]), l, no_threading );
-  vector_PRECISION_free( &(s->buf[1]), l, no_threading );
-  vector_PRECISION_free( &(s->buf[2]), l, no_threading );
-  vector_PRECISION_free( &(s->buf[3]), l, no_threading );
-#else
   for ( i=0; i<4; i++ )
     vector_PRECISION_free( &(s->buf[i]), l, no_threading );
-#endif
 
   if ( g.method == 1 )
     vector_PRECISION_free( &(s->buf[4]), l, no_threading );
@@ -385,19 +263,10 @@ void schwarz_PRECISION_free( schwarz_PRECISION_struct *s, level_struct *l ) {
   for ( i=0; i<2; i++ )
     vector_PRECISION_free( &(l->sbuf_PRECISION[i]), l, no_threading );
 
-#ifdef USE_LEGACY
-  FREE( s->local_minres_buffer[0], complex_PRECISION, svs*nvec );
-  FREE( s->local_minres_buffer[1], complex_PRECISION, svs*nvec );
-  FREE( s->local_minres_buffer[2], complex_PRECISION, svs*nvec );
-  s->local_minres_buffer[0] = NULL;
-  s->local_minres_buffer[1] = NULL;
-  s->local_minres_buffer[2] = NULL;
-#else
   for (i=0; i<3; i++) {
     FREE( s->local_minres_buffer[i], complex_PRECISION, svs*nvec );
     s->local_minres_buffer[i] = NULL;
   }
-#endif
   
 }
 
@@ -677,28 +546,12 @@ void schwarz_layout_PRECISION_define( schwarz_PRECISION_struct *s, level_struct 
   
   //--- index tables for block dirac operator
   if ( l->depth == 0 && g.odd_even ) {
-    count[T] = &t; count[Z] = &z; count[Y] = &y; count[X] = &x;
-#ifdef USE_LEGACY
-    i=0; j=0;
-    for ( t=0; t<block_size[T]; t++ )
-      for ( z=0; z<block_size[Z]; z++ )
-        for ( y=0; y<block_size[Y]; y++ )
-          for ( x=0; x<block_size[X]; x++ ) {
-            if ( (t+z+y+x)%2 == 0 ) {
-              i++;
-            } else {
-              j++;
-            }
-          }
-    s->num_block_even_sites = i;
-    s->num_block_odd_sites = j;
-#else
     i = 1;
     for ( mu=0; mu<4; mu++ ) i*= block_size[mu];
-    s->num_block_even_sites = i/2 + 2%2;
+    s->num_block_even_sites = i/2 + i%2;
     s->num_block_odd_sites  = i/2;
-#endif
-    
+
+    count[T] = &t; count[Z] = &z; count[Y] = &y; count[X] = &x;    
     for ( mu=0; mu<4; mu++ ) {
       // even sites, plus dir ( = odd sites, minus dir )
       i=0; j=0;//i:counts even part of a block; j:counts???
@@ -706,7 +559,7 @@ void schwarz_layout_PRECISION_define( schwarz_PRECISION_struct *s, level_struct 
         for ( z=0; z<block_size[Z]; z++ )
           for ( y=0; y<block_size[Y]; y++ )
             for ( x=0; x<block_size[X]; x++ ) {
-              if ( (t+z+y+x)%2 == 0 ) {//???????
+              if ( (t+z+y+x)%2 == 0 ) {
                 if ( *(count[mu]) < block_size[mu]-1 ) {
                   s->oe_index[mu][j] = i; 
                   j++;
@@ -1157,8 +1010,8 @@ void n_block_PRECISION_boundary_op_new( vector_PRECISION *eta, vector_PRECISION 
   int i, mu, index, neighbor_index;
   config_PRECISION D_pt, D = s->op.D; //pt to complex: D_pt = 3x3 color matrix & there are 4 such matrices
   buffer_PRECISION phi_pt, eta_pt;
-  //  printf("eta=%d phi=%d\n",eta->num_vect,phi->num_vect);
   complex_PRECISION buf1[12*nvec], *buf2=buf1+6*nvec;
+
   mu=T;
   // plus mu direction
   for ( i=bbl[2*mu]; i<bbl[2*mu+1]; i+=2 ) {
@@ -1281,8 +1134,6 @@ void coarse_block_PRECISION_boundary_op_new( vector_PRECISION *eta, vector_PRECI
   config_PRECISION D_pt, D = s->op.D;
   int link_size = SQUARE(2*l->num_parent_eig_vect), site_size=4*link_size;
 
-  //  phi_pt.num_vect = phi->num_vect; phi_pt.num_vect_now = phi->num_vect_now;
-  //  eta_pt.num_vect = eta->num_vect; eta_pt.num_vect_now = eta->num_vect_now;
   vector_PRECISION_duplicate( &phi_pt, phi, 0, l );
   vector_PRECISION_duplicate( &eta_pt, eta, 0, l );
 
@@ -1320,9 +1171,7 @@ void n_coarse_block_PRECISION_boundary_op_new( vector_PRECISION *eta, vector_PRE
   int nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
   config_PRECISION D_pt, D = s->op.D;
   vector_PRECISION phi_pt, eta_pt; 
-  //!!!!!!!
-  //  phi_pt.num_vect = nvec_phi; phi_pt.num_vect_now = phi->num_vect_now;
-  //  eta_pt.num_vect = nvec_eta; eta_pt.num_vect_now = eta->num_vect_now;
+
   vector_PRECISION_duplicate( &phi_pt, phi, 0, l );
   vector_PRECISION_duplicate( &eta_pt, eta, 0, l );
 
@@ -1559,7 +1408,6 @@ void schwarz_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *D_phi, vect
         n_boundary_op( r, latest_iter, i, s, l );
   }
 
-  //PRECISION r_norm = global_norm_PRECISION( r, 0, l->inner_vector_size, l, no_threading );
   PRECISION r_norm[nvec];
   global_norm_PRECISION_new( r_norm, r, 0, l->inner_vector_size, l, no_threading );
   char number[3]; sprintf( number, "%2d", 31+l->depth ); printf0("\033[1;%2sm|", number );
@@ -1752,7 +1600,6 @@ void additive_schwarz_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *D_
       }
     }
   }
-  //PRECISION r_norm = global_norm_PRECISION( r, 0, l->inner_vector_size, l, no_threading );
   PRECISION r_norm[nvec];
   global_norm_PRECISION_new( r_norm, r, 0, l->inner_vector_size, l, no_threading );
   char number[3]; sprintf( number, "%2d", 31+l->depth ); printf0("\033[1;%2sm|", number );

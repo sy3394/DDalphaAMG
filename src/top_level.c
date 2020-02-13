@@ -211,7 +211,7 @@ static int wilson_driver( vector_double *solution, vector_double *source, level_
     } else {
       iter = fgmres_double( &(g.p), l, threading );
     }
-    vector_double_copy2_new( solution, &sol, i*num_loop, num_loop, -1, start, end, l );
+    vector_double_copy2_new( solution, &sol, i, num_loop, -1, start, end, l );
   }
 
 #ifdef WILSON_BENCHMARK

@@ -263,7 +263,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   PRECISION beta[n_vect];//complex_PRECISION beta = 0;
 
   double H_tot;
-  PRECISION norm_r0[n_vect], gamma_jp1[n_vect], gamma_tot, gamma0_real[n_vect], t0=0, t1=0;
+  PRECISION norm_r0[n_vect], gamma_jp1[n_vect], gamma_max, gamma0_real[n_vect], t0=0, t1=0;
 
   if ( p->num_vect < num_loop )//g.num_vect_now ) 
     error0("fgmres_PRECISION: memory corruption\n");
@@ -316,7 +316,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
     global_norm_PRECISION_new( gamma0_real, &(p->r), p->v_start, p->v_end, l, threading ); // gamma_0 = norm(r)  
     VECTOR_LOOP(i, n_vect, jj, gamma0[i+jj]=gamma0_real[i+jj];)
     START_MASTER(threading)
-    VECTOR_LOOP(i, n_vect, jj, p->gamma[i+jj] = (complex_PRECISION) gamma0_real[i+jj];)// gamma0 might be taken away: gamma0->gamma0_real here;  gamma0->p->gamma below????
+    VECTOR_LOOP(i, n_vect, jj, p->gamma[i+jj] = (complex_PRECISION) gamma0_real[i+jj];)
     END_MASTER(threading);
     SYNC_MASTER_TO_ALL(threading);
     
@@ -370,8 +370,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
 #endif
 
       H_tot=0;
-      VECTOR_LOOP(i, n_vect, jj, H_tot += (double) cabs_PRECISION( p->H[j][(j+1)*n_vect+i+jj] );)//printf("lin gen %d %d: %g\n",g.my_rank,threading->thread,cabs(p->H[j][(j+1)*n_vect+i+jj]));)//?????
-      //if ( cabs( p->H[j][j+1] ) > p->tol/10 )
+      VECTOR_LOOP(i, n_vect, jj, H_tot += (double) cabs_PRECISION( p->H[j][(j+1)*n_vect+i+jj] );)//what is this for????
       if ( H_tot > n_vect*p->tol/10 ) {
         qr_update_PRECISION( p->H, p->s, p->c, p->gamma, j, l, threading );
         VECTOR_LOOP(i, n_vect, jj, gamma_jp1[i+jj] = cabs_PRECISION( p->gamma[(j+1)*n_vect+i+jj] );)
@@ -387,18 +386,12 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
         }
 #endif
 	// The last entry of gamma at (j+1)^th step is the minimized residual of the solution to the projected lin. eq. 
-        gamma_tot=gamma_jp1[0]/norm_r0[0];//0;
-        //VECTOR_LOOP(i, n_vect, jj, gamma_tot += gamma_jp1[i+jj]/norm_r0[i+jj];)//should we change it to min????
-	for ( i=1; i<n_vect; i++ ) {
-	  if ( gamma_tot > gamma_jp1[i]/norm_r0[i] )
-	    gamma_tot = gamma_jp1[i]/norm_r0[i];
-	}
-	gamma_tot *= n_vect;
-	  //if( gamma_jp1/norm_r0 < p->tol || gamma_jp1/norm_r0 > 1E+5 )  
-	if( gamma_tot < n_vect*p->tol || gamma_tot > n_vect*1E+5 ) { // if satisfied ... stop
+        gamma_max = gamma_jp1[0]/norm_r0[0];
+	for ( i=1; i<n_vect; i++ ) if ( gamma_max < gamma_jp1[i]/norm_r0[i] ) gamma_max = gamma_jp1[i]/norm_r0[i];
+	if( gamma_max < n_vect*p->tol || gamma_max > n_vect*1E+5 ) { // if satisfied ... stop
 	  finish = 1;
 	  START_MASTER(threading)
-	  if ( gamma_tot > n_vect*1E+5 ) printf0("Divergence of fgmres_PRECISION, iter = %d, level=%d\n", iter, l->level );
+	  if ( gamma_max > n_vect*1E+5 ) printf0("Divergence of fgmres_PRECISION, iter = %d, level=%d\n", iter, l->level );
           END_MASTER(threading)
 	}
       } else {

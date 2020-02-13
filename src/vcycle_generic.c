@@ -27,7 +27,6 @@
 #include "vcycle_PRECISION.h"
 
 
-// assume num_vect_now for phi and eta are defined
 // phi <- V/K-cycle(eta); compute corse-grid correction
 void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRECISION *eta,
 			   int res, level_struct *l, struct Thread *threading ) {

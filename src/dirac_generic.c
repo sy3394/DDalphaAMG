@@ -79,7 +79,6 @@ void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operato
       if ( g.mu + g.mu_odd_shift != 0.0 || g.mu + g.mu_even_shift != 0.0 ) {
         while ( leta < leta_end )
           for( i=0; i<12; i++ ) {
-	    //VECTOR_LOOP(j, nvec, jj, eta->vector_buffer[(eta->start+i)*nvec_eta+j+jj] = 
             VECTOR_LOOP(j, nvec, jj, *leta = (*lphi)*((*clover)+(*tm_term));
                                      leta++;
                                      lphi++;) 
@@ -220,7 +219,7 @@ static void spin2and3_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECIS
         VECTOR_LOOP(j, nvec_eta, jj, *leta = _COMPLEX_PRECISION_ZERO; leta++;)
       }
       for( i=0; i<6; i++ ){
-        VECTOR_LOOP(j, nvec, jj, *leta = (*lphi)*(*clover); leta++; lphi++;)//!!!!!!!!+= -> =
+        VECTOR_LOOP(j, nvec, jj, *leta = (*lphi)*(*clover); leta++; lphi++;)
 	leta += nvec_eta-nvec; lphi += nvec_phi-nvec;
         clover++;
       }
@@ -237,7 +236,7 @@ static void spin2and3_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECIS
 void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
   
   int n = l->num_inner_lattice_sites, *neighbor = op->neighbor_table, start, end, nv = l->num_lattice_site_var;
-  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect, nvec_op = op->pr_num_vect;//!!!!!!
+  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect, nvec_op = op->pr_num_vect;
   int i, j, *nb_pt;
   buffer_PRECISION phi_pt, eta_pt, end_pt;
   config_PRECISION D_pt;

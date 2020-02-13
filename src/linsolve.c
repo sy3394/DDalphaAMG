@@ -22,7 +22,6 @@
  */
 
 #include "main.h"
-//#include "linsolve.h" // redundant
 
 void fgmres_MP_struct_init( gmres_MP_struct *p ) {
   fgmres_float_struct_init( &(p->sp) );
@@ -195,12 +194,12 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   double beta[n_vect];
 
   double t0=0, t1=0;
-  double norm_r0[n_vect], gamma_jp1[n_vect], gamma0_real[n_vect], gamma_tot, H_tot, gamma_tot2;//norm_r0=1, gamma_jp1=1
+  double norm_r0[n_vect], gamma_jp1[n_vect], gamma0_real[n_vect], gamma_max, H_tot;
   complex_float gamma_float[n_vect];
 
   if ( p->sp.num_vect < num_loop )
     error0("fgmres: memory corruption\n");
-  //  printf("fgmres_MP\n");
+
   p->dp.w.num_vect_now = n_vect; p->dp.x.num_vect_now = n_vect; p->dp.r.num_vect_now = n_vect; p->dp.b.num_vect_now = n_vect;
   p->sp.w.num_vect_now = n_vect; p->sp.x.num_vect_now = n_vect; p->sp.r.num_vect_now = n_vect; p->sp.b.num_vect_now = n_vect;
   p->sp.Z[0].num_vect_now = n_vect;p->sp.V[0].num_vect_now = n_vect;
@@ -279,7 +278,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
 
       // perhaps need to change here!!!!!
       H_tot=0;
-      VECTOR_LOOP(i, n_vect, jj, H_tot += cabs( p->dp.H[j][(j+1)*n_vect+i+jj] );)
+      VECTOR_LOOP(i, n_vect, jj, H_tot += cabs( p->dp.H[j][(j+1)*n_vect+i+jj] );)//????what is this for????
       //if ( cabs( p->dp.H[j][j+1] ) > 1E-15 )
       if ( H_tot > n_vect*1E-15 ) {
         qr_update_double( p->dp.H, p->dp.s, p->dp.c, p->dp.gamma, j, l, threading );
@@ -295,19 +294,17 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
 #endif
         }
 
-        gamma_tot=0;
-        VECTOR_LOOP(i, n_vect, jj, gamma_tot += gamma_jp1[i+jj]/norm_r0[i+jj];)
-        //if( gamma_jp1/norm_r0 < p->dp.tol || gamma_jp1/norm_r0 > 1E+5 )  // if satisfied ... stop
-        if( gamma_tot < n_vect*p->dp.tol || gamma_tot > n_vect*1E+5 ) {
+        gamma_max = gamma_jp1[0]/norm_r0[0];
+	for ( i=1; i<n_vect; i++ ) if ( gamma_max < gamma_jp1[i]/norm_r0[i] ) gamma_max = gamma_jp1[i]/norm_r0[i];
+        if( gamma_max < p->dp.tol || gamma_max > 1E+5 ) {
           finish = 1;
           START_MASTER(threading)
-            if ( gamma_tot > n_vect*1E+5 ) printf0("Divergence of fgmres_MP, iter = %d, level=%d\n", iter, l->level );
+            if ( gamma_max > 1E+5 ) printf0("Divergence of fgmres_MP, iter = %d, level=%d\n", iter, l->level );
           END_MASTER(threading)
         }
-        gamma_tot2=0;
-        VECTOR_LOOP(i, n_vect, jj, gamma_tot2 += gamma_jp1[i+jj]/gamma0_real[i+jj];)
-        //if( gamma_jp1/creal(gamma0) < p->sp.tol )
-	if( gamma_tot2 < n_vect*p->sp.tol ){  
+        gamma_max = gamma_jp1[0]/gamma0_real[0];
+	for ( i=1; i<n_vect; i++ ) if ( gamma_max < gamma_jp1[i]/gamma0_real[i] ) gamma_max = gamma_jp1[i]/gamma0_real[i];
+	if( gamma_max < p->sp.tol ){  
           break;
         }
       } else {
