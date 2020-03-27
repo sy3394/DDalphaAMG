@@ -925,11 +925,12 @@ void block_to_oddeven_PRECISION_new( vector_PRECISION *out, vector_PRECISION *in
 /*******************  TEST ROUTINES  *****************************************************/
 
 void block_oddeven_PRECISION_test_new( level_struct *l, struct Thread *threading ) {
+#if 1
   START_UNTHREADED_FUNCTION(threading)
 
   schwarz_PRECISION_struct *s = &(l->s_PRECISION);
   
-  int n_vect = num_loop;//g.num_rhs_vect;
+  int n_vect = num_loop;
   vector_PRECISION b1,b2,b3,b4,b5;
   PRECISION diff1[n_vect], diff2[n_vect];
   
@@ -1003,6 +1004,6 @@ void block_oddeven_PRECISION_test_new( level_struct *l, struct Thread *threading
   FREE( b3.vector_buffer, complex_PRECISION, vs*n_vect );
   FREE( b4.vector_buffer, complex_PRECISION, vs*n_vect );
   FREE( b5.vector_buffer, complex_PRECISION, vs*n_vect );
-  //  error0("stop\n");
   END_UNTHREADED_FUNCTION(threading)
+#endif
 }

@@ -149,6 +149,10 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   
   //-------------- Setup g.p(_MP) for the solver part (gmres_PRECISION_struct in global_struct: used only in the solver part)
   //                  if g.mixed_precision == 2, prec = vcycle_float; otherwise, prec = preconditioner
+  //                  if g.mixed_precision == 2, use MP solver; if ==1, use double solver at the top and single solver below; if ==0, double everywhere
+  // not sure what method =  5 - FGMRES + GMRES implies. as of now it is not diff. from g.method==2
+  //   if the changeds suggested in the comments are implementd, if g.even_odd, it will behave diff'ly; FGMRES+noAMG+prec.(_COARSE_GMRES)
+  // apparently, g.method==6 used only in conjunction with odd_even prec. and not inc????
 #ifdef HAVE_TM1p1
   nvec *= 2;
 #endif
@@ -157,7 +161,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     if ( g.mixed_precision == 2 ) {// INIT_ONE_PREC is defiend in main.h
 #endif
       fgmres_MP_struct_alloc( g.restart, g.max_restart, _INNER,
-                              g.tol, _RIGHT, vcycle_float_new, &(g.p_MP), l );
+                              g.tol, _RIGHT, vcycle_float_new, &(g.p_MP), l );//why vcycle????
       g.p.op            = &(g.op_double);
       g.p.eval_operator = d_plus_clover_double_new;
 #if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
@@ -180,8 +184,8 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 #endif
       fgmres_MP_struct_alloc( g.restart, g.max_restart, _INNER,
                               g.tol, _NOTHING, NULL, &(g.p_MP), l );
-      g.p.op = &(g.op_double);//moved from fgmres_MP_struct_alloc: why only double? double at the top; single below????
-      g.p.eval_operator = d_plus_clover_double_new;//moved from fgmres_MP_struct_alloc: why only double????
+      g.p.op = &(g.op_double);
+      g.p.eval_operator = d_plus_clover_double_new;
 #if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
       vector_double_alloc( &(g.p.b), _INNER, nvec, l, no_threading );
       vector_double_alloc( &(g.p.x), _INNER, nvec, l, no_threading );
@@ -201,25 +205,33 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
                                 _GLOBAL_FGMRES, _NOTHING, NULL, d_plus_clover_double_new, &(g.p), l );
     fine_level_double_alloc( l );
   }
-  END_LOCKED_MASTER(threading)
-  SYNC_MASTER_TO_ALL(threading)
+  else if ( g.method == -2 ) {//----- pure fabulous solver
+    //oddeven_setup_double( &(g.op_double), l );
+    //setup_fabulous_double( &(g.fab_double), num_loop, l->inner_vector_size, (g.odd_even)?&(l->oe_op_double):&(g.op_double), (g.odd_even)?apply_schur_complement_double_new:d_plus_clover_double_new, l, no_threading);
 
-  //------------------ Set the level structure recursively
-  //                     l->p_PRECISION at the top level is not allocated as it is not used  
+    setup_fabulous_double( 1000, g.restart, _INNER, g.tol,
+			   &(g.fab_double), num_loop, l->inner_vector_size, &(g.op_double), d_plus_clover_double_new, &(g.p), l, no_threading);
+  }
+  END_LOCKED_MASTER(threading)
+
+  //------------------ Set the level structure for AMG recursively
+  // l->s_PRECISION is not necessary if g.method==0, defined in smoother_PRECISION_def????? op in s_* is used; see linsolve_*
+  // l->p_PRECISION is not necessary if g.method==0, defined in smoother_PRECISION_def?????
+  // for g.method=5, l->sp_PRECISION is not used???? if we set prec to preconditioner in g.p_* and change
+  //   preconditioner.c as is suggested in the comment, sp_* will be used.
   if ( g.method >= 0 ) {
     START_LOCKED_MASTER(threading)
     t0 = MPI_Wtime();
     if ( g.mixed_precision ) {
-      smoother_float_def( l ); // define s_PRECISION, and p_PRECISION(gmres:k-cycle) if g.method=4 or 5 why here????
-      if ( g.method >= 4 && g.odd_even )
+      smoother_float_def( l ); // define s_PRECISION, and s/p_PRECISION(gmres) if g.method=5 or 6
+      if ( g.method >= 5 && g.odd_even )
         oddeven_setup_float( &(g.op_double), l );
     } else {
       smoother_double_def( l );
-      if ( g.method >= 4 && g.odd_even )
+      if ( g.method >= 5 && g.odd_even )
         oddeven_setup_double( &(g.op_double), l );
     }
     END_LOCKED_MASTER(threading)
-    SYNC_MASTER_TO_ALL(threading)
     if ( g.method > 0 )
       if ( g.interpolation && g.num_levels > 1 ) {
 	// allocate memory for interpolation and define interpolation op at depth == 0
@@ -236,7 +248,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 	  // The initial step of setting up the interpolation operator out of test vectors using only smoothing
 	  interpolation_double_alloc( l );
 	  END_LOCKED_MASTER(threading)
-	  interpolation_double_define_new( V, l, threading );  //!!!!!
+	  interpolation_double_define_new( V, l, threading );
 	}
         next_level_setup_new( V, l, threading );//recursive function: dictated by the chice of g.num_vect_now!!!!!!
       }
@@ -358,7 +370,6 @@ void method_re_setup( level_struct *l, struct Thread *threading ) {
   START_LOCKED_MASTER(threading)
   method_free( l );
   END_LOCKED_MASTER(threading)
-  SYNC_MASTER_TO_ALL(threading)
   method_setup( NULL, l, threading );
 }
 
@@ -381,7 +392,7 @@ void next_level_setup_new( vector_double *V, level_struct *l, struct Thread *thr
     l->next_level->relax_fac            = g.relax_fac[l->depth+1];
     l->next_level->block_iter           = g.block_iter[l->depth+1];
     l->next_level->setup_iter           = g.setup_iter[l->depth+1];
-    l->next_level->num_eig_vect         = l->level==1?l->num_eig_vect:g.num_eig_vect[l->depth+1];//???????
+    l->next_level->num_eig_vect         = l->level==1?l->num_eig_vect:g.num_eig_vect[l->depth+1];//??????
     l->next_level->num_parent_eig_vect  = l->num_eig_vect;
     l->next_level->num_lattice_site_var = 2 * l->num_eig_vect;
     l->next_level->n_cy                 = g.ncycle[l->depth+1];
@@ -409,7 +420,6 @@ void next_level_setup_new( vector_double *V, level_struct *l, struct Thread *thr
     update_threading(no_threading, l);
 
     END_LOCKED_MASTER(threading)
-    SYNC_MASTER_TO_ALL(threading)
 
     // update threading struct with size info of the next level 
     update_threading(threading, l); // each thread has its own threading struc
@@ -516,11 +526,11 @@ void method_free( level_struct *l ) {
   
   if ( g.method>=0 ) {
     if ( g.mixed_precision ) {
-      if ( g.method >= 4 && g.odd_even )
+      if ( g.method >= 5 && g.odd_even )
         oddeven_free_float( l );
       smoother_float_free( l );
     } else {
-      if ( g.method >= 4 && g.odd_even )
+      if ( g.method >= 5 && g.odd_even )
         oddeven_free_double( l );
       smoother_double_free( l );
     }
@@ -534,6 +544,8 @@ void method_free( level_struct *l ) {
       }
   } else if ( g.method == -1 ) {
     fine_level_double_free( l );
+  } else if ( g.method == -2 ) {
+    fabulous_double_free( &(g.fab_double), &(g.p), l, no_threading );
   }
 
 #ifdef INIT_ONE_PREC

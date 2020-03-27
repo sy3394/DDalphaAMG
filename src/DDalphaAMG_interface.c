@@ -18,6 +18,7 @@
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
  * checked:11/30/2019
  * changed from sbacchio
+ * NOTE: decide how lime_read_vector is used; that's not updated for multiple vectors
  */
  
 #include "main.h"

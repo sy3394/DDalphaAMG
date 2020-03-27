@@ -35,10 +35,9 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 
   vector_double_init( &solution ); 
   vector_double_init( &source );   
-  vector_double_alloc( &solution, _INNER, g.num_rhs_vect, l, threading );
-  vector_double_alloc( &source, _INNER, g.num_rhs_vect, l, threading );
-  solution.num_vect_now = g.num_rhs_vect;
-  source.num_vect_now   = g.num_rhs_vect;
+  vector_double_alloc( &solution, _INNER, g.num_rhs_vect, l, threading ); solution.num_vect_now = g.num_rhs_vect;
+  vector_double_alloc( &source, _INNER, g.num_rhs_vect, l, threading );   source.num_vect_now   = g.num_rhs_vect;
+
   rhs_define( &source, l, threading ); 
  
   if(g.bc==2)
@@ -88,7 +87,7 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 	  g.mu_odd_shift*=-1;
 	  g.mu_even_shift*=-1;
 	END_LOCKED_MASTER(threading)
-  
+
 	tm_term_update( g.mu, l, threading );
         finalize_operator_update( l, threading );
       } 
@@ -108,19 +107,18 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
 
-#if 0
+#if 0 //my addition     
   if (g.my_rank == 0){//need to update it
-  START_LOCKED_MASTER(threading)//my addition     
-  vector_double_change_layout( &solution, &solution, _NVEC_OUTER, no_threading );
-  vector_double_change_layout( &source, &source, _NVEC_OUTER, no_threading );
-  FILE *f;
-  f = fopen("DDsol.out","w");
-  for ( int jj=0;jj<g.num_rhs_vect; jj++)
-    for ( int jjj=0; jjj<solution.size; jjj++)
-      fprintf(f,"vec_%d[%d] = %g %g\n", jj,jjj,creal_double(solution.vector_buffer[jj*solution.size+jjj]),cimag_double(solution.vector_buffer[jj*solution.size+jjj]));
-  fclose(f);
-  END_LOCKED_MASTER(threading)
-    }
+    START_LOCKED_MASTER(threading)
+    vector_double_change_layout( &solution, &solution, _NVEC_OUTER, no_threading );
+    FILE *f;
+    f = fopen("DDsol.out","w");
+    for ( int jj=0;jj<g.num_rhs_vect; jj++)
+      for ( int jjj=0; jjj<solution.size; jjj++)
+	fprintf(f,"vec_%d[%d] = %g %g\n", jj,jjj,creal_double(solution.vector_buffer[jj*solution.size+jjj])/norm[jj],cimag_double(solution.vector_buffer[jj*solution.size+jjj])/norm[jj]);
+    fclose(f);
+    END_LOCKED_MASTER(threading)
+  }
 #endif
   vector_double_free( &solution, l, threading );
   vector_double_free( &source, l, threading );
@@ -204,7 +202,12 @@ static int wilson_driver( vector_double *solution, vector_double *source, level_
 #endif
   for ( int i=0; i<g.num_rhs_vect; i+=num_loop ) {
     vector_double_copy2_new( &rhs, source, i, num_loop, 1, start, end, l );
-    if ( g.method == -1 ) {
+    if ( g.method == -2 ) {//we might consider inverting all at once for this choice!!!!!
+      START_MASTER(threading)
+	iter = fabulous_double( g.fab_double, &(g.p), no_threading );// printf0("af wil fab %d\n",iter);fflush(stdout);
+      END_MASTER(threading)
+    }
+    else if ( g.method == -1 ) {
       cgn_double( &(g.p), l, threading );
     } else if ( g.mixed_precision == 2 ) {
       iter = fgmres_MP( &(g.p_MP), l, threading );

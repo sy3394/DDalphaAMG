@@ -82,7 +82,7 @@ void data_layout_n_flavours( int nf, level_struct *l, struct Thread *threading )
         l_tmp->p_float.v_end = l_tmp->inner_vector_size;
         l_tmp->sp_float.v_end = l_tmp->inner_vector_size;
         l_tmp->dummy_p_float.v_end = l_tmp->inner_vector_size;
-        if ( (g.method >= 4 && g.odd_even) || (!l_tmp->idle && l_tmp->level == 0 && g.odd_even) ) {
+        if ( (g.method >= 5 && g.odd_even) || (!l_tmp->idle && l_tmp->level == 0 && g.odd_even) ) {
           if ( l_tmp->level == 0 )
             l_tmp->p_float.v_end = l_tmp->oe_op_float.num_even_sites*l_tmp->num_lattice_site_var;
           else
@@ -94,7 +94,7 @@ void data_layout_n_flavours( int nf, level_struct *l, struct Thread *threading )
         l_tmp->p_double.v_end = l_tmp->inner_vector_size;
         l_tmp->sp_double.v_end = l_tmp->inner_vector_size;
         l_tmp->dummy_p_double.v_end = l_tmp->inner_vector_size;
-        if ( (g.method >= 4 && g.odd_even) || (!l_tmp->idle && l_tmp->level == 0 && g.odd_even) ) {
+        if ( (g.method >= 5  && g.odd_even) || (!l_tmp->idle && l_tmp->level == 0 && g.odd_even) ) {
           if ( l_tmp->level == 0 )
             l_tmp->p_double.v_end = l_tmp->oe_op_double.num_even_sites*l_tmp->num_lattice_site_var;
           else

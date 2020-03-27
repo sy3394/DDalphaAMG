@@ -170,7 +170,7 @@ static void read_global_info( FILE *in ) {
 }
 
 // Default values are not available for the following variables.
-static void read_no_default_info( FILE *in ) {//, level_struct *l ) {//!!!!!!!!
+static void read_no_default_info( FILE *in ) {
 
   void *save_pt;
 
@@ -317,7 +317,7 @@ static void read_geometry_data( FILE *in, int ls ) {
             }
           }
           
-          if ( flag == 1 && g.method == 2 && nb == 1 ) {
+          if ( flag == 1 && (g.method == 2 || g.method == 4) && nb == 1 ) {//??????
             mu = shortest_dir( g.local_lattice[i] );
             if ( g.global_lattice[i][mu] > g.local_lattice[i][mu] ) {
               g.local_lattice[i][mu] *= lcm( g.local_lattice[i][mu],
@@ -386,7 +386,7 @@ static void read_geometry_data( FILE *in, int ls ) {
   }
 }
 
-static void read_solver_parameters( FILE *in ) {//, level_struct *l ) { //!!!!!!!!
+static void read_solver_parameters( FILE *in ) {
 
   void *save_pt;
 
@@ -442,7 +442,17 @@ static void read_solver_parameters( FILE *in ) {//, level_struct *l ) { //!!!!!!
 #endif
   save_pt = &(g.num_rhs_vect); g.num_rhs_vect=1;
   read_parameter( &save_pt, "number of rhs vectors:", "%d", 1, in, _DEFAULT_SET );
-  
+
+  save_pt = &(g.f_orthoscheme); g.f_orthoscheme = FABULOUS_MGS;
+  read_parameter( &save_pt, "fabulous orthogonalization scheme:", "%d", 1, in, _DEFAULT_SET );
+  save_pt = &(g.f_orthotype); g.f_orthotype = FABULOUS_RUHE;
+  read_parameter( &save_pt, "fabulous orthogonalization type:", "%d", 1, in, _DEFAULT_SET );
+  save_pt = &(g.f_solver); g.f_solver = _IB;
+  read_parameter( &save_pt, "fabulous solver:", "%d", 1, in, _DEFAULT_SET );
+  save_pt = &(g.fab_float.k); g.fab_float.k = 0;
+  read_parameter( &save_pt, "number of deflating eigenvectors for fabulous:", "%d", 1, in, _DEFAULT_SET );
+  g.fab_double.k = g.fab_float.k;
+
   if ( g.randomize ) {
     srand( time( 0 ) + 1000*g.my_rank );
   } else 
@@ -507,19 +517,35 @@ static void validate_parameters( int ls, level_struct *l ) {
   int i;
   int mu;
 
-  if ( g.method == 5 && g.interpolation != 0 ) {
-    warning0("Multigrid with BiCGstab smoothing is not supported.\n         Switching to FGMRES preconditioned with BiCGstab (g.interpolation=0).\n");
-    g.interpolation = 0;
+  if ( g.method == 6 ) {
+    if( g.interpolation != 0 ) {
+      warning0("Multigrid with BiCGstab smoothing is not supported.\n         Switching to FGMRES preconditioned with BiCGstab (g.interpolation=0).\n");
+      g.interpolation = 0;
+    }
+    if ( g.odd_even ) {//!!!!!!
+    warning0("BiCGstab w/t evenodd prec. is not currently supported.\n         Switching to even odd prec..\n");
+    g.odd_even = 1;
+    }
   }
 
   ASSERT( ASCENDING( 0, g.rhs, 2 ) );
-  ASSERT( ASCENDING( -1, g.method, 5 ) );
+  ASSERT( ASCENDING( -2, g.method, 6 ) );
+  if ( g.method < 1 ) {
+    warning0("Multigrid is not supported.\n         Switching to the chosen method with no AMG (g.interpolation=0).\n");
+    g.interpolation = 0;
+    //ASSERT ( g.interpolation == 0 );
+  }
+  if ( g.method == -2 )
+    if ( g.mixed_precision == 2 )
+      warning0("Pure fabulous solver uses double precision\n");
   
   ASSERT( IMPLIES( g.vt.evaluation, g.rhs <= 2 ) );
 #ifdef _20TV
   ASSERT( g.num_eig_vect == 20 );
 #endif
-  
+  for ( i=0; i<g.num_levels-1; i++ )
+    ASSERT( DIVIDES( num_loop, g.num_eig_vect[i] ) );
+
   for ( i=0; i<g.num_levels; i++ )
     for ( mu=0; mu<4; mu++)
       ASSERT( DIVIDES( g.local_lattice[i][mu], g.global_lattice[i][mu] ) );
@@ -541,7 +567,7 @@ static void validate_parameters( int ls, level_struct *l ) {
     ASSERT( DIVIDES( 2, coarse_sites_per_core ) );
   }
 
-  if ( g.method == 2 ) {
+  if ( g.method == 2 || g.method == 4 ) {
     for ( i=0; i<ls-1; i++ ) {
       int num_blocks = 1;
       for ( mu=0; mu<4; mu++) {
@@ -647,7 +673,7 @@ static void set_level_and_global_structs_according_to_global_struct( level_struc
 }
 
 // Helper function for set_DDalphaAMG_parameters
-static void set_global_info( struct init *params ) {//, level_struct *l ) {!!!!!!!
+static void set_global_info( struct init *params ) {
 
   // global lattice
   for( int i=0; i<4; i++ ) {
@@ -746,8 +772,8 @@ void set_DDalphaAMG_parameters( struct init *params, level_struct *l ) {
   int ls = MAX(g.num_levels,2);
   allocate_for_global_struct_after_read_global_info( ls );
 
-  set_global_info( params ); //, l );//!!!!!!!
-  read_solver_parameters( in ); //, l );//!!!!!
+  set_global_info( params );
+  read_solver_parameters( in );
   read_geometry_data( in, ls );
   
   ls = MAX(g.num_levels,2);

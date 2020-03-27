@@ -51,16 +51,9 @@
   void gamma5_set_odd_to_zero_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, level_struct *l, struct Thread *threading );//used in DDalphaAMG_interface
 
   void tau1_gamma5_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, level_struct *l, struct Thread *threading );//used when TM1p1
-//  void set_even_to_zero_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, level_struct *l, struct Thread *threading );
-//  void set_odd_to_zero_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, level_struct *l, struct Thread *threading );
 
   void tau1_gamma5_set_even_to_zero_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, level_struct *l, struct Thread *threading );//used when TM1p1 in DDalphaAMG_interface 
   void tau1_gamma5_set_odd_to_zero_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, level_struct *l, struct Thread *threading ); //used when TM1p1 in DDalphaAMG_interface
-//  void scale_even_odd_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, complex_double even, complex_double odd,
-//                                 level_struct *l, struct Thread *threading );
-
-  void two_flavours_to_serial_PRECISION( vector_PRECISION *flav1, vector_PRECISION *flav2, vector_PRECISION *serial, level_struct *l, struct Thread *threading );
-  void serial_to_two_flavours_PRECISION( vector_PRECISION *flav1, vector_PRECISION *flav2, vector_PRECISION *serial, level_struct *l, struct Thread *threading );
 
   void two_flavours_test_PRECISION( operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
 
@@ -71,7 +64,7 @@
     int i, j, jj, n_vect_phi = phi->num_vect_now, n_vect_eta = eta->num_vect_now;
     config_PRECISION diag_pt = diag;
     buffer_PRECISION phi_pt = phi->vector_buffer, eta_pt = eta->vector_buffer, eta_end = eta->vector_buffer + length*eta->num_vect;
-    //        printf("add_diagonal_PRECISION:%d %d %d %d\n",n_vect_phi,n_vect_eta ,phi->num_vect,eta->num_vect);
+
     if ( n_vect_phi != n_vect_eta )
       error0("add_diagonal_PRECISION: assumptions are not met\n");
 /*#ifdef HAVE_TM1p1

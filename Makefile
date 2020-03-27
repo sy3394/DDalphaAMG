@@ -4,7 +4,7 @@ CC = mpiicc
 #gnu mpicc
 # --- CFLAGS -----------------------------------------
 CFLAGS_gnu = -std=gnu99 -Wall -pedantic -O3 -ffast-math -msse4.2  -fopenmp -g3
-CFLAGS_intel = -std=gnu99 -Wall -pedantic -O3 -xAVX -qopenmp -g3 #-vec-report
+CFLAGS_intel = -std=gnu99 -Wall -pedantic -O3 -xHost -qopenmp -g3 -fp-model fast=2 # -vec-report
 CFLAGS = $(CFLAGS_intel)
 
 # --- DO NOT CHANGE -----------------------------------
@@ -39,22 +39,34 @@ DEP = $(patsubst %.c,%.dep,$(GSRC))
 # H5LIB=-lhdf5 -lz
 
 # --- FLAGS FOR LIME ---------------------------------
-LIMEDIR=/home/syamamoto/src/c-lime/install
+LIMEDIR=${HOME}/src/c-lime/install
 LIMEFLAGS=-DHAVE_LIME -I${LIMEDIR}/include
 LIMELIB= -L${LIMEDIR}/lib -llime
 
 # --- FLAGS FOR EFENCE --------------------------------- 
-EFENCEDIR=/home/syamamoto/src/electric-fence
+EFENCEDIR=${HOME}/src/electric-fence
 EFENCEFLAGS=-I${EFENCEDIR}
 EFENCELIB= # -L${EFENCEDIR} -lefence
+
+# --- FLAGS FOR FABULOUS --------------------------------- 
+FABULOUSDIR=${HOME}/src/fabulous
+FABULOUSFLAGS=-DHAVE_FABULOUS -I${FABULOUSDIR}/src/api/include
+FABULOUSLIB=-L${FABULOUSDIR}/build/src/api -lfabulous
+
+# --- FLAGS FOR LAPACK ---------------------------------
+LAPACKDIR=/onyx/buildsets/noe190301/software/imkl/2018.1.163-iimpi-2018a/mkl
+#LAPACKDIR=/onyx/buildsets/noe190301/software/ScaLAPACK/2.0.2-gompi-2017b-OpenBLAS-0.2.20
+LAPACKFLAGS=-I${LAPACKDIR}/include
+#LAPACKLIB=-L${LAPACKDIR}/lib -l-lscalapack
+LAPACKLIB=-L${LAPACKDIR}/lib/intel64 -L${LAPACKDIR}/mkl/lib/intel64 -lmkl
 
 # Available flags:
 # -DPARAMOUTPUT -DTRACK_RES -DFGMRES_RESTEST -DPROFILING
 # -DSINGLE_ALLREDUCE_ARNOLDI
 # -DCOARSE_RES -DSCHWARZ_RES -DTESTVECTOR_ANALYSIS -DDEBUG
 # -DOPTIMIZE -DSSE -DAVX -DAVX2 -DAVX512
-OPT_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) $(H5FLAGS) ${EFENCEFLAGS} -DPARAMOUTPUT -DTRACK_RES -DOPENMP -DDEBUG
-DEVEL_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) ${EFENCEFLAGS} -DDEBUG -DPARAMOUTPUT -DTRACK_RES -DFGMRES_RESTEST -DPROFILING -DCOARSE_RES -DSCHWARZ_RES -DTESTVECTOR_ANALYSIS -DOPENMP
+OPT_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) ${FABULOUSFLAGS} $(H5FLAGS) ${LAPACKFLAGS} ${EFENCEFLAGS} -DPARAMOUTPUT -DTRACK_RES -DOPENMP -DPROFILING -DDEBUG
+DEVEL_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) ${FABULOUSFLAGS} ${LAPACKFLAGS} ${EFENCEFLAGS} -DDEBUG -DPARAMOUTPUT -DTRACK_RES -DFGMRES_RESTEST -DPROFILING -DCOARSE_RES -DSCHWARZ_RES -DTESTVECTOR_ANALYSIS -DOPENMP
 
 all: execs library exec-tests
 execs: $(BINDIR)/DDalphaAMG $(BINDIR)/DDalphaAMG_devel
@@ -68,7 +80,7 @@ install: copy
 .SECONDARY:
 
 $(BINDIR)/DDalphaAMG : $(OBJ)
-	$(CC) $(OPT_VERSION_FLAGS) -o $@ $(OBJ) $(H5LIB) $(LIMELIB) ${EFENCELIB} -lm
+	$(CC) $(OPT_VERSION_FLAGS) -o $@ $(OBJ) $(H5LIB) $(LIMELIB) $(LAPACKLIB) $(EFENCELIB) $(FABULOUSLIB) -lm
 
 DDalphaAMG : $(BINDIR)/DDalphaAMG
 	ln -sf $(BINDIR)/$@ $@
@@ -77,7 +89,7 @@ DDalphaAMG_devel: $(BINDIR)/DDalphaAMG_devel
 	ln -sf $(BINDIR)/$@ $@
 
 $(BINDIR)/DDalphaAMG_devel : $(OBJDB)
-	$(CC) -g $(DEVEL_VERSION_FLAGS) -o $@ $(OBJDB) $(H5LIB) $(LIMELIB) -lm
+	$(CC) -g $(DEVEL_VERSION_FLAGS) -o $@ $(OBJDB) $(H5LIB) $(LIMELIB) $(LAPACKLIB) $(EFENCELIB) $(FABULOUSLIB) -lm
 
 $(LIBDIR)/libDDalphaAMG.a: $(OBJ)
 	ar rc $@ $(OBJ)
@@ -90,7 +102,7 @@ $(LIBDIR)/libDDalphaAMG_devel.a: $(OBJDB)
 	ranlib $@
 
 $(TSTDIR)/%: $(LIB) $(TSTDIR)/%.c
-	$(CC) $(CFLAGS) -o $@ $@.c -I$(INCDIR) -L$(LIBDIR) -lDDalphaAMG $(LIMELIB) -lm 
+	$(CC) $(CFLAGS) -o $@ $@.c -I$(INCDIR) -L$(LIBDIR) -lDDalphaAMG $(LIMELIB) $(LAPACKLIB) $(EFENCELIB) $(FABULOUSLIB) -lm 
 
 $(DOCDIR)/user_doc.pdf: $(DOCDIR)/user_doc.tex $(DOCDIR)/user_doc.bib
 	( cd $(DOCDIR); pdflatex user_doc; bibtex user_doc; pdflatex user_doc; pdflatex user_doc; )
@@ -105,7 +117,7 @@ $(BUILDDIR)/%_devel.o: $(GSRCDIR)/%.c $(SRCDIR)/*.h
 	$(CC) -g $(DEVEL_VERSION_FLAGS) -c $< -o $@
 
 $(BUILDDIR)/%.optrpt: $(GSRCDIR)/%.c $(SRCDIR)/*.h
-        $(CC) $(OPT_VERSION_FLAGS) -qopt-report=3 -c $< 
+	$(CC) $(OPT_VERSION_FLAGS) -qopt-report=3 -c $< 
 
 $(GSRCDIR)/%.h: $(SRCDIR)/%.h $(firstword $(MAKEFILE_LIST))
 	cp $< $@

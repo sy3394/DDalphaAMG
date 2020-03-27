@@ -23,10 +23,9 @@
  */
 
 #include "main.h"
-
+static void mul_test( level_struct *l, struct Thread *threading );
 void test_routine_new( level_struct *l, struct Thread *threading ) {
-  int tmp = g.num_vect_now;
-  g.num_vect_now=num_loop;//g.num_rhs_vect;
+#if 1
   if ( g.method >= 0 ) {
     START_MASTER(threading)
     g.test = 0;
@@ -42,28 +41,31 @@ void test_routine_new( level_struct *l, struct Thread *threading ) {
       printf0("\nRunning tests with D = Wilson operator:\n");
 #endif
     }
+    
     END_MASTER(threading)
+
+      //mul_test( l, threading);
+
     if ( g.mixed_precision ) {
       operator_float_test_routine( &(l->s_float.op), l, threading );
-      if ( g.method > 0 && g.method < 4 ) schwarz_float_mvm_testfun_new( &(l->s_float), l, threading );
-      if ( g.method > 0 && g.method < 4 && g.odd_even ) block_oddeven_float_test_new( l, threading );
+      if ( g.method > 0 && g.method < 5 ) schwarz_float_mvm_testfun_new( &(l->s_float), l, threading );
+      if ( g.method > 0 && g.method < 5 && g.odd_even ) block_oddeven_float_test_new( l, threading );
     } else {
       operator_double_test_routine( &(l->s_double.op), l, threading );
-      if ( g.method > 0 && g.method < 4 ) schwarz_double_mvm_testfun_new( &(l->s_double), l, threading );
-      if ( g.method > 0 && g.method < 4 && g.odd_even ) block_oddeven_double_test_new( l, threading );
+      if ( g.method > 0 && g.method < 5 ) schwarz_double_mvm_testfun_new( &(l->s_double), l, threading );
+      if ( g.method > 0 && g.method < 5 && g.odd_even ) block_oddeven_double_test_new( l, threading );
     }
-    
- /*   if ( g.mixed_precision )
-      vector_float_test_routine( l, threading );
-    else
-      vector_double_test_routine( l, threading );
-*/
+
+#if 1
+    //    START_LOCKED_MASTER(threading)
     if ( g.interpolation && g.method > 0 ) {
       if ( g.mixed_precision )
         coarse_operator_float_test_routine_new( l, threading );
       else
         coarse_operator_double_test_routine_new( l, threading );
     }
+    //    END_LOCKED_MASTER(threading)
+#endif
     START_MASTER(threading)
     if (g.test < 1e-5)
       printf0("TESTS passed, highest error %e < 1e-5\n", g.test);
@@ -73,9 +75,6 @@ void test_routine_new( level_struct *l, struct Thread *threading ) {
     END_MASTER(threading)
   }
   //            error0("STOP\n");
-  START_LOCKED_MASTER(threading)
-  g.num_vect_now=tmp;
-  END_LOCKED_MASTER(threading)
 /*
 #ifdef HAVE_TM1p1
   if( g.n_flavours==1 &&
@@ -124,8 +123,33 @@ void test_routine_new( level_struct *l, struct Thread *threading ) {
   }
 #endif
 */
+#endif
 }
-
+#if 0
+static void mul_test( level_struct *l, struct Thread *threading ) {
+  START_UNTHREADED_FUNCTION(threading)
+  int j, jj;
+  vector_double buf1, buf2;
+  double t=0;
+  vector_double_init(&buf1);vector_double_init(&buf2);
+  vector_double_alloc(&buf1, _INNER, num_loop, l, no_threading);
+  vector_double_alloc(&buf2, _INNER, num_loop, l, no_threading);
+  vector_double_define_random_new(&buf1, 0, l->inner_vector_size, l);
+  vector_double_define_random_new(&buf2, 0, l->inner_vector_size, l);
+  t -=MPI_Wtime();
+  VECTOR_LOOP(j, l->inner_vector_size*num_loop, jj, MUL1_double(buf1.vector_buffer[j+jj], buf2.vector_buffer[j+jj], &(buf1.vector_buffer[j+jj]));)
+  t += MPI_Wtime();
+  printf0("Type 1 Cmplx Mul: %g\n", t);
+  t=0;
+  t -=MPI_Wtime();
+  VECTOR_LOOP(j, l->inner_vector_size*num_loop, jj, buf1.vector_buffer[j+jj] = buf1.vector_buffer[j+jj]*buf2.vector_buffer[j+jj];)
+  t += MPI_Wtime();
+  printf0("Type 2 Cmplx Mul: %g\n", t);
+  vector_double_free(&buf1, l, no_threading);
+  vector_double_free(&buf2, l, no_threading);
+  END_UNTHREADED_FUNCTION(threading)
+}
+#endif 
 
 void prof_init( level_struct *l ) {
   if ( l->depth == 0 ) { g.coarse_time=0; g.coarse_iter_count=0; }

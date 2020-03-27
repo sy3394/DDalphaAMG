@@ -58,7 +58,6 @@ void interpolation_PRECISION_define_new( vector_double *V, level_struct *l, stru
       vector_PRECISION_alloc( &buffer[i], (i==0)?_INNER:_ORDINARY, num_loop, l, threading );
       buffer[i].num_vect_now = num_loop;
     }
-
     START_MASTER(threading)
     if ( g.print > 0 ) printf0("initial definition --- depth: %d\n", l->depth );
 #ifdef DEBUG
@@ -74,18 +73,18 @@ void interpolation_PRECISION_define_new( vector_double *V, level_struct *l, stru
 
       smoother_PRECISION_new( &buffer[1], NULL, &buffer[0], 1, _NO_RES, l, threading );
       vector_PRECISION_copy_new( &buffer[0], &buffer[1], start, end, l );
-      smoother_PRECISION_new( &buffer[1], NULL, &buffer[0], g.method>=4?1:2, _NO_RES, l, threading );
+      smoother_PRECISION_new( &buffer[1], NULL, &buffer[0], g.method >= 5?1:2, _NO_RES, l, threading );
       vector_PRECISION_copy_new( &buffer[0], &buffer[1], start, end, l );
-      smoother_PRECISION_new( &buffer[1], NULL, &buffer[0], g.method>=4?1:3, _NO_RES, l, threading );
+      smoother_PRECISION_new( &buffer[1], NULL, &buffer[0], g.method >= 5?1:3, _NO_RES, l, threading );
       vector_PRECISION_copy2_new( &(l->is_PRECISION.test_vector_vec), &buffer[1], i, num_loop, -1, start, end, l );
-    }
 
 #ifdef DEBUG
-    pc += 6*n;
-    START_MASTER(threading)
-    if ( pc >= 0.2*pi*pn ) { if ( g.print > 0 ) printf0("%4d%% |", 20*pi); if ( g.my_rank == 0 ) fflush(0); pi++; }
-    END_MASTER(threading)
+      pc += 6*num_loop;
+      START_MASTER(threading)
+      if ( pc >= 0.2*pi*pn ) { if ( g.print > 0 ) printf0("%4d%% |", 20*pi); if ( g.my_rank == 0 ) fflush(0); pi++; }
+      END_MASTER(threading)
 #endif
+    }
     for( i=0; i<2; i++)
       vector_PRECISION_free( &buffer[i], l, threading );
     PUBLIC_FREE( buffer, vector_PRECISION, 2 );
@@ -93,7 +92,7 @@ void interpolation_PRECISION_define_new( vector_double *V, level_struct *l, stru
     global_norm_PRECISION_new( beta_r, &(l->is_PRECISION.test_vector_vec), 0, l->inner_vector_size, l, threading );
     VECTOR_LOOP(j, n, jj, beta_c[j+jj] = (complex_PRECISION) beta_r[j+jj];)
     vector_PRECISION_real_scale_new( &(l->is_PRECISION.test_vector_vec), &(l->is_PRECISION.test_vector_vec), beta_c, 0, 1, start, end, l );
-
+    //    printfv_PRECISION(&(l->is_PRECISION.test_vector_vec));
 #ifdef DEBUG
     START_MASTER(threading)
     if ( g.print > 0 ) printf0("\033[0m\n");
@@ -142,7 +141,7 @@ void coarse_grid_correction_PRECISION_setup_new( level_struct *l, struct Thread 
       START_LOCKED_MASTER(threading)
       schwarz_PRECISION_boundary_update( &(l->next_level->s_PRECISION), l->next_level );
       END_LOCKED_MASTER(threading)
-      if ( g.method >= 4 && g.odd_even ) {
+      if ( g.method >= 5 && g.odd_even ) {
         START_LOCKED_MASTER(threading)
 	coarse_oddeven_alloc_PRECISION( l->next_level );//alloc l->next_level->oe_op_PRECISION
         END_LOCKED_MASTER(threading)
@@ -170,7 +169,7 @@ void coarse_grid_correction_PRECISION_setup_new( level_struct *l, struct Thread 
     if ( !l->next_level->idle )
       interpolation_PRECISION_alloc( l->next_level );// set up interpolation_PRECISION_struct *is_PRECISION in l->next_level
     END_LOCKED_MASTER(threading)
-    SYNC_HYPERTHREADS(threading)
+      //SYNC_HYPERTHREADS(threading)
     if ( !l->idle ) {
       START_LOCKED_MASTER(threading)
       //first fill the allocated memory with the random vectors
@@ -204,7 +203,7 @@ void coarse_grid_correction_PRECISION_free( level_struct *l ) {
     if ( !l->next_level->idle ) {
       if ( l->next_level->level > 0 ) {
         schwarz_PRECISION_free( &(l->next_level->s_PRECISION), l->next_level );
-        if ( g.method >= 4 && g.odd_even ) {
+        if ( g.method >= 5 && g.odd_even ) {
           coarse_oddeven_free_PRECISION( l->next_level );
         }
       } else {
@@ -227,10 +226,10 @@ void coarse_grid_correction_PRECISION_free( level_struct *l ) {
 void iterative_PRECISION_setup_new( int setup_iter, level_struct *l, struct Thread *threading ) {
 
   if ( l->depth == 0 ) {
-    switch ( g.interpolation ) {
+    switch ( g.interpolation ) {//??????
       case 2: inv_iter_inv_fcycle_PRECISION_new( setup_iter, l, threading ); break;
       case 3: inv_iter_inv_fcycle_PRECISION_new( setup_iter, l, threading ); break;
-      case 4: read_tv_from_file_PRECISION( l, threading ); break;//if we read test vectors from a file for each level, we should have not done the initial setup of test vectors via smoothing???
+      case 4: read_tv_from_file_PRECISION( l, threading ); break;//if we read test vectors from a file for each level, we should have not done the initial setup of test vectors via smoothing????
       default: inv_iter_2lvl_extension_setup_PRECISION_new( setup_iter, l, threading ); break;
     }
   }
@@ -264,7 +263,7 @@ void re_setup_PRECISION_new( level_struct *l, struct Thread *threading ) {
         START_LOCKED_MASTER(threading)
         schwarz_PRECISION_boundary_update( &(l->next_level->s_PRECISION), l->next_level );
         END_LOCKED_MASTER(threading)
-        if ( g.method >= 4 && g.odd_even ) {
+        if ( g.method >= 5 && g.odd_even ) {
           coarse_oddeven_setup_PRECISION( &(l->next_level->s_PRECISION.op), _REORDER, l->next_level, threading );
         }
       }
@@ -281,10 +280,6 @@ static void test_vector_PRECISION_update_new( int i, level_struct *l, struct Thr
   PRECISION beta[num_loop];
   complex_PRECISION beta_c[num_loop];
 
-  /*
-  if ( nvec != l->p_PRECISION.x.num_vect_now || l->is_PRECISION.test_vector_vec.num_vect < nvec )
-    error0("depth %d: test_vector_PRECISION_update: assumptions are not met %d %d\n", l->depth,l->num_eig_vect, l->p_PRECISION.x.num_vect_now);
-  */
   if ( l->level > 1 )
     test_vector_PRECISION_update_new( i, l->next_level, threading );
   
@@ -309,8 +304,6 @@ static void set_kcycle_tol_PRECISION( PRECISION tol, level_struct *l ) {
     set_kcycle_tol_PRECISION( tol, l->next_level );
 }
 
-//default
-// recursive
 static void inv_iter_2lvl_extension_setup_PRECISION_new( int setup_iter, level_struct *l, struct Thread *threading ) {
   
   if ( !l->idle ) {
@@ -319,21 +312,18 @@ static void inv_iter_2lvl_extension_setup_PRECISION_new( int setup_iter, level_s
     int n_vect = l->num_eig_vect, j, jj;
     PRECISION beta[n_vect];
     complex_PRECISION beta_c[n_vect];
-    // TODO: bugfix - threading, etc
-    error0("inv_iter_2lvl_extension_setup_PRECISION\n");
-    START_LOCKED_MASTER(threading)
+
     vector_PRECISION_init( &buf1 );
-    vector_PRECISION_alloc( &buf1, _ORDINARY, n_vect, l, no_threading );
+    vector_PRECISION_alloc( &buf1, _ORDINARY, num_loop, l, threading );
+    START_LOCKED_MASTER(threading)
     fgmres_PRECISION_struct_init( &gmres );
     fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol, 
                                    _COARSE_GMRES, _NOTHING, NULL, apply_coarse_operator_PRECISION_new, &gmres, l->next_level );
-
-    g.num_vect_now = n_vect;//!!!!!!!!
+    END_LOCKED_MASTER(threading)
     l->is_PRECISION.test_vector_vec.num_vect_now = n_vect;
-    buf1.num_vect_now = n_vect;
-    gmres.x.num_vect_now = n_vect; gmres.b.num_vect_now = n_vect;
     l->is_PRECISION.interpolation_vec.num_vect_now = n_vect;
 
+    START_LOCKED_MASTER(threading)
     if ( g.odd_even && l->next_level->level == 0 )
       gmres.v_end = l->next_level->oe_op_PRECISION.num_even_sites*l->next_level->num_lattice_site_var;
     END_LOCKED_MASTER(threading)
@@ -350,21 +340,28 @@ static void inv_iter_2lvl_extension_setup_PRECISION_new( int setup_iter, level_s
 #endif
       END_MASTER(threading)
 
-      restrict_PRECISION_new( &(gmres.b), &(l->is_PRECISION.test_vector_vec), l, threading );
-      if ( !l->next_level->idle ) {
-	if ( g.odd_even && l->next_level->level == 0 ) {
-	  coarse_solve_odd_even_PRECISION_new( &gmres, &(l->next_level->oe_op_PRECISION), l->next_level, threading );
-	} else {
-	  fgmres_PRECISION( &gmres, l->next_level, threading );
+      //--- update test vectors using newly defined coarse op
+      for ( int i=0; i<n_vect; i += num_loop ) {
+	vector_PRECISION_copy2_new( &buf1, &(l->is_PRECISION.test_vector_vec), i, num_loop, 1, 
+				    threading->start_index[l->depth], threading->end_index[l->depth], l );
+	restrict_PRECISION_new( &(gmres.b), &buf1, l, threading );
+	if ( !l->next_level->idle ) {
+	  if ( g.odd_even && l->next_level->level == 0 ) {
+	    coarse_solve_odd_even_PRECISION_new( &gmres, &(l->next_level->oe_op_PRECISION), l->next_level, threading );
+	  } else {
+	    fgmres_PRECISION( &gmres, l->next_level, threading );
+	  }
 	}
-      }
-      interpolate3_PRECISION_new( &buf1, &(gmres.x), l, threading );
-      smoother_PRECISION_new( &buf1, NULL, &(l->is_PRECISION.test_vector_vec), l->post_smooth_iter, _RES, l, threading );
+	interpolate3_PRECISION_new( &buf1, &(gmres.x), l, threading );
+	smoother_PRECISION_new( &buf1, NULL, &(l->is_PRECISION.test_vector_vec), l->post_smooth_iter, _RES, l, threading );
       
-      global_norm_PRECISION_new( beta, &buf1, 0, l->inner_vector_size, l, threading );
-      VECTOR_LOOP(j, n_vect, jj, beta_c[j+jj] = beta[j+jj];)
-      vector_PRECISION_real_scale_new( &(l->is_PRECISION.test_vector_vec), &buf1, beta_c, 0, 1,
-				       threading->start_index[l->depth], threading->end_index[l->depth], l );
+	global_norm_PRECISION_new( beta, &buf1, 0, l->inner_vector_size, l, threading );
+	VECTOR_LOOP(j, n_vect, jj, beta_c[j+jj] = beta[j+jj];)
+	vector_PRECISION_real_scale_new( &buf1, &buf1, beta_c, 0, 1,
+					 threading->start_index[l->depth], threading->end_index[l->depth], l );
+	vector_PRECISION_copy2_new( &(l->is_PRECISION.test_vector_vec), &buf1, i, num_loop, -1,
+				    threading->start_index[l->depth], threading->end_index[l->depth], l );
+      }
       pc += l->post_smooth_iter;
 #ifdef DEBUG
       START_MASTER(threading)
@@ -377,40 +374,36 @@ static void inv_iter_2lvl_extension_setup_PRECISION_new( int setup_iter, level_s
       printf0("\033[0m\n");
       END_MASTER(threading)
 #endif
-
+      //--- orthonormalize the test vectors aggregate-wise to prepare for defining interpolation op
       vector_PRECISION_copy_new( &(l->is_PRECISION.interpolation_vec), &(l->is_PRECISION.test_vector_vec),
 				 threading->start_index[l->depth], threading->end_index[l->depth], l );
       gram_schmidt_on_aggregates_PRECISION_new( &(l->is_PRECISION.interpolation_vec), l->num_eig_vect, l, threading );
       if ( l->depth > 0 )
         gram_schmidt_on_aggregates_PRECISION_new( &(l->is_PRECISION.interpolation_vec), l->num_eig_vect, l, threading );
       define_interpolation_PRECISION_operator_new( &(l->is_PRECISION.interpolation_vec), l, threading );
+
+      //--- update the coarse op
       START_LOCKED_MASTER(threading)
       coarse_operator_PRECISION_setup_new( &(l->is_PRECISION.interpolation_vec), l );
-
       conf_PRECISION_gather( &(l->next_level->s_PRECISION.op), &(l->next_level->op_PRECISION), l->next_level );
       END_LOCKED_MASTER(threading)
       if ( !l->next_level->idle && l->next_level->level > 0 ) {
         START_LOCKED_MASTER(threading)
         schwarz_PRECISION_boundary_update( &(l->next_level->s_PRECISION), l->next_level );
         END_LOCKED_MASTER(threading)
-        if ( g.method >= 4 && g.odd_even ) {
+        if ( g.method >= 5 && g.odd_even )
           coarse_oddeven_setup_PRECISION( &(l->next_level->s_PRECISION.op), _REORDER, l->next_level, threading );
-        } else {
-          coarse_operator_PRECISION_set_couplings( &(l->next_level->s_PRECISION.op), l->next_level, threading );
-        }
       }
-      if ( !l->next_level->idle && l->next_level->level == 0 && g.odd_even ) {
+      if ( !l->next_level->idle && l->next_level->level == 0 && g.odd_even )
         coarse_oddeven_setup_PRECISION( &(l->next_level->s_PRECISION.op), _NO_REORDERING, l->next_level, threading );
-      } else if ( !l->next_level->idle && l->next_level->level == 0 ) {
-        coarse_operator_PRECISION_set_couplings( &(l->next_level->s_PRECISION.op), l->next_level, threading );
-      }
-    }
+    }//END:for ( int k=0; k<setup_iter; k++ 
     
+    //--- dive one level down
     if ( l->level > 1 )
       inv_iter_2lvl_extension_setup_PRECISION_new( setup_iter, l->next_level, threading );
 
+    vector_PRECISION_free( &buf1, l, threading );
     START_LOCKED_MASTER(threading)
-    vector_PRECISION_free( &buf1, l, no_threading );
     fgmres_PRECISION_struct_free( &gmres, l );
     END_LOCKED_MASTER(threading)
   }
@@ -425,7 +418,7 @@ static void inv_iter_inv_fcycle_PRECISION_new( int setup_iter, level_struct *l, 
   SYNC_MASTER_TO_ALL(threading)
 
   int nvec = l->num_eig_vect;
-  l->p_PRECISION.x.num_vect_now = num_loop;//nvec;
+  l->p_PRECISION.x.num_vect_now = num_loop;
   
   if ( !l->idle ) {
     for ( int j=0; j<setup_iter; j++ ) {
@@ -441,8 +434,8 @@ static void inv_iter_inv_fcycle_PRECISION_new( int setup_iter, level_struct *l, 
 #endif
       END_LOCKED_MASTER(threading)
 
-      gram_schmidt_PRECISION_new( &(l->is_PRECISION.test_vector_vec), l->num_eig_vect, l, threading );
-#if 0 //  TEST000 //not written for hybrid MPI
+	gram_schmidt_PRECISION_new( &(l->is_PRECISION.test_vector_vec), l->num_eig_vect, l, threading );
+#if 0
       complex_PRECISION *buffer = NULL;
       PUBLIC_MALLOC( buffer, complex_PRECISION, 2*l->num_eig_vect );
       int jj, jjj;
@@ -469,19 +462,18 @@ static void inv_iter_inv_fcycle_PRECISION_new( int setup_iter, level_struct *l, 
       vector_PRECISION_alloc( &buf, _INNER, num_loop, l, threading );
       buf.num_vect_now = num_loop;
       for ( int i=0; i<nvec; i += num_loop ) {
-        vector_PRECISION_copy2_new( &buf, &(l->is_PRECISION.test_vector_vec), i, num_loop, 1, start, end, l );	
+        vector_PRECISION_copy2_new( &buf, &(l->is_PRECISION.test_vector_vec), i, num_loop, 1, start, end, l );	//printfv_PRECISION(&buf);
 	// apply K-cycle
 	vcycle_PRECISION_new( &(l->p_PRECISION.x), NULL, &buf, _NO_RES, l, threading );
 	test_vector_PRECISION_update_new( i, l, threading );
-      }
 
-      pc += l->post_smooth_iter;
+	pc += l->post_smooth_iter*num_loop;
 #ifdef DEBUG
-      START_MASTER(threading)
-      if ( pc >= (int)((0.2*pi)*pn) ) { if ( g.print > 0 ) { printf0("%4d%% |", 20*pi); if ( g.my_rank == 0 ) fflush(0); } pi++; }
-      END_MASTER(threading)
+	START_MASTER(threading)
+	if ( pc >= (int)((0.2*pi)*pn) ) { if ( g.print > 0 ) { printf0("%4d%% |", 20*pi); if ( g.my_rank == 0 ) fflush(0); } pi++; }
+	END_MASTER(threading)
 #endif
-
+      }
 #ifdef DEBUG
       START_MASTER(threading)
       if ( g.print > 0 ) printf0("\033[0m\n");
@@ -518,8 +510,10 @@ static  void read_tv_from_file_PRECISION( level_struct *l, struct Thread *thread
       vector_double_alloc( &(l->x), _INNER, l->num_eig_vect, l, no_threading );
       l->x.num_vect_now = l->num_eig_vect;
       vector_io_single_file( NULL, NULL, g.tv_io_file_name, _READ, l->num_eig_vect, "test vectors", l );
+      vector_double_free( &(l->x), l, no_threading );
       END_LOCKED_MASTER(threading)
       re_setup_PRECISION_new( l, threading );
+      
     } else {
       START_LOCKED_MASTER(threading)
 

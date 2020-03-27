@@ -119,19 +119,6 @@ typedef struct Thread
 #define END_UNTHREADED_FUNCTION(threading) \
     CORE_BARRIER(threading);
 
-/* Only one thread (master) will execute the code section between
-   START_LOCKED_MASTER and END_LOCKED_MASTER, and it is protected by barriers
-   among cores to prevent data races */
-// not syncing hyperthread?????
-#define START_LOCKED_MASTER(threading) \
-    if(threading->thread == 0) \
-        CORE_BARRIER(threading); \
-    if(threading->core + threading->thread == 0) {
-#define END_LOCKED_MASTER(threading) \
-    } \
-    if(threading->thread == 0) \
-        CORE_BARRIER(threading);
-
 #define MASTER(threading) \
     if(threading->core + threading->thread == 0)
 #define START_MASTER(threading) \
@@ -155,6 +142,18 @@ typedef struct Thread
 #define END_NO_HYPERTHREADS(threading) \
     }
 
+/* Only one thread (master) will execute the code section between
+   START_LOCKED_MASTER and END_LOCKED_MASTER, and it is protected by barriers
+   among cores to prevent data races */
+#define START_LOCKED_MASTER(threading) \
+    if(threading->thread == 0) \
+        CORE_BARRIER(threading); \
+    if(threading->core + threading->thread == 0) {
+#define END_LOCKED_MASTER(threading) \
+    } \
+    if(threading->thread == 0) \
+        CORE_BARRIER(threading);\
+    SYNC_HYPERTHREADS(threading)
 
 #ifdef OPENMP
 #include <omp.h>

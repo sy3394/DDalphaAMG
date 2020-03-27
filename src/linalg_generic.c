@@ -27,7 +27,7 @@
 
 void global_norm_PRECISION_new( PRECISION *res, vector_PRECISION *x, int start, int end, level_struct *l, struct Thread *threading ) {
 
-  int i, j, jj, nvec = x->num_vect_now;//!!!!!!!!!!!  
+  int i, j, jj, nvec = x->num_vect_now;
   int thread = omp_get_thread_num();
   PRECISION global_alpha[nvec];
 
@@ -36,15 +36,11 @@ void global_norm_PRECISION_new( PRECISION *res, vector_PRECISION *x, int start, 
 
   //thread == core here: distribute entries from start to end among cores
   int core_start, core_end;
-#ifdef CLOOP
-  compute_core_start_end(start, end, &core_start, &core_end, l, threading); 
-#else
-  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, num_loop);
-#endif
+  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, l->num_lattice_site_var );//num_loop);
 
   VECTOR_LOOP(j, nvec, jj, res[j+jj]=0;)
 
-  SYNC_CORES(threading)//????necessary? in the original   
+    //SYNC_CORES(threading)//????necessary? in the original   
   for( i=core_start; i<core_end; i++)
     VECTOR_LOOP(j, nvec, jj, res[j+jj] += NORM_SQUARE_PRECISION(x->vector_buffer[i*x->num_vect+j+jj]);)
 
@@ -87,19 +83,15 @@ void global_inner_product_PRECISION_new( complex_PRECISION *results, vector_PREC
 
   PROF_PRECISION_START( _GIP, threading );
   int i, j, jj, nvec = phi->num_vect_now;
-  complex_PRECISION local_alpha[nvec], global_alpha[nvec];
+  complex_PRECISION local_alpha[nvec], global_alpha[nvec];//local_alpha not necessary!!!!
  
   VECTOR_LOOP( j, nvec, jj, local_alpha[j+jj]=0; global_alpha[j+jj]=0; )
 
   int thread_start;
   int thread_end;
-#ifdef CLOOP
-  compute_core_start_end(start, end, &thread_start, &thread_end, l, threading);
-#else
-  compute_core_start_end_custom(start, end, &thread_start, &thread_end, l, threading, num_loop);
-#endif
+  compute_core_start_end_custom(start, end, &thread_start, &thread_end, l, threading, l->num_lattice_site_var );//num_loop);
   
-  SYNC_CORES(threading)
+  //SYNC_CORES(threading)
   for( i=thread_start; i<thread_end; i++){
     VECTOR_LOOP( j, nvec, jj, local_alpha[j+jj] += conj_PRECISION(phi->vector_buffer[i*phi->num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj]; )
   }
@@ -148,17 +140,14 @@ void process_multi_inner_product_PRECISION_new( int count, complex_PRECISION *re
    *****************************************/
 
   int core_start, core_end;
-#ifdef CLOOP
-    compute_core_start_end(start, end, &core_start, &core_end, l, threading);
-#else
-  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, num_loop);
-#endif
+  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, l->num_lattice_site_var);
+
   int thread = omp_get_thread_num();
   if(thread == 0 && core_start != core_end)
     PROF_PRECISION_START( _PIP, threading );
 
-  SYNC_CORES(threading)//????necessary? in the original  
-  int i, c, j, jj, nvec = psi->num_vect_now;//change!!!!!!!!
+  //SYNC_CORES(threading)//????necessary? in the original  
+  int i, c, j, jj, nvec = psi->num_vect_now;
   VECTOR_LOOP(j, count*nvec, jj, results[j+jj] = 0.0;)
 
   for( c = 0; c<count; c++ ){
@@ -212,9 +201,9 @@ void gram_schmidt_PRECISION_new( vector_PRECISION *V, const int nvec, level_stru
   /*****************************
    * a set of vectors in V are orthonormalized
    * nvec: #first vectors in the set to be orthonormalized
+   * NOTE: only thread safe, if "buffer" is the same buffer for all threads belonging to a common MPI process
    *****************************/
 
-  // NOTE: only thread safe, if "buffer" is the same buffer for all threads belonging to a common MPI process
   START_MASTER(threading)
   PROF_PRECISION_START( _LA );
   END_MASTER(threading)
@@ -224,12 +213,7 @@ void gram_schmidt_PRECISION_new( vector_PRECISION *V, const int nvec, level_stru
   PRECISION norm;
   complex_PRECISION local_alpha, global_alpha; 
   
-#ifdef CLOOP
-  compute_core_start_end(0, l->inner_vector_size, &start, &end, l, threading);
-#else
-  compute_core_start_end_custom(0, l->inner_vector_size, &start, &end, l, threading, num_loop);
-#endif
-  //  compute_core_start_end_custom( 0, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );//???????
+  compute_core_start_end_custom(0, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );
 
   if ( V->layout != _NVEC_INNER )
     error0("gram_schmidt_PRECISION: assumptions are not met\n");
@@ -307,7 +291,6 @@ void gram_schmidt_PRECISION_new( vector_PRECISION *V, const int nvec, level_stru
     }
     
     // divide v_i by its norm
-    //    global_alpha = 1/sqrt(global_alpha);
     for( k=start; k<end; k++) // for each core: do we need to divide into two parts like in aggregate version????????
       V->vector_buffer[k*V->num_vect+i] /= sqrt(global_alpha);
   }
@@ -346,7 +329,7 @@ void gram_schmidt_on_aggregates_PRECISION_new( vector_PRECISION *phi, const int 
 	alpha1 = 0; alpha2 = 0;
 	  // V[k1] -= <V[k2],V[k1]> V[k2] | 2*j-th and 2*j+1-st aggregate
         for ( i=0; i<aggregate_size; ) {
-          for ( k=0; k<offset; k++, i++ )//?????
+          for ( k=0; k<offset; k++, i++ )
 	    alpha1 += conj_PRECISION(phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k2]) * phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k1];
           for ( k=0; k<offset; k++, i++ )
             alpha2 += conj_PRECISION(phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k2]) * phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k1];
@@ -365,7 +348,7 @@ void gram_schmidt_on_aggregates_PRECISION_new( vector_PRECISION *phi, const int 
         for ( k=0; k<offset; k++, i++ )
           norm1 += NORM_SQUARE_PRECISION(phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k1]);
         for ( k=0; k<offset; k++, i++ )
-          norm2 += NORM_SQUARE_PRECISION(phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k1]);//!!!!!!
+          norm2 += NORM_SQUARE_PRECISION(phi->vector_buffer[(j*aggregate_size+i)*nvec_phi+k1]);
       }
 
       norm1 = 1/sqrt(norm1); norm2 = 1/sqrt(norm2);

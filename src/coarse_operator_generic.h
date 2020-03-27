@@ -32,10 +32,6 @@
   void coarse_operator_PRECISION_setup_new( vector_PRECISION *V, level_struct *l );
   void coarse_operator_PRECISION_setup_finalize( level_struct *l, struct Thread *threading );
 
-void coarse_operator_PRECISION_set_couplings( operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ); // not effect!!! for SSE
-void coarse_operator_PRECISION_set_self_couplings( operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );// not effect!!! for SSE
-void coarse_operator_PRECISION_set_neighbor_couplings( operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );// not effect!!! for SSE
-
   void coarse_self_couplings_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, int start, int end, level_struct *l );
   void coarse_block_operator_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int start,
                                         schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );

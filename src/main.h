@@ -30,53 +30,59 @@
 #include <math.h>
 #include <time.h>
 #include <stdarg.h>
+#include <fabulous.h>
 
 #ifndef MAIN_HEADER
   #define MAIN_HEADER
 
-  // macros
-  #define num_loop 4
+  #define STRINGLENGTH 500
+  #define _FILE_OFFSET_BITS 64
+  #define EPS_float 1E-6
+  #define EPS_double 1E-14
 
+  #define HAVE_TM       // flag for enable twisted mass
+  //#define HAVE_TM1p1    // flag for enable doublet for twisted mass
+  #define INIT_ONE_PREC // flag undef for enabling additional features in the lib
+
+  #define num_loop 4
+  #define SIMD_byte 32
+#define MUN_C
   #if num_loop == 1
     #define VECTOR_LOOP(j, jmax, jj, instructions) for( j=0; j<jmax; j++) { jj=0; instructions; }
   #else
     #define VECTOR_LOOP(j, jmax, jj, instructions) for( j=0; j<jmax; j+=num_loop) {_Pragma("unroll") _Pragma("vector aligned") _Pragma("ivdep") for( jj=0; jj<num_loop; jj++) { instructions; }} 
   #endif
 
-  #define STRINGLENGTH 500
-  
-  #define _FILE_OFFSET_BITS 64
-  #define EPS_float 1E-6
-  #define EPS_double 1E-14
-
-  #define HAVE_TM      // flag for enable twisted mass
-  //#define HAVE_TM1p1   // flag for enable doublet for twisted mass
-
-  #define INIT_ONE_PREC // flag undef for enabling additional features in the lib
-
   // These explicit repetitions are faster than for-loops.
   #define FORN( N, e ) _Pragma( "unroll (N)" ) for(int i=0; i < N; i++){ e }; // suggestion
   #define FOR2( e )  { e e }
-  #define FOR3( e )  { e e e }
-  #define FOR4( e )  { e e e e }
   #define FOR6( e )  { e e e  e e e }
-  #define FOR10( e ) { e e e e e  e e e e e }
-  #define FOR12( e ) { e e e  e e e  e e e  e e e }
-  #define FOR20( e ) { FOR10( e ) FOR10( e )  }
-  #define FOR24( e ) { FOR12( e ) FOR12( e ) }
-  #define FOR36( e ) { FOR12( e ) FOR12( e ) FOR12( e ) }
-  #define FOR40( e ) { FOR20( e ) FOR20( e ) }
-  #define FOR42( e ) { FOR36( e ) FOR6( e ) }
-  
+  #define FOR12( e ) { e e e  e e e  e e e  e e e }       // used only in the master thread
+  #define FOR36( e ) { FOR12( e ) FOR12( e ) FOR12( e ) } // used only in the master thread
+  #define FOR42( e ) { FOR36( e ) FOR6( e ) }             // used only in the master thread
+  #define VECTOR_FOR( start, end, expression, update, l ) do{ \
+            if ( l->depth == 0 ) {				      \
+	      for ( start; end; )				      \
+		FOR12( expression; update; )			      \
+		  } else {					      \
+	      for ( start; end; )				      \
+		FOR2( expression; update; )			      \
+		  }						      \
+          } while(0)
+
   #define SQUARE( e ) (e)*(e)
   #define NORM_SQUARE_float( e ) SQUARE(crealf( e ))+SQUARE(cimagf( e ))
   #define NORM_SQUARE_double( e ) SQUARE(creal( e ))+SQUARE(cimag( e ))
   #define CSPLIT( e ) creal(e), cimag(e)
-  
+
   #define MPI_double MPI_DOUBLE
   #define MPI_float MPI_FLOAT
   #define MPI_COMPLEX_double MPI_DOUBLE_COMPLEX
   #define MPI_COMPLEX_float MPI_COMPLEX
+  #define FABULOUS_REAL_float FABULOUS_REAL_FLOAT 
+  #define FABULOUS_REAL_double FABULOUS_REAL_DOUBLE 
+  #define FABULOUS_COMPLEX_float FABULOUS_COMPLEX_FLOAT
+  #define FABULOUS_COMPLEX_double FABULOUS_COMPLEX_DOUBLE
   #define I _Complex_I
   #define conj_double conj
   #define conj_float conjf
@@ -99,6 +105,7 @@
   //  printf("malloc of %s (%s:%d) kind: %s length: %d\n",#variable, __FILE__, (int)__LINE__, #kind, (int) length); \
   //printf("free of %s (%s:%d) kind: %s length: %d\n",#variable, __FILE__, (int)__LINE__, #kind, (int) length); \
 
+  // I temporaly replaced malloc by _mm_malloc; I might need to use this function only in some selected MALLOC statement!!!!
   #define MALLOC( variable, kind, length ) do{ if ( variable != NULL ) { \
   printf0("malloc of \"%s\" failed: pointer is not NULL (%s:%d).\n", #variable, __FILE__, __LINE__ ); } \
   if ( (length) > 0 ) { variable = (kind*) malloc( sizeof(kind) * (length) ); } \
@@ -112,6 +119,19 @@
   free( variable ); variable = NULL; g.cur_storage -= (sizeof(kind) * (length))/(1024.0*1024.0); } else { \
   printf0("multiple free of \"%s\"? pointer is already NULL (%s:%d).\n", #variable, __FILE__, __LINE__ ); } }while(0)
 
+  // if -std=c11 has been chosen, can use aligned_alloc; the following is Intel compiler specific
+  #define ALI_MALLOC( variable, kind, length ) do{ if ( variable != NULL ) { \
+    printf0("malloc of \"%s\" failed: pointer is not NULL (%s:%d).\n", #variable, __FILE__, __LINE__ ); } \
+    if ( (length) > 0 ) { variable = (kind*) _mm_malloc( sizeof(kind) * (length), SIMD_byte ); } \
+    if ( variable == NULL && (length) > 0 ) { \
+    error0("malloc of \"%s\" failed: no memory allocated (%s:%d), current memory used: %lf GB.\n", \
+	   #variable, __FILE__, __LINE__, g.cur_storage/1024.0 ); }	\
+    g.cur_storage += (sizeof(kind) * (length))/(1024.0*1024.0); \
+    if ( g.cur_storage > g.max_storage ) g.max_storage = g.cur_storage; }while(0)
+
+  #define ALI_FREE( variable, kind, length ) do{ if ( variable != NULL ) { \
+    _mm_free( variable ); variable = NULL; g.cur_storage -= (sizeof(kind) * (length))/(1024.0*1024.0); } else { \
+    printf0("multiple free of \"%s\"? pointer is already NULL (%s:%d).\n", #variable, __FILE__, __LINE__ ); } }while(0)
 
   // allocate and deallocate macros (hugepages, aligned)
   #include <fcntl.h>
@@ -146,6 +166,13 @@
   #define PUBLIC_FREE( variable, kind, size ) do{ SYNC_MASTER_TO_ALL(threading) \
   START_MASTER(threading) FREE( variable, kind, size ); END_MASTER(threading) SYNC_MASTER_TO_ALL(threading) variable = NULL; }while(0)
   
+  #define ALI_PUBLIC_MALLOC( variable, kind, size ) do{ START_MASTER(threading) ALI_MALLOC( variable, kind, size ); \
+  ((kind**)threading->workspace)[0] = variable; END_MASTER(threading) SYNC_MASTER_TO_ALL(threading) \
+  variable = ((kind**)threading->workspace)[0]; SYNC_MASTER_TO_ALL(threading) }while(0)
+
+  #define ALI_PUBLIC_FREE( variable, kind, size ) do{ SYNC_MASTER_TO_ALL(threading) \
+  START_MASTER(threading) ALI_FREE( variable, kind, size ); END_MASTER(threading) SYNC_MASTER_TO_ALL(threading) variable = NULL; }while(0)
+
   #define PUBLIC_MALLOC2( variable, kind, size, thrdng ) do{ START_MASTER(thrdng) MALLOC( variable, kind, size ); \
   ((kind**)thrdng->workspace)[0] = variable; END_MASTER(thrdng) SYNC_MASTER_TO_ALL(thrdng) \
   variable = ((kind**)thrdng->workspace)[0]; SYNC_MASTER_TO_ALL(thrdng) }while(0)
@@ -205,7 +232,7 @@
   enum { _VTS = 20 };
   enum { _TRCKD_VAL, _STP_TIME, _SLV_ITER, _SLV_TIME, _CRS_ITER, _CRS_TIME, _SLV_ERR, _CGNR_ERR, _NUM_OPTB };
   enum { _NVEC_OUTER, _NVEC_INNER }; //vector layout: spin first; vector first
-
+  enum { _DEFAULT, _GCR, _IB, _DR, _IBDR, _QR, _QRIB, _QRDR, _QRIBDR };
 
   // structures
   typedef struct block_struct {
@@ -292,6 +319,9 @@
     // dummy gmres struct
     gmres_float_struct dummy_p_float;
     gmres_double_struct dummy_p_double;
+    // fabulous solver
+    fabulous_float_struct fab_float;
+    fabulous_double_struct fab_double;
     //profiling
     profiling_float_struct prof_float;
     profiling_double_struct prof_double;
@@ -350,6 +380,12 @@
     gmres_MP_struct p_MP;
     operator_double_struct op_double;
     operator_float_struct op_float;
+
+    fabulous_float_struct fab_float;
+    fabulous_double_struct fab_double;
+    int f_solver;
+    fabulous_orthoscheme f_orthoscheme;
+    fabulous_orthotype f_orthotype;
 
     // communication
     MPI_Comm comm_cart;
@@ -549,6 +585,8 @@ static inline void printfv_double ( vector_double *v ) {
 #include "main_post_def_double.h"
 #include "vector_float.h"
 #include "vector_double.h"
+#include "fabulous_float.h"
+#include "fabulous_double.h"
 #ifdef HAVE_LIME
 #include <lime.h>
 #include <lime_config.h>

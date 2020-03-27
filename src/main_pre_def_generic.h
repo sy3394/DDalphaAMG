@@ -22,10 +22,22 @@
 
 #ifndef MAIN_PRE_DEF_PRECISION_HEADER
   #define MAIN_PRE_DEF_PRECISION_HEADER
+  
 
+#if 1
   typedef PRECISION complex complex_PRECISION;
   typedef PRECISION complex *config_PRECISION;
   typedef PRECISION complex *buffer_PRECISION;
+#else
+typedef struct {
+  PRECISION real;
+  PRECISION imag;
+} PRECISION_complex;
+
+typedef PRECISION_complex complex_PRECISION;
+typedef PRECISION_complex *config_PRECISION;
+typedef PRECISION_complex *buffer_PRECISION;
+#endif
 
   typedef struct {
     buffer_PRECISION vector_buffer;
@@ -34,7 +46,7 @@
     int layout;
     int type;
     int size;
-    int start, end;//not needed
+    int start, end;//not needed!!!!!!
     struct level_struct *l;
   } vector_PRECISION;
 
@@ -114,7 +126,18 @@ typedef struct {//operator column major?????? no!!!!
     vector_PRECISION *bootstrap_vector, tmp, test_vector_vec, interpolation_vec;//*test_vector, *interpolatio
     complex_PRECISION *operator, *eigenvalues, *bootstrap_eigenvalues;
   } interpolation_PRECISION_struct;
-  
+
+  typedef struct {
+    int dim, nrhs, ldb, ldx, k;
+    void *eigvals;
+    vector_PRECISION B, X, B0, X0, C0;
+    void (*apply_op_PRECISION)( vector_PRECISION *, vector_PRECISION *, operator_PRECISION_struct *, struct level_struct *, struct Thread * );
+    fabulous_handle handle;
+    operator_PRECISION_struct *op;
+    struct level_struct *l;
+    struct Thread *threading;
+  } fabulous_PRECISION_struct;
+
   typedef struct {
     double time[_NUM_PROF];
     double flop[_NUM_PROF];

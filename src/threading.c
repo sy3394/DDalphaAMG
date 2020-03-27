@@ -148,9 +148,8 @@ void finalize_no_threading( struct Thread *no_threading ) {
 void compute_core_start_end(int start, int end, int *core_start, int *core_end,
         struct level_struct *l, struct Thread *threading)
 {
-    // due to loop unrolling in low level functions
-  int min_per_core = 3*40; // minimum entries per core
-  // where is this used and how this becomes critical??????
+  // due to loop unrolling in low level functions, we set minimum entries per core
+  int min_per_core = 1;//num_loop;
   compute_core_start_end_custom(start, end, core_start, core_end, l, threading, min_per_core);
 }
 
@@ -161,12 +160,15 @@ void compute_core_start_end_custom(int start, int end, int *core_start, int *cor
    * distribute vector entries from start to end among cores
    *******************/
 
-  if(threading->thread != 0) //why????
+  if(threading->thread != 0) 
     {
         *core_start = 0;
         *core_end = 0;
         return;
     }
+  if ( (end-start)%granularity != 0 )//could rise seg fault as error'0' is used.
+    error0("compute_core_start_end_custom: each core needs multiple of %d entries\n", granularity);
+
   // compute start and end indices for vector functions depending on thread
   *core_start = start;
   *core_end   = end;
@@ -175,21 +177,33 @@ void compute_core_start_end_custom(int start, int end, int *core_start, int *cor
   int min_per_core = granularity; // why did you redefine????
   
   int length   = end-start;
+#if 0
   int per_core = ceil(((double)length/min_per_core)/threading->n_core)*min_per_core;
   int cores;  // #cores to which per_core entries are assigned; there could be one extra core for taking care of reminder
-
   if(per_core != 0)
     cores = length/per_core;
   else
     cores = 0;
-  // there might be a remainder for one extra core
   int remainder = length - cores*per_core;
   
   *core_start += per_core*threading->core;
   *core_end = *core_start;
   if(threading->core < cores)
-        *core_end += per_core;
+    *core_end += per_core;
   else if(threading->core == cores)
     *core_end += remainder;
+#else
+  int per_core = floor(((double)length/min_per_core)/threading->n_core)*min_per_core;
+  int n_core_rem = (length-per_core*threading->n_core)/min_per_core;
+  //  printf0("%d: %d %d %d %d %d\n",threading->core,length,per_core,threading->n_core,n_core_rem, min_per_core);
+  if( threading->core < n_core_rem ) {
+    *core_start += (per_core+min_per_core)*threading->core;
+    *core_end = *core_start+per_core+min_per_core;
+  } else {
+    *core_start += min_per_core*n_core_rem+per_core*threading->core;
+    *core_end = *core_start+per_core;
+  }
+  //  printf0("%d: %d %d %d %d %d %d\n",threading->core,length,per_core,threading->n_core, start, *core_start, *core_end);
+#endif
 }
 

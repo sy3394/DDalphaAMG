@@ -42,7 +42,7 @@ void oddeven_setup_PRECISION( operator_double_struct *in, level_struct *l ) {
 /*********************************************************************************
 * Reorder data layouts and index tables to allow for odd even preconditioning.
 *********************************************************************************/ 
-  
+
   int j, k, k_e, k_o, n=l->num_inner_lattice_sites, oe_offset=0, mu, nu, nvec,
     sc_size = g.csw ? 42:12, lu_dec_size = 42, bs, **bt = NULL,
       *eot = NULL, *nt = NULL, *tt = NULL, t, z, y, x, le[4], N[4];
@@ -771,7 +771,7 @@ void apply_schur_complement_PRECISION_new( vector_PRECISION *out, vector_PRECISI
 
   // start and end indices for vector functions depending on thread
   int start_even, end_even, start_odd, end_odd;
-  
+
   compute_core_start_end_custom(0, op->num_even_sites*l->num_lattice_site_var, &start_even, &end_even, l, threading, l->num_lattice_site_var );
   compute_core_start_end_custom(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start_odd, &end_odd, l, threading, l->num_lattice_site_var );
   
@@ -788,10 +788,10 @@ void apply_schur_complement_PRECISION_new( vector_PRECISION *out, vector_PRECISI
   PROF_PRECISION_START( _NC, threading );
   
   PROF_PRECISION_START( _SC, threading );
-  diag_ee_PRECISION_new( out, in, op, l, start_even, end_even );
+  diag_ee_PRECISION_new( out, in, op, l, start_even, end_even );//printf0("lll2\n");fflush(stdout);
   SYNC_CORES(threading)
   PROF_PRECISION_STOP( _SC, 1, threading );
-  hopping_term_PRECISION_new( &tmp[0], in, op, _ODD_SITES, l, threading );
+  hopping_term_PRECISION_new( &tmp[0], in, op, _ODD_SITES, l, threading );//printf0("lll3\n");fflush(stdout);
   PROF_PRECISION_STOP( _NC, 0, threading );
   
   PROF_PRECISION_START( _SC, threading );
@@ -863,7 +863,7 @@ static void diag_oo_PRECISION_new( vector_PRECISION *y, vector_PRECISION *x, ope
   } else {
 #endif*/
     int i, n1 = op->num_even_sites, n2 = op->num_odd_sites;
-  int j, jj, nvec = x->num_vect_now, nvec_x = x->num_vect, nvec_y = y->num_vect;
+    int j, jj, nvec = x->num_vect_now, nvec_x = x->num_vect, nvec_y = y->num_vect;
 
     if ( nvec_y < nvec )
       error0("diag_oo_PRECISION: assumptions are not met\n");
@@ -936,7 +936,8 @@ void solve_oddeven_PRECISION_new( gmres_PRECISION_struct *p, operator_PRECISION_
   // start and end indices for vector functions depending on thread
   int start;
   int end;
-  compute_core_start_end(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start, &end, l, threading);
+  //compute_core_start_end(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start, &end, l, threading);
+  compute_core_start_end_custom(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );
 
   int j, jj, nvec = num_loop;//g.num_vect_now;//!!!!!!!!
   complex_PRECISION factor[nvec];
@@ -956,9 +957,9 @@ void solve_oddeven_PRECISION_new( gmres_PRECISION_struct *p, operator_PRECISION_
   hopping_term_PRECISION_new( &(p->b), &tmp, op, _EVEN_SITES, l, threading );
   PROF_PRECISION_STOP( _NC, 0, threading );
   
-  if ( g.method == 4 )
+  if ( g.method == 5 )//this func. is called only from preconditioner and if g.method==4, this func. is not called!!!!!??????
     fgmres_PRECISION( p, l, threading );
-  else if ( g.method == 5 )
+  else if ( g.method == 6 )
     bicgstab_PRECISION( p, l, threading );
   diag_oo_inv_PRECISION_new( &(p->x), &(p->b), op, l, start, end );
   
@@ -987,8 +988,9 @@ void oddeven_to_serial_PRECISION_new( vector_double *out, vector_PRECISION *in, 
   int i, j, k, jj, jjj;
   int nvec = in->num_vect_now, nvec_in = in->num_vect, nvec_out = out->num_vect;
   int nsv = l->num_lattice_site_var, *tt = l->oe_op_PRECISION.translation_table;
-  int start = threading->start_site[l->depth];
-  int end   = threading->end_site[l->depth];
+  int start;// = threading->start_site[l->depth];
+  int end;//   = threading->end_site[l->depth];
+  compute_core_start_end_custom(0, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );
 
   if ( nvec_out < nvec )
     error0("oddeven_to_serial_PRECISION: assumptions are not met\n");
@@ -1016,8 +1018,9 @@ void serial_to_oddeven_PRECISION_new( vector_PRECISION *out, vector_double *in, 
   int i, j, k, jj, jjj;
   int nvec = in->num_vect_now, nvec_in = in->num_vect, nvec_out = out->num_vect;
   int nsv = l->num_lattice_site_var, *tt = l->oe_op_PRECISION.translation_table;
-  int start = threading->start_site[l->depth];
-  int end   = threading->end_site[l->depth];
+  int start;// = threading->start_site[l->depth];
+  int end;//   = threading->end_site[l->depth];
+  compute_core_start_end_custom(0, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );
 
   if ( nvec_out < nvec )
     error0("oddeven_to_serial_PRECISION: assumptions are not met\n");

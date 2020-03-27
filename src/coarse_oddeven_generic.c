@@ -125,7 +125,7 @@ void coarse_oddeven_setup_PRECISION( operator_PRECISION_struct *in, int reorder,
   operator_PRECISION_struct *op = &(l->oe_op_PRECISION);
 
   START_LOCKED_MASTER(threading)
-    int ns=l->num_inner_lattice_sites, nv = l->num_parent_eig_vect, i,
+  int ns=l->num_inner_lattice_sites, nv = l->num_parent_eig_vect, i,
     D_size = 4*SQUARE(2*nv),
     clover_size = (nv)*(nv*2+1),
     block_size = (nv)*(nv+1);
@@ -192,9 +192,9 @@ void coarse_oddeven_setup_PRECISION( operator_PRECISION_struct *in, int reorder,
 #ifdef HAVE_TM1p1
   epsbar_term_PRECISION_setup( in->epsbar, in->epsbar_ig5_even_shift, in->epsbar_ig5_odd_shift, op, l, threading );
 #endif
-  
-  coarse_oddeven_PRECISION_set_self_couplings( l, threading );
-  
+
+  coarse_oddeven_PRECISION_set_self_couplings( l, threading );//this is the src of OpenMP issue
+
 }
 
 void coarse_oddeven_PRECISION_set_self_couplings( level_struct *l, struct Thread *threading ) {
@@ -204,6 +204,7 @@ void coarse_oddeven_PRECISION_set_self_couplings( level_struct *l, struct Thread
 
   compute_core_start_end_custom( 0, op->num_odd_sites, &start, &end, l, threading, 1);
 
+  SYNC_CORES(threading)//debug!!!!
   int size = SQUARE(2*nv);
   for( int i=start; i<end; i++ )
     coarse_selfcoupling_LU_decomposition_PRECISION( op->clover_oo_inv+i*size, op, op->num_even_sites+i, l );
@@ -214,6 +215,7 @@ void coarse_oddeven_PRECISION_set_self_couplings( level_struct *l, struct Thread
     coarse_selfcoupling_LU_doublet_decomposition_PRECISION( op->clover_doublet_oo_inv+i*size_doublet, op, 
                                                             op->num_even_sites+i, l );
 #endif
+
 }
 
 
@@ -489,7 +491,7 @@ void coarse_hopping_term_PRECISION_new( vector_PRECISION *out, vector_PRECISION 
   
   START_MASTER(threading)
   if ( op->c.comm ) {
-    g.num_vect_pass2 = nvec_in;//!!!!!!!!!
+    g.num_vect_pass2 = nvec_in;
     for ( mu=0; mu<4; mu++ ) {
       // communicate in -mu direction
       ghost_sendrecv_PRECISION_new( in->vector_buffer, mu, -1, &(op->c), minus_dir_param, l );
@@ -756,7 +758,7 @@ void coarse_apply_schur_complement_PRECISION_new( vector_PRECISION *out, vector_
   int end;
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-  compute_core_start_end(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start, &end, l, threading);
+  compute_core_start_end_custom(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );//1 );
 
   vector_PRECISION *tmp = op->buffer;
   for ( int i=0; i<2; i++ ) tmp[i].num_vect_now = in->num_vect_now;
@@ -827,7 +829,6 @@ static void coarse_diag_oo_inv_PRECISION_new( vector_PRECISION *y, vector_PRECIS
     error0("coarse_diag_oo_inv_PRECISION: assumptions are not met\n");
 
   compute_core_start_end_custom( 0, op->num_odd_sites, &start, &end, l, threading, 1 );
-  //compute_core_start_end_custom( op->num_even_sites, l->num_inner_lattice_sites, &start, &end, l, threading, 1 );
   vector_PRECISION_duplicate( &x_pt, x, op->num_even_sites+start, l );
   vector_PRECISION_duplicate( &y_pt, y, op->num_even_sites+start, l );
 
@@ -903,8 +904,9 @@ void coarse_odd_even_PRECISION_test_new( vector_PRECISION *out, vector_PRECISION
     coarse_diag_oo_PRECISION_new( out, &buf[0], &(l->oe_op_PRECISION), l, threading );
     
     // back transformation part
+    //printf("100\n");fflush(stdout);
     coarse_diag_oo_inv_PRECISION_new( &buf[1], out, &(l->oe_op_PRECISION), l, threading );
-    
+    //printf("111\n");fflush(stdout);
     coarse_hopping_term_PRECISION_new( out, &buf[1], &(l->oe_op_PRECISION), _EVEN_SITES, l, threading );
  
     for(int i=0; i<2; i++)

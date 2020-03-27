@@ -32,7 +32,7 @@ void ghost_alloc_PRECISION( int buffer_size, comm_PRECISION_struct *c, level_str
     c->offset = l->num_lattice_site_var;
   } else {
     c->offset = l->num_lattice_site_var/2;//why divide by 2???? probably b/c only half of d.o.f are used; other half projected out
-    if ( g.method < 5 )
+    if ( g.method < 6 )
       factor = 2;
   }
 
@@ -94,7 +94,8 @@ void ghost_free_PRECISION( comm_PRECISION_struct *c, level_struct *l ) {
     FREE( c->buffer[2*mu+1], complex_PRECISION, c->max_length[mu]*n_vect );
   }
   if ( l->vbuf_PRECISION[9].vector_buffer != NULL ){
-    vector_PRECISION_free( &(l->vbuf_PRECISION[9]), l, no_threading);
+    //vector_PRECISION_free( &(l->vbuf_PRECISION[9]), l, no_threading);
+    FREE(l->vbuf_PRECISION[9].vector_buffer, complex_PRECISION, l->vector_size*n_vect);
     /*
 #ifdef HAVE_TM1p1		
      FREE( l->vbuf_PRECISION[8].vector_buffer, complex_PRECISION, 2*l->vector_size );		
@@ -134,7 +135,7 @@ void ghost_sendrecv_PRECISION_new( buffer_PRECISION phi, const int mu, const int
     int i, j, jj, jjj, *table=NULL, mu_dir = 2*mu-MIN(dir,0), offset = c->offset, length[2] = {0,0}, comm_start = 0, table_start = 0;
     int nvec = g.num_vect_pass1, nvec_phi = g.num_vect_pass2, nvec_com=c->num_vect;//temp fix!!!!!!!!
     buffer_PRECISION buffer, phi_pt;
-    
+    //    printf0("sd re: %d %d %d %d\n", nvec, nvec_phi, nvec_com, offset);    
     // offset is internal d.o.f. if at the top and half of that if not
     if ( amount == _FULL_SYSTEM ) {
       length[0]   = (c->num_boundary_sites[2*mu])*offset;   // #inner boundary sites on the positive mu dir x offset

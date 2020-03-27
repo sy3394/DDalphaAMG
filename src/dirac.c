@@ -792,13 +792,11 @@ void finalize_operator_update( level_struct *l, struct Thread *threading ) {
   if (l->depth == 0) {
     START_LOCKED_MASTER(threading)  
     if(l->s_double.op.clover != NULL) {
-      operator_double_set_self_couplings(  &(l->s_double.op), l );
       if ( g.odd_even )
         schwarz_double_oddeven_setup( &(l->s_double), l );
     }  
     
     if ( l->s_float.op.clover != NULL ) {
-      operator_float_set_self_couplings(  &(l->s_float.op), l );
       if ( g.odd_even )
         schwarz_float_oddeven_setup( &(l->s_float), l );
     }  
@@ -806,16 +804,12 @@ void finalize_operator_update( level_struct *l, struct Thread *threading ) {
   } else {
     SYNC_CORES(threading)
     if ( g.mixed_precision ) {
-      if ( !l->idle && g.odd_even && ((g.method >= 4 && l->level > 0) || l->level == 0) )
+      if ( !l->idle && g.odd_even && ((g.method >= 5 && l->level > 0) || l->level == 0) )
         coarse_oddeven_float_set_self_couplings( l, threading );
-      else
-        coarse_operator_float_set_self_couplings( &(l->s_float.op), l, threading );
-    }/* else {
-      if ( !l->idle && g.odd_even && ((g.method >= 4 && l->level > 0) || l->level == 0) )
+    } else {
+      if ( !l->idle && g.odd_even && ((g.method >= 5 && l->level > 0) || l->level == 0) )
         coarse_oddeven_double_set_self_couplings( l, threading );
-      else
-        coarse_operator_double_set_self_couplings( &(l->s_double.op), l, threading );
-	}*/
+    }
   }
 
   if ( g.interpolation && l->level > 0 )

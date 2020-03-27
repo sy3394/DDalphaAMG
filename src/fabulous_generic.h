@@ -15,19 +15,24 @@
  * 
  * 
  * You should have received a copy of the GNU General Public License
- * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
  */
 
-#ifndef OPERATOR_PRECISION_HEADER
-  #define OPERATOR_PRECISION_HEADER
+#ifndef FABULOUS_OP_H
+   #define THREADING_H
 
-  struct Thread;
-  
-  void operator_PRECISION_init( operator_PRECISION_struct *op );
-  void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, level_struct *l );
-  void operator_PRECISION_free( operator_PRECISION_struct *op, const int type, level_struct *l );
-  void operator_PRECISION_define( operator_PRECISION_struct *op, level_struct *l );
+  void setup_fabulous_PRECISION( int iter, int restart, int v_type, PRECISION tol,
+				 fabulous_PRECISION_struct *fab, int nrhs, int dim, operator_PRECISION_struct *op, void (*eval_op)(),
+				 gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );
+  int64_t mvp_PRECISION(  void *user_env, int N,
+			  const void *alpha, const void *XX, int ldx,
+			  const void *beta, void *BB, int ldb);
 
-  void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
-  
+  int64_t dot_product_PRECISION(void *user_env,
+				int M, int N,
+				const void *A_, int lda,
+				const void *B_, int ldb,
+				void *C_, int ldc);
+
+  void fabulous_PRECISION_free( fabulous_PRECISION_struct *fab, gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );
+
 #endif

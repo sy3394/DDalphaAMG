@@ -32,6 +32,9 @@ void vector_PRECISION_init( vector_PRECISION *vec ) {
 
 void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect, level_struct *l, Thread *threading ) {
 
+  if ( num_vect % num_loop != 0 )
+    error0("vector_PRECISION_alloc: #vectors should be multiple of num_loop for vectorization\n");
+
   switch (type){
   case _ORDINARY : 
     PUBLIC_MALLOC( vec->vector_buffer, complex_PRECISION, l->vector_size*num_vect );
@@ -49,7 +52,7 @@ void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect
 
   vec->type         = type;
   vec->num_vect     = num_vect;
-  vec->num_vect_now = num_loop;//!!!!
+  vec->num_vect_now = num_loop;
   vec->start        = 0;
   vec->end          = vec->size*num_vect;
   vec->layout       = _NVEC_INNER;//default layout is vector runs fastest
@@ -94,13 +97,9 @@ void set_boundary_PRECISION_new( vector_PRECISION *phi, complex_PRECISION alpha,
   PROF_PRECISION_START( _SET, threading );
   int i, j, jj, nvec = phi->num_vect;
   int start, end;
-#ifdef CLOOP
-  compute_core_start_end( l->inner_vector_size, l->vector_size , &start, &end, l, threading );
-#else
-  compute_core_start_end_custom( l->inner_vector_size, l->vector_size , &start, &end, l, threading, num_loop );
-#endif
+  compute_core_start_end_custom( l->inner_vector_size, l->vector_size , &start, &end, l, threading, l->num_lattice_site_var);
 
-  SYNC_CORES(threading)
+  //SYNC_CORES(threading)<-this was commented out last!!!!
   for( i=start; i<end; i++ )
     VECTOR_LOOP( j, nvec, jj, phi->vector_buffer[i*nvec+j+jj] = alpha; ) 
 
@@ -250,7 +249,7 @@ void vector_PRECISION_real_scale_new( vector_PRECISION *z, vector_PRECISION *x, 
 // z=x+y
 void vector_PRECISION_plus_new( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l ) {
 
-  int i, j, jj, nvec = x->num_vect_now;//!!!!!!!!!!;
+  int i, j, jj, nvec = x->num_vect_now;
   int thread = omp_get_thread_num();
 
   if(thread == 0 && start != end)
@@ -266,7 +265,7 @@ void vector_PRECISION_plus_new( vector_PRECISION *z, vector_PRECISION *x, vector
 // z <- x - y
 void vector_PRECISION_minus_new( vector_PRECISION *z, vector_PRECISION *x, vector_PRECISION *y, int start, int end, level_struct *l ) {
 
-  int i, j, jj, nvec = x->num_vect_now;//!!!!!!!!!!;
+  int i, j, jj, nvec = x->num_vect_now;
   int thread = omp_get_thread_num();
 
   if(thread == 0 && start != end)
@@ -288,7 +287,7 @@ void vector_PRECISION_saxpy_new( vector_PRECISION *z, vector_PRECISION *x, vecto
   if ( z->num_vect_now != x->num_vect_now || z->num_vect_now != y->num_vect_now )
     error0("vector_PRECISION_saxpy: z->num_vect_now != x-<num_vect_now || z->num_vect_now !=y->num_vect_now\n");
 
-  int i, j, jj, nvec = x->num_vect_now;//!!!!!!!;
+  int i, j, jj, nvec = x->num_vect_now;
   int thread = omp_get_thread_num();
 
   if (thread == 0 && start != end )
@@ -317,8 +316,7 @@ void vector_PRECISION_multi_saxpy_new( vector_PRECISION *z, vector_PRECISION *V,
    * complex_PRECISION *alpha: contains count many sets of z->num_vect_now many entries
    ********************************/
   
-  int c, i, j, jj, nvec = z->num_vect_now;//took out start,end
-  //compute_core_start_end(0, z->size, &start, &end, l, threading);
+  int c, i, j, jj, nvec = z->num_vect_now;
   int thread = omp_get_thread_num();
   if (thread == 0 && start != end )
     PROF_PRECISION_START( _LA8 );
@@ -350,7 +348,7 @@ void vector_PRECISION_check_comp( vector_PRECISION *vec1, vector_PRECISION *vec2
 }
 
 // change the order of a bundle of vectors
-// used only by master
+// to be used only by master
 void vector_PRECISION_change_layout( vector_PRECISION *vec_out, vector_PRECISION *vec_in, const int layout, struct Thread *threading ) {
   
   if(vec_in->layout==layout) return;
@@ -358,54 +356,32 @@ void vector_PRECISION_change_layout( vector_PRECISION *vec_out, vector_PRECISION
 
   int n, i, nvec = vec_in->num_vect, size = vec_in->size;
   vector_PRECISION vec_tmp;
-  //  START_UNTHREADED_FUNCTION(threading)       
-  //  START_MASTER(threading)
-  //  if (omp_get_thread_num() == 0){
   if ( vec_in->vector_buffer == vec_out->vector_buffer ) {
     vector_PRECISION_init( &vec_tmp );
-    //vector_PRECISION_alloc( &vec_tmp, vec_in->type, vec_in->num_vect, vec_in->l, no_threading );//????
-    MALLOC( vec_tmp.vector_buffer, complex_PRECISION, size*nvec);
-    vec_tmp.num_vect = nvec;
-    vec_tmp.num_vect_now = vec_out->num_vect;
+    vector_PRECISION_alloc( &vec_tmp, vec_in->type, vec_in->num_vect, vec_in->l, no_threading );
   } else {
     vec_tmp = *vec_out;
   }
 
-  //  printf("layoutPRECISION %d %d %d:(%d,%d)%d %d %d %d\n",g.my_rank, omp_get_thread_num(),omp_get_num_threads(),vec_in->num_vect, vec_out->num_vect,vec_tmp.num_vect,vec_tmp.num_vect_now, vec_tmp.layout,size);fflush(stdout);
-  //SYNC_CORES(threading)
-  //START_NO_HYPERTHREADS(threading)//needed??????
   switch (layout){
     case _NVEC_OUTER : // from vectors->spins->site (fastest->slowest) to spins->sites->vectors 
       for( n=0; n<nvec; n++ )
-	for( i=0; i<size; i++ ){  SYNC_CORES(threading)//printf("%d %d ",n,i);
-	    //	    printf("tmp %g ", creal_PRECISION(vec_tmp.vector_buffer[n*size+i]));fflush(stdout);printf("in %g ", creal_PRECISION(vec_in->vector_buffer[i*nvec+n]));fflush(stdout);
+	for( i=0; i<size; i++ ){
 	  vec_tmp.vector_buffer[n*size+i] = vec_in->vector_buffer[i*nvec+n];}
-      
       vec_out->layout = _NVEC_OUTER;
-      //      printf("lay:%d\n",vec_out->layout);
       break;
     case _NVEC_INNER : // from spins->sites->vectors (fastest->slowest) to vectors->spins->site
       for( i=0; i<size; i++ )
 	for( n=0; n<nvec; n++ )
 	    vec_tmp.vector_buffer[i*nvec+n] = vec_in->vector_buffer[n*size+i];
-      
       vec_out->layout = _NVEC_INNER;
       break;
   }
-  //END_NO_HYPERTHREADS(threading)
-    // SYNC_CORES(threading)//?????tmp fix
-    //printf("2layout%d %d:(%d,%d)%d %d %d %d\n",g.my_rank, omp_get_thread_num(),vec_in->num_vect, vec_out->num_vect,vec_tmp.num_vect,vec_tmp.num_vect_now, vec_tmp.layout,size);fflush(stdout);
+
   if( vec_in->vector_buffer == vec_out->vector_buffer ){
     vector_PRECISION_copy_new( vec_out, &vec_tmp, 0, size, vec_out->l );
-     //     START_MASTER(threading)
-     //vector_PRECISION_free( &vec_tmp, vec_in->l, no_threading ); //!!!!!!should work
-     //     END_MASTER(threading)
-    FREE(vec_tmp.vector_buffer, buffer_PRECISION, size*nvec);
+    vector_PRECISION_free(&(vec_tmp), vec_in->l, no_threading);
   }
-  //  END_UNTHREADED_FUNCTION(threading) 
-  // END_MASTER(threading)
-  //  } 
-  //  printf("3layout%d %d:(%d,%d)%d %d %d %d\n",g.my_rank, omp_get_thread_num(),vec_in->num_vect, vec_out->num_vect,vec_tmp.num_vect,vec_tmp.num_vect_now, vec_tmp.layout,size);fflush(stdout);
 }
 
 // should be intra-process permutation!!!!!!!!!!
@@ -498,6 +474,81 @@ void trans_back_PRECISION_new( vector_double *out, vector_PRECISION *in, int *tt
   }
   END_NO_HYPERTHREADS(threading)
   SYNC_CORES(threading)
+}
+
+/*******************   TM1p1  ***********************************************************************************************/
+
+void two_flavours_to_serial_PRECISION( vector_PRECISION *flav1, vector_PRECISION *flav2, vector_PRECISION *serial, level_struct *l, struct Thread *threading ) {
+
+#ifdef HAVE_TM1p1
+
+  /*
+   * Order: spin0and1 of flav1
+   *        spin0and1 of flav2
+   *        spin2and3 of flav1
+   *        spin2and3 of flav2
+   */
+  buffer_PRECISION serial_end;
+  buffer_PRECISION serial_pt = serial->vector_buffer, flav1_pt = flav1->vector_buffer, flav2_pt = flav2->vector_buffer;
+  
+  if( g.n_flavours == 2 ) {
+    serial_end = serial->vector_buffer + threading->end_index[l->depth];
+    serial_pt += threading->start_index[l->depth];
+    flav1_pt += threading->start_index[l->depth]/2;
+    flav2_pt += threading->start_index[l->depth]/2;
+  }
+  else {
+    serial_end = serial->vector_buffer + threading->end_index[l->depth]*2;
+    serial_pt += threading->start_index[l->depth]*2;
+    flav1_pt += threading->start_index[l->depth];
+    flav2_pt += threading->start_index[l->depth];
+  }
+
+  while ( serial_pt < serial_end ) {
+    FOR6( *serial_pt = (*flav1_pt); serial_pt++; flav1_pt++; )
+    FOR6( *serial_pt = (*flav2_pt); serial_pt++; flav2_pt++; )
+    FOR6( *serial_pt = (*flav1_pt); serial_pt++; flav1_pt++; )
+    FOR6( *serial_pt = (*flav2_pt); serial_pt++; flav2_pt++; )
+  }
+#else
+  START_MASTER(threading)
+  warning0("two_flavours_to_serial_PRECISION called without HAVE_TM1p1 defined\n");
+  END_MASTER(threading)
+#endif
+    
+}
+
+void serial_to_two_flavours_PRECISION( vector_PRECISION *flav1, vector_PRECISION *flav2, vector_PRECISION *serial, level_struct *l, struct Thread *threading ) {
+
+#ifdef HAVE_TM1p1
+  buffer_PRECISION serial_end;
+  buffer_PRECISION serial_pt = serial->vector_buffer, flav1_pt = flav1->vector_buffer, flav2_pt = flav2->vector_buffer;
+
+  if( g.n_flavours == 2 ) {
+    serial_end = serial->vector_buffer + threading->end_index[l->depth];
+    serial_pt += threading->start_index[l->depth];
+    flav1_pt += threading->start_index[l->depth]/2;
+    flav2_pt += threading->start_index[l->depth]/2;
+  }
+  else {
+    serial_end = serial->vector_buffer + threading->end_index[l->depth]*2;
+    serial_pt += threading->start_index[l->depth]*2;
+    flav1_pt += threading->start_index[l->depth];
+    flav2_pt += threading->start_index[l->depth];
+  }
+
+  while ( serial_pt < serial_end ) {
+    FOR6( *flav1_pt = (*serial_pt); serial_pt++; flav1_pt++; )
+    FOR6( *flav2_pt = (*serial_pt); serial_pt++; flav2_pt++; )
+    FOR6( *flav1_pt = (*serial_pt); serial_pt++; flav1_pt++; )
+    FOR6( *flav2_pt = (*serial_pt); serial_pt++; flav2_pt++; )
+  }
+#else
+  START_MASTER(threading)
+  warning0("two_flavours_to_serial_PRECISION called without HAVE_TM1p1 defined\n");
+  END_MASTER(threading)
+#endif
+    
 }
 
 /*******************  TEST ROUTINES  ********************************************/

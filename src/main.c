@@ -47,13 +47,12 @@ int main( int argc, char **argv ) {
   config_double hopp = NULL;
 
   int provided;
-  //MPI_Init( &argc, &argv );  printf("main0\n");fflush(stdout);//MPI_Init_thread??????
   MPI_Init_thread( &argc, &argv, MPI_THREAD_FUNNELED, &provided);
-  if ( provided > MPI_THREAD_FUNNELED )
-    error0("MPI_THREAD_FUNNELED is not ensured\n");
-  MPI_Comm_rank( MPI_COMM_WORLD, &(g.my_rank) );//predefine_rank( MPI_COMM_WORLD );//!!!!!!!
-
+  MPI_Comm_rank( MPI_COMM_WORLD, &(g.my_rank) );
+  
   if ( g.my_rank == 0 ) {
+    if ( provided < MPI_THREAD_FUNNELED )
+      warning("MPI_THREAD_FUNNELED is not ensured\n");
     printf("\n\n+----------------------------------------------------------+\n");
     printf("| The DDalphaAMG solver library.                           |\n");
     printf("| Copyright (C) 2016, Matthias Rottmann, Artur Strebel,    |\n");
@@ -82,33 +81,29 @@ int main( int argc, char **argv ) {
 
   commonthreaddata = (struct common_thread_data *)malloc(sizeof(struct common_thread_data));
   init_common_thread_data(commonthreaddata);
-
+  //    method_setup( NULL, &l, no_threading );
   THREADED(g.num_openmp_processes)
   {
     //------------------ allocate memory and set up for multigrid solver
     struct Thread threading;
     setup_threading(&threading, commonthreaddata, &l);
-    //setup_no_threading(no_threading, &l);//is this redundant??????
-    //printf("main2\n");
+
     // setup up initial MG hierarchy
-    method_setup( NULL, &l, &threading );//printf("main3\n");
+    method_setup( NULL, &l, &threading );
     
     // iterative part of the setup
     method_iterative_setup( l.setup_iter, &l, &threading );
 
     //----------------- solve
-    g.num_vect_now=num_loop;//g.num_rhs_vect;//!!!!!!!!!!!
     solve_driver( &l, &threading );
   }
   printf0("Number of rhs vectors = %d\n", g.num_rhs_vect);
-  method_free( &l );
-  method_finalize( &l );
+  method_free( &l );//printf0("1\n");fflush(stdout);
+  method_finalize( &l );//printf0("2\n");fflush(stdout);
   finalize_common_thread_data(commonthreaddata); // free workspace in commonthreaddata
   finalize_no_threading(no_threading);           // free workspace in no_threading
   free(commonthreaddata);
   free(no_threading);
-
-
   
   MPI_Finalize();
   

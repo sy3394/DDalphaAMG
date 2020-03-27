@@ -194,7 +194,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   double beta[n_vect];
 
   double t0=0, t1=0;
-  double norm_r0[n_vect], gamma_jp1[n_vect], gamma0_real[n_vect], gamma_max, H_tot;
+  double norm_r0[n_vect], gamma_jp1[n_vect], gamma0_real[n_vect], gamma_max, gamma_max2, H_tot;
   complex_float gamma_float[n_vect];
 
   if ( p->sp.num_vect < num_loop )
@@ -218,10 +218,11 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   if ( p->dp.print && g.print > 0 ) printf0("+----------------------------------------------------------+\n");
 #endif
   END_LOCKED_MASTER(threading)
-  SYNC_MASTER_TO_ALL(threading)
+    //SYNC_MASTER_TO_ALL(threading)
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-  compute_core_start_end(p->dp.v_start, p->dp.v_end, &start, &end, l, threading);
+  //compute_core_start_end(p->dp.v_start, p->dp.v_end, &start, &end, l, threading);
+  compute_core_start_end_custom(p->dp.v_start, p->dp.v_end, &start, &end, l, threading, l->num_lattice_site_var);
   
   // Outer loop in double precision
   for( ol=0; ol<p->dp.num_restart && finish==0; ol++ )  {// if go beyond max #restarts or has converged, exit
@@ -238,7 +239,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
     START_MASTER(threading)
     VECTOR_LOOP(i, n_vect, jj, p->dp.gamma[i+jj] = (complex_double) gamma0_real[i+jj];)
     END_MASTER(threading)
-    SYNC_MASTER_TO_ALL(threading)
+      //SYNC_MASTER_TO_ALL(threading)
 
     // report
     if( ol == 0) {
@@ -302,9 +303,9 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
             if ( gamma_max > 1E+5 ) printf0("Divergence of fgmres_MP, iter = %d, level=%d\n", iter, l->level );
           END_MASTER(threading)
         }
-        gamma_max = gamma_jp1[0]/gamma0_real[0];
-	for ( i=1; i<n_vect; i++ ) if ( gamma_max < gamma_jp1[i]/gamma0_real[i] ) gamma_max = gamma_jp1[i]/gamma0_real[i];
-	if( gamma_max < p->sp.tol ){  
+        gamma_max2 = gamma_jp1[0]/gamma0_real[0];
+	for ( i=1; i<n_vect; i++ ) if ( gamma_max2 < gamma_jp1[i]/gamma0_real[i] ) gamma_max2 = gamma_jp1[i]/gamma0_real[i];
+	if( gamma_max2 < p->sp.tol ){  
           break;
         }
       } else {
@@ -323,7 +324,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   } // end of fgmres
   
   START_LOCKED_MASTER(threading)
-  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.total_time = t1-t0; g.iter_count = iter; g.norm_res = gamma_tot; }
+  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.total_time = t1-t0; g.iter_count = iter; g.norm_res = gamma_max; }
   END_LOCKED_MASTER(threading)
   
   if ( p->dp.print ) {
@@ -382,8 +383,8 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
                       complex_double **H, complex_double* buffer, int j, void (*prec)(),
                       gmres_float_struct *p, level_struct *l, struct Thread *threading ) {
 
-  SYNC_MASTER_TO_ALL(threading)
-  SYNC_CORES(threading)
+  //SYNC_MASTER_TO_ALL(threading)
+    //SYNC_CORES(threading)
   int i, jj, n, n_vect = w->num_vect_now;//g.num_vect_now, n, jj;//!!!!!!!
   double H_tot;
   complex_float H_float[n_vect];
@@ -392,11 +393,9 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
   int end;
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-#ifdef CLOOP
-  compute_core_start_end(p->v_start, p->v_end, &start, &end, l, threading);
-#else
-  compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, num_loop);
-#endif
+  //compute_core_start_end(p->v_start, p->v_end, &start, &end, l, threading);
+  compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var);
+
   Z[j].num_vect_now = n_vect; V[j].num_vect_now = n_vect; V[j+1].num_vect_now = n_vect;//can move to fgmres????   
 
   //--- apply D (and preconditioner) to V[j]
@@ -405,7 +404,7 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
       apply_operator_float( &Z[0], &V[j], p, l, threading );
       prec( w, NULL, &Z[0], _NO_RES, l, threading );
     } else {
-      if ( g.mixed_precision == 2 && (g.method >= 1 && g.method <= 2 ) ) {
+      if ( g.mixed_precision == 2 && (g.method >= 1 && g.method <= 2 || g.method == 4) ) {
         prec( &Z[j], w, &V[j], _NO_RES, l, threading );    // obtains w = D * Z[j] from Schwarz
       } else {
         prec( &Z[j], NULL, &V[j], _NO_RES, l, threading );
@@ -454,7 +453,7 @@ void compute_solution_MP_new( vector_float *x, vector_float *V, complex_double *
                           complex_double *gamma, complex_double **H, int j,
                           gmres_float_struct *p, level_struct *l, struct Thread *threading ) {
   
-  int i, k, n, jj, n_vect=g.num_vect_now;
+  int i, k, n, jj, n_vect=num_loop;//g.num_vect_now;
   complex_float y_float[n_vect];
   // start and end indices for vector functions depending on thread
   int start;
@@ -464,7 +463,7 @@ void compute_solution_MP_new( vector_float *x, vector_float *V, complex_double *
 #ifdef CLOOP
   compute_core_start_end(p->v_start, p->v_end, &start, &end, l, threading);
 #else
-  compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, num_loop);
+  compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var );//1 );//num_loop);
 #endif
   START_MASTER(threading)
   

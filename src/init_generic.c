@@ -153,11 +153,20 @@ void next_level_PRECISION_setup( level_struct *l ) {
 
     // allocate l->next_level->p_PRECISION or just l->next_level->p_PRECISION.b&x
     if ( l->level == 1 && !l->next_level->idle ) {
-      // if the next level is the bottom and I am not the idle process, set the coarsest gmres_PRECISION_struct as a coarse GMRES solver
-      fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol, 
-                                     _COARSE_GMRES, _NOTHING, NULL,
-				     g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
-                                     &(l->next_level->p_PRECISION), l->next_level );
+      // if the next level is the bottom and I am not the idle process,
+      if ( g.method == 4 )
+	// set fabulous as the coarsest solver
+	setup_fabulous_PRECISION( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol,
+				  &(l->next_level->fab_PRECISION), num_loop, l->next_level->inner_vector_size,
+				  g.odd_even?&(l->next_level->oe_op_PRECISION):&(l->next_level->s_PRECISION.op),
+				  g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
+				  &(l->next_level->p_PRECISION),l->next_level, no_threading );
+      else
+	// set the coarsest gmres_PRECISION_struct as a coarse GMRES solver
+	fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol, 
+				       _COARSE_GMRES, _NOTHING, NULL,
+				       g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
+				       &(l->next_level->p_PRECISION), l->next_level );
     } else {
       // if the next level is not the bottom
       if ( g.kcycle ) { 
@@ -187,11 +196,18 @@ void next_level_PRECISION_free( level_struct *l ) {
   coarse_grid_correction_PRECISION_free( l );
 
   if ( !l->idle ) {
-    if ( ( l->level == 1 && !l->next_level->idle ) || g.kcycle ) {
-      fgmres_PRECISION_struct_free( &(l->next_level->p_PRECISION), l->next_level );
+    if ( l->level == 1 && !l->next_level->idle ) {//this is incorrect!!
+      if ( g.method == 4 )
+	fabulous_PRECISION_free( &(l->next_level->fab_PRECISION), &(l->next_level->p_PRECISION), l->next_level, no_threading);
+      else
+	fgmres_PRECISION_struct_free( &(l->next_level->p_PRECISION), l->next_level );
     } else {
-      vector_PRECISION_free( &(l->next_level->p_PRECISION.b), l->next_level, no_threading );
-      vector_PRECISION_free( &(l->next_level->p_PRECISION.x), l->next_level, no_threading );
+      if ( g.kcycle ) {
+	fgmres_PRECISION_struct_free( &(l->next_level->p_PRECISION), l->next_level );
+      } else {
+	vector_PRECISION_free( &(l->next_level->p_PRECISION.b), l->next_level, no_threading );
+	vector_PRECISION_free( &(l->next_level->p_PRECISION.x), l->next_level, no_threading );
+      }
     }
   
     int i, n = (l->next_level->level>0)?7:4;  

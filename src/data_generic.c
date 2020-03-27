@@ -44,14 +44,14 @@ void buffer_PRECISION_define( complex_PRECISION *phi, complex_PRECISION value, i
     PROF_PRECISION_STOP( _SET, 1 );
 }
 
-// used in some operator functions
+// used only in schwarz_PRECISION_setup
 void buffer_PRECISION_copy( complex_PRECISION *z, complex_PRECISION *x, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
   PROF_PRECISION_START( _CPY );
   
-  VECTOR_FOR( int i=start, i<end, z[i] = x[i], i++, l );// does this cause an issue????
+  VECTOR_FOR( int i=start, i<end, z[i] = x[i], i++, l );
   
   if(thread == 0 && start != end)
   PROF_PRECISION_STOP( _CPY, (double)(end-start)/(double)l->inner_vector_size );

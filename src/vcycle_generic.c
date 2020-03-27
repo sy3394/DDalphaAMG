@@ -35,12 +35,11 @@ void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector
     int nvec = num_loop;//eta->num_vect_now;// we might just use this #????
     for ( int i=0; i<l->n_cy; i++ ) {
       //--- compute the residual //presmoohting????
-      SYNC_MASTER_TO_ALL(threading)
       if ( i==0 && res == _NO_RES ) {
 	// if the initial guess is 0, the resid on the next level is restircted rhs
 	l->next_level->p_PRECISION.b.num_vect_now = nvec;//eta->num_vect_now;//!!!!!!!
         restrict_PRECISION_new( &(l->next_level->p_PRECISION.b), eta, l, threading );
-      } else {
+      } else {printf("vc: res\n");
 	// otherwise, compute R(b_l - D_l eta_l)
         int start = threading->start_index[l->depth];
         int end   = threading->end_index[l->depth];
@@ -68,10 +67,16 @@ void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector
 	  }
 	} else { 
 	  // if the next level is the bottom
-	  if ( g.odd_even ) {
-	    coarse_solve_odd_even_PRECISION_new( &(l->next_level->p_PRECISION), &(l->next_level->oe_op_PRECISION), l->next_level, threading );
+	  if ( g.method == 4 ) {
+	    START_LOCKED_MASTER(threading)
+  	    fabulous_PRECISION( l->next_level->fab_PRECISION, &(l->next_level->p_PRECISION), no_threading );
+	    END_LOCKED_MASTER(threading)
 	  } else {
-	    fgmres_PRECISION( &(l->next_level->p_PRECISION), l->next_level, threading );
+	    if ( g.odd_even ) {
+	      coarse_solve_odd_even_PRECISION_new( &(l->next_level->p_PRECISION), &(l->next_level->oe_op_PRECISION), l->next_level, threading );
+	    } else {
+	      fgmres_PRECISION( &(l->next_level->p_PRECISION), l->next_level, threading );
+	    }
 	  }
 	}
         START_MASTER(threading)

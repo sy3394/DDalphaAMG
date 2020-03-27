@@ -41,17 +41,13 @@ void process_multi_inner_product_MP_new( int count, complex_double *results, vec
 
   int c, i, j, jj, nvec = psi->num_vect_now;
   int core_start, core_end;
-#ifdef CLOOP
-    compute_core_start_end(start, end, &core_start, &core_end, l, threading);
-#else
-    compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, num_loop);
-#endif
+  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, 1 );//num_loop);
 
   int thread = omp_get_thread_num();
   if ( thread == 0 && core_start != core_end)
     PROF_float_START( _PIP, threading );
   
-  SYNC_CORES(threading)//????necessary? in the original
+  //SYNC_CORES(threading)//????necessary? in the original
   VECTOR_LOOP(j, count*nvec, jj, results[j+jj] = 0.0;)
 
   for ( c=0; c<count; c++ ) {
@@ -84,11 +80,7 @@ void global_norm_MP_new( double *res, vector_float *x, int start, int end, level
    ********************/
 
   int core_start, core_end;
-#ifdef CLOOP
-  compute_core_start_end(start, end, &core_start, &core_end, l, threading);
-#else
-  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, num_loop);//!!!!  
-#endif
+  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, 1);//num_loop);
 
   int thread = omp_get_thread_num();
   if(thread == 0 && core_start != core_end)
@@ -98,7 +90,7 @@ void global_norm_MP_new( double *res, vector_float *x, int start, int end, level
   double global_alpha[nvec];
   VECTOR_LOOP(j, nvec, jj, res[j+jj]=0;)
 
-  SYNC_CORES(threading)//????necessary? in the original
+    //SYNC_CORES(threading)//????necessary? in the original
   for( i=core_start; i<core_end; i++ )
     VECTOR_LOOP(j, nvec, jj, res[j+jj] += NORM_SQUARE_float(x->vector_buffer[i*x->num_vect+j+jj]);)
 

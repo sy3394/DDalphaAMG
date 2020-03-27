@@ -75,10 +75,13 @@ void define_interpolation_PRECISION_operator_new( vector_PRECISION *interpolatio
    ***************************************/
   int i, j, jj, num_eig_vect = l->num_eig_vect;
   complex_PRECISION *operator = l->is_PRECISION.operator;
-
+  /*
   int start = threading->start_index[l->depth];
   int end   = threading->end_index[l->depth];
-      
+  */
+  int start, end;
+  compute_core_start_end_custom(0, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );
+
   if (interpolation->num_vect != num_eig_vect )
     error0("define_interpolation_PRECISION_operator: num_eig_vect and #vectors in interpolation are different\n");
 
@@ -104,13 +107,12 @@ void interpolate_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c, 
    ***********************************************/
 
   PROF_PRECISION_START( _PR, threading );
-  int i, j, k, k1, k2, jj, jjj;
+  int i, j, k, k1, k2, jj, jjj, sign = 1;
   int num_aggregates      = l->is_PRECISION.num_agg;
   int num_eig_vect        = l->num_eig_vect;
   int num_parent_eig_vect = l->num_parent_eig_vect;
   int aggregate_sites     = l->num_inner_lattice_sites / num_aggregates;
   int n_vect = MIN(phi->num_vect_now, phi_c->num_vect_now),  n_vect_phi = phi->num_vect, n_vect_phic = l->next_level->gs_PRECISION.transfer_buffer.num_vect;
-  int sign = 1;
   complex_PRECISION *operator, *phi_pt, *phi_c_pt;
 
   if ( n_vect == 0 )
@@ -146,7 +148,6 @@ void interpolate_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c, 
   SYNC_HYPERTHREADS(threading)
 }
 
-//work not distributed among threads!!!!!
 void interpolate3_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c, level_struct *l, struct Thread *threading ) {
   /**********************************************
    * Assume: phi.num_vect == phi_c.num_vect && l->level is the level where phi is defined
@@ -161,7 +162,7 @@ void interpolate3_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c,
    ***********************************************/
 
   PROF_PRECISION_START( _PR, threading );
-  int i, j, k, k1, k2, jj, jjj;
+  int i, j, k, k1, k2, jj, jjj, sign = 1;
   int num_aggregates      = l->is_PRECISION.num_agg;
   int num_eig_vect        = l->num_eig_vect;
   int num_parent_eig_vect = l->num_parent_eig_vect; 
@@ -180,7 +181,6 @@ void interpolate3_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c,
   for ( i=threading->n_thread*threading->core + threading->thread; i<num_aggregates; i+=threading->n_core*threading->n_thread ) {
     phi_pt   = phi->vector_buffer + i*2*num_parent_eig_vect*aggregate_sites*n_vect_phi;
     phi_c_pt = l->next_level->gs_PRECISION.transfer_buffer.vector_buffer + i*2*num_eig_vect*n_vect_phic;
-    int sign = 1;//why here?????
     operator = l->is_PRECISION.operator + i*2*num_eig_vect*num_parent_eig_vect*aggregate_sites;
     for ( k=0; k<aggregate_sites; k++ ) {
       for ( k1=0; k1<2; k1++ ) {
@@ -204,7 +204,6 @@ void interpolate3_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c,
   SYNC_HYPERTHREADS(threading)
 }
 
-//work not distributed among threads
 void restrict_PRECISION_new( vector_PRECISION *phi_c, vector_PRECISION *phi, level_struct *l, struct Thread *threading ) {
   /************************************************
    * Assume: phi.num_vect == phi_c.num_vect

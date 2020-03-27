@@ -245,7 +245,7 @@ void operator_PRECISION_free( operator_PRECISION_struct *op, const int type, lev
 static void operator_PRECISION_alloc_projection_buffers( operator_PRECISION_struct *op, level_struct *l ) {//!!!!!!!!
 
   // when used as preconditioner we usually do not need the projection buffers, unless
-  // g.method >= 4: then oddeven_setup_float() is called in init.c, method_setup(). ???????
+  // g.method >= 5: then oddeven_setup_float() is called in init.c, method_setup(). ???????
   int n_vect = num_loop;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!g.num_rhs_vect
   if ( l->depth == 0 ) {
     int its = (l->num_lattice_site_var/2)*l->num_lattice_sites*n_vect; // half of spinor d.o.f. projected out
@@ -325,21 +325,6 @@ void operator_PRECISION_define( operator_PRECISION_struct *op, level_struct *l )
   define_nt_bt_tt( op->neighbor_table, op->backward_neighbor_table, op->c.boundary_table, op->translation_table, it, dt, l );
 }
 
-
-/******************* NOT IMPREMENTED: legacy code: for vectorization  **/
-void operator_PRECISION_set_couplings( operator_PRECISION_struct *op, level_struct *l ) {
-  //  printf0("operator_PRECISION_set_couplings: NOT IMPREMENTED\n");
-  operator_PRECISION_set_self_couplings( op, l );
-  operator_PRECISION_set_neighbor_couplings( op, l );
-
-}
-
-void operator_PRECISION_set_self_couplings( operator_PRECISION_struct *op, level_struct *l ) {
-}
-
-void operator_PRECISION_set_neighbor_couplings( operator_PRECISION_struct *op, level_struct *l ) {
-}
-
 /********************  TEST ROUTINES *****************************************************************************/
 
 void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
@@ -373,7 +358,6 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
 
   START_LOCKED_MASTER(threading)
   
-  //vector_double_define_random( &vd[0], 0, l->inner_vector_size, l );
   vector_double_define_random_new( &vd[0], 0, l->inner_vector_size, l ); 
   apply_operator_double( &vd[1], &vd[0], &(g.p), l, no_threading );
 
@@ -381,10 +365,7 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
   apply_operator_PRECISION( &vp[1], &vp[0], &(l->p_PRECISION), l, no_threading );
   trans_back_PRECISION_new( &vd[2], &vp[1], op->translation_table, l, no_threading );
   
-  //vector_double_minus( &vd[3], &vd[2], &vd[1], 0, l->inner_vector_size, l );
   vector_double_minus_new( &vd[3], &vd[2], &vd[1], 0, l->inner_vector_size, l );
-  //diff = global_norm_double( &vd[3], 0, ivs, l, no_threading )/
-  //    global_norm_double( &vd[2], 0, ivs, l, no_threading );
   global_norm_double_new( diff1, &vd[3], 0, ivs, l, no_threading );
   global_norm_double_new( diff2, &vd[2], 0, ivs, l, no_threading );
   
@@ -394,9 +375,8 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
 
   if(threading->n_core > 1) {
     apply_operator_PRECISION( &vp[1], &vp[0], &(l->p_PRECISION), l, threading );
-
-    SYNC_MASTER_TO_ALL(threading)
-    SYNC_CORES(threading)
+    //SYNC_MASTER_TO_ALL(threading)
+    //SYNC_CORES(threading)
 
     START_LOCKED_MASTER(threading)
     trans_back_PRECISION_new( &vd[2], &vp[1], op->translation_table, l, no_threading );
@@ -424,7 +404,7 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
   }
 
   START_LOCKED_MASTER(threading)
-  if ( g.method >=4 && g.odd_even )
+  if ( g.method >= 5 && g.odd_even )
     oddeven_PRECISION_test_new( l );
   END_LOCKED_MASTER(threading) 
 }
