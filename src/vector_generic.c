@@ -354,6 +354,9 @@ void vector_PRECISION_change_layout( vector_PRECISION *vec_out, vector_PRECISION
   if(vec_in->layout==layout) return;
   vector_PRECISION_check_comp( vec_out, vec_in );
 
+  level_struct *l = vec_in->l;
+  
+  PROF_PRECISION_START( _RL );
   int n, i, nvec = vec_in->num_vect, size = vec_in->size;
   vector_PRECISION vec_tmp;
   if ( vec_in->vector_buffer == vec_out->vector_buffer ) {
@@ -382,6 +385,7 @@ void vector_PRECISION_change_layout( vector_PRECISION *vec_out, vector_PRECISION
     vector_PRECISION_copy_new( vec_out, &vec_tmp, 0, size, vec_out->l );
     vector_PRECISION_free(&(vec_tmp), vec_in->l, no_threading);
   }
+  PROF_PRECISION_STOP( _RL, 1 );
 }
 
 // should be intra-process permutation!!!!!!!!!!

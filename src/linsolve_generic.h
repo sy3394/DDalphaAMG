@@ -30,12 +30,13 @@
   void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION tol, const int type, const int prec_kind,
                                       void (*precond)(), void (*eval_op)(), gmres_PRECISION_struct *p, level_struct *l );
   void fgmres_PRECISION_struct_free( gmres_PRECISION_struct *p, level_struct *l );
-  
+
+  int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );
   int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );
   void bicgstab_PRECISION( gmres_PRECISION_struct *ps, level_struct *l, struct Thread *threading );
   void cgn_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );
   void fgcr_PRECISION( gmres_PRECISION_struct *p, level_struct *l );
-  int fabulous_PRECISION( fabulous_PRECISION_struct fab, gmres_PRECISION_struct *p, struct Thread *threading );
+  int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading );
 
   void local_minres_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *eta, vector_PRECISION *latest_iter,
                                int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );

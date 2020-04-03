@@ -831,13 +831,15 @@ void coarse_operator_PRECISION_test_routine_new( level_struct *l, struct Thread 
             coarse_add_anti_block_diagonal_PRECISION_new( &vp[1], &vp[2], l->p_PRECISION.op->tm_term, ivs, l );
         }
 #endif
+      //      printf0("eval me 4 depth %d\n",l->depth);
+      /*
       if (g.method == 4) {
 	l->next_level->p_PRECISION.eval_operator = g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new;
 	if ( g.odd_even )
 	  l->next_level->p_PRECISION.op = &(l->next_level->oe_op_PRECISION);
 	else
 	  l->next_level->p_PRECISION.op = &(l->next_level->s_PRECISION.op);
-      }
+	  }*/
       restrict_PRECISION_new( &vc[1], &vp[1], l, no_threading );
       if ( !l->next_level->idle ) {
         if ( l->level==1 && g.odd_even ) {

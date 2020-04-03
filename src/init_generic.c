@@ -76,8 +76,13 @@ void prof_PRECISION_init( level_struct *l ) {
     sprintf( l->prof_PRECISION.name[_SM3], "smoother - pt 3, res comm, PRECISION" );
     sprintf( l->prof_PRECISION.name[_SM4], "smoother - pt 4, solve comm, PRECISION" );
     
-    sprintf( l->prof_PRECISION.name[_SMALL1], "Hessenberg: qr update PRECISION" );
-    sprintf( l->prof_PRECISION.name[_SMALL2], "Hessenberg: bkwd subst PRECISION" );
+    sprintf( l->prof_PRECISION.name[_SMALL1], "Hessenberg - qr update, PRECISION" );
+    sprintf( l->prof_PRECISION.name[_SMALL2], "Hessenberg - bkwd subst, PRECISION" );
+    
+    sprintf( l->prof_PRECISION.name[_FIP], "fabulous - block inner product, PRECISION" );
+    sprintf( l->prof_PRECISION.name[_FMVP], "fabulous - block mvp, PRECISION" );
+    sprintf( l->prof_PRECISION.name[_FAB_COPY], "fabulous - copy, PRECISION" );
+    sprintf( l->prof_PRECISION.name[_RL], "change layout, PRECISION" );
   }
 }
 
@@ -87,9 +92,9 @@ double prof_PRECISION_print( level_struct *l ) {
   for ( int i=0; i<_NUM_PROF; i++ )
     if ( l->prof_PRECISION.count[i] > 0 ) {
       if ( l->prof_PRECISION.count[i] > 9999999 )
-        printf0("| %37s: %8.2le(%7.1le) |\n", l->prof_PRECISION.name[i], l->prof_PRECISION.time[i], l->prof_PRECISION.count[i] );
+        printf0("| %37s: %8.2le (%7.1le ) |\n", l->prof_PRECISION.name[i], l->prof_PRECISION.time[i], l->prof_PRECISION.count[i] );
       else
-        printf0("| %37s: %8.2le(%7d) |\n", l->prof_PRECISION.name[i], l->prof_PRECISION.time[i], (int)l->prof_PRECISION.count[i] );
+        printf0("| %37s: %8.2le (%7d ) |\n", l->prof_PRECISION.name[i], l->prof_PRECISION.time[i], (int)l->prof_PRECISION.count[i] );
       flop += (double)l->prof_PRECISION.count[i] * l->prof_PRECISION.flop[i];
     }
   return flop;
@@ -154,6 +159,7 @@ void next_level_PRECISION_setup( level_struct *l ) {
     // allocate l->next_level->p_PRECISION or just l->next_level->p_PRECISION.b&x
     if ( l->level == 1 && !l->next_level->idle ) {
       // if the next level is the bottom and I am not the idle process,
+      /*
       if ( g.method == 4 )
 	// set fabulous as the coarsest solver
 	setup_fabulous_PRECISION( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol,
@@ -161,10 +167,10 @@ void next_level_PRECISION_setup( level_struct *l ) {
 				  g.odd_even?&(l->next_level->oe_op_PRECISION):&(l->next_level->s_PRECISION.op),
 				  g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
 				  &(l->next_level->p_PRECISION),l->next_level, no_threading );
-      else
+				  else*/
 	// set the coarsest gmres_PRECISION_struct as a coarse GMRES solver
 	fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol, 
-				       _COARSE_GMRES, _NOTHING, NULL,
+				       (g.method==4)?_COARSE_FABULOUS:_COARSE_GMRES, _NOTHING, NULL,
 				       g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
 				       &(l->next_level->p_PRECISION), l->next_level );
     } else {
@@ -196,18 +202,11 @@ void next_level_PRECISION_free( level_struct *l ) {
   coarse_grid_correction_PRECISION_free( l );
 
   if ( !l->idle ) {
-    if ( l->level == 1 && !l->next_level->idle ) {//this is incorrect!!
-      if ( g.method == 4 )
-	fabulous_PRECISION_free( &(l->next_level->fab_PRECISION), &(l->next_level->p_PRECISION), l->next_level, no_threading);
-      else
+    if ( (l->level == 1 && !l->next_level->idle) || g.kcycle ) {
 	fgmres_PRECISION_struct_free( &(l->next_level->p_PRECISION), l->next_level );
     } else {
-      if ( g.kcycle ) {
-	fgmres_PRECISION_struct_free( &(l->next_level->p_PRECISION), l->next_level );
-      } else {
-	vector_PRECISION_free( &(l->next_level->p_PRECISION.b), l->next_level, no_threading );
-	vector_PRECISION_free( &(l->next_level->p_PRECISION.x), l->next_level, no_threading );
-      }
+      vector_PRECISION_free( &(l->next_level->p_PRECISION.b), l->next_level, no_threading );
+      vector_PRECISION_free( &(l->next_level->p_PRECISION.x), l->next_level, no_threading );
     }
   
     int i, n = (l->next_level->level>0)?7:4;  

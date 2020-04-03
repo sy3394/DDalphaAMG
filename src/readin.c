@@ -443,15 +443,26 @@ static void read_solver_parameters( FILE *in ) {
   save_pt = &(g.num_rhs_vect); g.num_rhs_vect=1;
   read_parameter( &save_pt, "number of rhs vectors:", "%d", 1, in, _DEFAULT_SET );
 
+  save_pt = &(g.max_mvp); g.max_mvp = 1000;
+  read_parameter( &save_pt, "fabulous max mat vec prod:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.f_orthoscheme); g.f_orthoscheme = FABULOUS_MGS;
   read_parameter( &save_pt, "fabulous orthogonalization scheme:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.f_orthotype); g.f_orthotype = FABULOUS_RUHE;
   read_parameter( &save_pt, "fabulous orthogonalization type:", "%d", 1, in, _DEFAULT_SET );
+  save_pt = &(g.ortho_iter); g.ortho_iter = 2;
+  read_parameter( &save_pt, "fabulous orthogonalization iter:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.f_solver); g.f_solver = _IB;
   read_parameter( &save_pt, "fabulous solver:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.fab_float.k); g.fab_float.k = 0;
+  save_pt = &(g.p.fab.k); g.p.fab.k = 0;
   read_parameter( &save_pt, "number of deflating eigenvectors for fabulous:", "%d", 1, in, _DEFAULT_SET );
-  g.fab_double.k = g.fab_float.k;
+  save_pt = &(g.max_kept_direction); g.max_kept_direction = -1;
+  read_parameter( &save_pt, "fabulous max kept dir:", "%d", 1, in, _DEFAULT_SET );
+  save_pt = &(g.real_residual); g.real_residual = 0;;
+  read_parameter( &save_pt, "fabulous compute real residual:", "%d", 1, in, _DEFAULT_SET );
+  save_pt = &(g.logger_user_data_size); g.logger_user_data_size = 0;
+  read_parameter( &save_pt, "fabulous user data size for log:", "%d", 1, in, _DEFAULT_SET );
+  save_pt = &(g.quiet); g.quiet = 1;
+  read_parameter( &save_pt, "fabulous silent run:", "%d", 1, in, _DEFAULT_SET );
 
   if ( g.randomize ) {
     srand( time( 0 ) + 1000*g.my_rank );
@@ -535,9 +546,22 @@ static void validate_parameters( int ls, level_struct *l ) {
     g.interpolation = 0;
     //ASSERT ( g.interpolation == 0 );
   }
+  if ( g.method == 0 && g.mixed_precision == 1 ) {
+    warning0("Pure GMRES uses either mixed precision solver or double precision solver.\n         Switching to doule precision\n");
+    g.mixed_precision = 0;
+  }
   if ( g.method == -2 )
-    if ( g.mixed_precision == 2 )
+    if ( g.mixed_precision != 0 ) {
       warning0("Pure fabulous solver uses double precision\n");
+      g.mixed_precision = 0;
+    }
+
+  if ( g.method == -2 || g.method ==4 ) {
+    if ( g.f_solver == 1 && g.f_orthotype != FABULOUS_BLOCK ) {
+      warning0("Only BLOCK-wise orthogonalization is currently implemented for BCGR. The BLOCK-wise version will be used\n");
+      g.f_orthotype = FABULOUS_BLOCK;
+    }
+  }
   
   ASSERT( IMPLIES( g.vt.evaluation, g.rhs <= 2 ) );
 #ifdef _20TV

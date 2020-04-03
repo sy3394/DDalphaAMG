@@ -67,17 +67,22 @@ void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector
 	  }
 	} else { 
 	  // if the next level is the bottom
+	  /*
 	  if ( g.method == 4 ) {
 	    START_LOCKED_MASTER(threading)
-  	    fabulous_PRECISION( l->next_level->fab_PRECISION, &(l->next_level->p_PRECISION), no_threading );
+	    if( g.odd_even ) {
+	      coarse_fabulous_solve_odd_even_PRECISION( &(l->next_level->fab_PRECISION), &(l->next_level->p_PRECISION), no_threading );
+	    } else {
+	      fabulous_PRECISION( &(l->next_level->fab_PRECISION), &(l->next_level->p_PRECISION), no_threading );
+	    }
 	    END_LOCKED_MASTER(threading)
-	  } else {
+	    } else {*/
 	    if ( g.odd_even ) {
 	      coarse_solve_odd_even_PRECISION_new( &(l->next_level->p_PRECISION), &(l->next_level->oe_op_PRECISION), l->next_level, threading );
 	    } else {
-	      fgmres_PRECISION( &(l->next_level->p_PRECISION), l->next_level, threading );
+	      solver_PRECISION( &(l->next_level->p_PRECISION), l->next_level, threading );
 	    }
-	  }
+	    //}
 	}
         START_MASTER(threading)
 	if ( l->depth == 0 )

@@ -451,6 +451,8 @@ static void coarse_selfcoupling_LU_doublet_decomposition_PRECISION( config_PRECI
 }
 #endif
 
+// out_o/e += D_eo/oe*in_e/o
+// in and out needs to be at least of size _ORDINARY
 void coarse_hopping_term_PRECISION_new( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op,
                                     const int amount, level_struct *l, struct Thread *threading ) {
 
@@ -601,6 +603,7 @@ void coarse_hopping_term_PRECISION_new( vector_PRECISION *out, vector_PRECISION 
   END_NO_HYPERTHREADS(threading)
 }
 
+// out_o/e -= D_eo/oe*in_e/o
 void coarse_n_hopping_term_PRECISION_new( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op,
                                       const int amount, level_struct *l, struct Thread *threading ) {
 
@@ -848,29 +851,68 @@ static void coarse_diag_oo_inv_PRECISION_new( vector_PRECISION *y, vector_PRECIS
 }
 
 void coarse_solve_odd_even_PRECISION_new( gmres_PRECISION_struct *p, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
+  /****************************************************************************************
+   * Descripton: Solve D*x = b in the even-odd preconditioning using Schur complement D_sc
+   *   D_sc = D_ee - D_eo D_oo ^{-1} D_oe
+   *   x_e = D_sc^{-1} (b_e - D_eo*D_oo^{-1}*b_o)
+   *   x_o = D_oo^{-1} (b_o - D_oe*x_e)  
+   ****************************************************************************************/
 
-  p->b.num_vect_now = g.num_vect_now; p->x.num_vect_now = g.num_vect_now;//!!!!!!
+  //p->b.num_vect_now = g.num_vect_now; p->x.num_vect_now = g.num_vect_now;//!!!!!!
+  p->b.num_vect_now = num_loop; p->x.num_vect_now = num_loop;//!!!!!!
 
+  // solve for x_e
   SYNC_CORES(threading)
-  PROF_PRECISION_START( _SC, threading );
-  coarse_diag_oo_inv_PRECISION_new( &p->x, &p->b, op, l, threading );
+  PROF_PRECISION_START( _SC, threading ); 
+  coarse_diag_oo_inv_PRECISION_new( &p->x, &p->b, op, l, threading ); // x_o = D_oo^{-1}*b_o
   PROF_PRECISION_STOP( _SC, 0, threading );
   PROF_PRECISION_START( _NC, threading );
-  coarse_n_hopping_term_PRECISION_new( &p->b, &p->x, op, _EVEN_SITES, l, threading );
+  coarse_n_hopping_term_PRECISION_new( &p->b, &p->x, op, _EVEN_SITES, l, threading ); // b_e = b_e - D_eo*D_oo^{-1}*b_o
   PROF_PRECISION_STOP( _NC, 0, threading );
+
+  solver_PRECISION( p, l, threading ); // x_e = D_sc^{-1} (b_e - D_eo*D_oo^{-1}*b_o)
   
-  fgmres_PRECISION( p, l, threading );
-  
-  // even to odd
+  // construct x_o from x_e
   PROF_PRECISION_START( _NC, threading );
-  coarse_n_hopping_term_PRECISION_new( &p->b, &p->x, op, _ODD_SITES, l, threading );
+  coarse_n_hopping_term_PRECISION_new( &p->b, &p->x, op, _ODD_SITES, l, threading ); // b_o = b_o - D_oe*x_e
   PROF_PRECISION_STOP( _NC, 1, threading );
   PROF_PRECISION_START( _SC, threading );
-  coarse_diag_oo_inv_PRECISION_new( &p->x, &p->b, op, l, threading );
+  coarse_diag_oo_inv_PRECISION_new( &p->x, &p->b, op, l, threading ); // x_o = D_oo^{-1} (b_o - D_oe*x_e)
   PROF_PRECISION_STOP( _SC, 1, threading );
   SYNC_CORES(threading)
 }
+#if 0
+void coarse_fabulous_solve_odd_even_PRECISION( fabulous_PRECISION_struct *fab, gmres_PRECISION_struct *p, struct Thread *threading ) {
+  /****************************************************************************************
+   * Descripton: Solve D*x = b in the even-odd preconditioning using Schur complement D_sc
+   *   D_sc = D_ee - D_eo D_oo ^{-1} D_oe
+   *   x_e = D_sc^{-1} (b_e - D_eo*D_oo^{-1}*b_o)
+   *   x_o = D_oo^{-1} (b_o - D_oe*x_e)  
+   ****************************************************************************************/
+  level_struct *l = fab->l;
+  p->b.num_vect_now = num_loop; p->x.num_vect_now = num_loop;//!!!!!!
 
+  // solve for x_e
+  SYNC_CORES(threading)
+  PROF_PRECISION_START( _SC, threading );
+  coarse_diag_oo_inv_PRECISION_new( &p->x, &p->b, fab->op, l, threading ); // x_o = D_oo^{-1}*b_o
+  PROF_PRECISION_STOP( _SC, 0, threading );
+  PROF_PRECISION_START( _NC, threading );
+  coarse_n_hopping_term_PRECISION_new( &p->b, &p->x, fab->op, _EVEN_SITES, l, threading ); // b_e = b_e - D_eo*D_oo^{-1}*b_o
+  PROF_PRECISION_STOP( _NC, 0, threading );
+  
+  fabulous_PRECISION( fab, p, threading ); // x_e = D_sc^{-1} (b_e - D_eo*D_oo^{-1}*b_o)
+  
+  // construct x_o from x_e
+  PROF_PRECISION_START( _NC, threading );
+  coarse_n_hopping_term_PRECISION_new( &p->b, &p->x, fab->op, _ODD_SITES, l, threading ); // b_o = b_o - D_oe*x_e
+  PROF_PRECISION_STOP( _NC, 1, threading );
+  PROF_PRECISION_START( _SC, threading );
+  coarse_diag_oo_inv_PRECISION_new( &p->x, &p->b, fab->op, l, threading ); // x_o = D_oo^{-1} (b_o - D_oe*x_e)
+  PROF_PRECISION_STOP( _SC, 1, threading );
+  SYNC_CORES(threading)
+}
+#endif
 /************************  TEST ROUTINES  ********************************************/
 
 void coarse_odd_even_PRECISION_test_new( vector_PRECISION *out, vector_PRECISION *in, level_struct *l, struct Thread *threading ) {

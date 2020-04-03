@@ -209,8 +209,10 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     //oddeven_setup_double( &(g.op_double), l );
     //setup_fabulous_double( &(g.fab_double), num_loop, l->inner_vector_size, (g.odd_even)?&(l->oe_op_double):&(g.op_double), (g.odd_even)?apply_schur_complement_double_new:d_plus_clover_double_new, l, no_threading);
 
-    setup_fabulous_double( 1000, g.restart, _INNER, g.tol,
-			   &(g.fab_double), num_loop, l->inner_vector_size, &(g.op_double), d_plus_clover_double_new, &(g.p), l, no_threading);
+    //setup_fabulous_double( 1000, g.restart, _INNER, g.tol,
+    //&(g.fab_double), num_loop, l->inner_vector_size, &(g.op_double), d_plus_clover_double_new, &(g.p), l, no_threading);
+    fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
+				_GLOBAL_FABULOUS, _NOTHING, NULL, d_plus_clover_double_new, &(g.p), l );
   }
   END_LOCKED_MASTER(threading)
 
@@ -219,13 +221,15 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   // l->p_PRECISION is not necessary if g.method==0, defined in smoother_PRECISION_def?????
   // for g.method=5, l->sp_PRECISION is not used???? if we set prec to preconditioner in g.p_* and change
   //   preconditioner.c as is suggested in the comment, sp_* will be used.
+    //    if ( g.method >= 0 || g.method == -2 ) {
   if ( g.method >= 0 ) {
     START_LOCKED_MASTER(threading)
     t0 = MPI_Wtime();
     if ( g.mixed_precision ) {
       smoother_float_def( l ); // define s_PRECISION, and s/p_PRECISION(gmres) if g.method=5 or 6
+      //if ( ( g.method >= 5 || g.method == -2 ) && g.odd_even )
       if ( g.method >= 5 && g.odd_even )
-        oddeven_setup_float( &(g.op_double), l );
+	oddeven_setup_float( &(g.op_double), l );
     } else {
       smoother_double_def( l );
       if ( g.method >= 5 && g.odd_even )
@@ -544,9 +548,9 @@ void method_free( level_struct *l ) {
       }
   } else if ( g.method == -1 ) {
     fine_level_double_free( l );
-  } else if ( g.method == -2 ) {
-    fabulous_double_free( &(g.fab_double), &(g.p), l, no_threading );
-  }
+  }/* else if ( g.method == -2 ) {
+    fgmres_double_struct_free( &(g.p), l );
+    }*/
 
 #ifdef INIT_ONE_PREC
   if ( g.mixed_precision == 2 && g.method >= 0 ) {
@@ -557,7 +561,7 @@ void method_free( level_struct *l ) {
     vector_double_free( &(g.p.x), l, no_threading );
 #endif
 #ifdef INIT_ONE_PREC
-  } else {
+  } else {printf0("init free else\n");
 #endif
     fgmres_double_struct_free( &(g.p), l );
 #ifdef INIT_ONE_PREC

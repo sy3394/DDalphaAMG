@@ -784,16 +784,16 @@ void apply_schur_complement_PRECISION_new( vector_PRECISION *out, vector_PRECISI
   SYNC_CORES(threading)
   vector_PRECISION_define_new( &tmp[0], 0, start_odd, end_odd, l );
   vector_PRECISION_define_new( &tmp[0], 0, start_even, end_even, l );
+  
   SYNC_CORES(threading)
   PROF_PRECISION_START( _NC, threading );
-  
   PROF_PRECISION_START( _SC, threading );
-  diag_ee_PRECISION_new( out, in, op, l, start_even, end_even );//printf0("lll2\n");fflush(stdout);
+  diag_ee_PRECISION_new( out, in, op, l, start_even, end_even );
   SYNC_CORES(threading)
   PROF_PRECISION_STOP( _SC, 1, threading );
-  hopping_term_PRECISION_new( &tmp[0], in, op, _ODD_SITES, l, threading );//printf0("lll3\n");fflush(stdout);
-  PROF_PRECISION_STOP( _NC, 0, threading );
   
+  hopping_term_PRECISION_new( &tmp[0], in, op, _ODD_SITES, l, threading );
+  PROF_PRECISION_STOP( _NC, 0, threading );
   PROF_PRECISION_START( _SC, threading );
   diag_oo_inv_PRECISION_new( &tmp[1], &tmp[0], op, l, start_odd, end_odd );
   SYNC_CORES(threading)

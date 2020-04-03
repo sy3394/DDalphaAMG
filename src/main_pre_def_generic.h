@@ -91,12 +91,22 @@ typedef struct {//operator column major?????? no!!!!
     config_PRECISION epsbar_term, clover_doublet_oo_inv;
 #endif
   } operator_PRECISION_struct;
-  
+
+  typedef struct {
+    int dim, nrhs, ldb, ldx, k;
+    vector_PRECISION B, X, B0, X0, C0;
+    void *eigvals;  
+    fabulous_handle handle;
+    struct level_struct *l;
+    struct Thread *threading;
+  } fabulous_PRECISION_struct;
+
   typedef struct {
     vector_PRECISION x, b, r, w, *V, *Z;
     complex_PRECISION **H, *y, *gamma, *c, *s;
     config_PRECISION *D, *clover;
     operator_PRECISION_struct *op;
+    fabulous_PRECISION_struct fab;
     PRECISION tol;
     int num_restart, restart_length, timing, print, kind,
       initial_guess_zero, layout, v_start, v_end, num_vect;
@@ -119,7 +129,7 @@ typedef struct {//operator column major?????? no!!!!
         **block_list, *block_list_length;
     block_struct *block;
   } schwarz_PRECISION_struct;
-  
+
   typedef struct {
     int num_agg, *agg_index[4], agg_length[4], *agg_boundary_index[4],
         *agg_boundary_neighbor[4], agg_boundary_length[4], num_bootstrap_vect;
@@ -127,7 +137,7 @@ typedef struct {//operator column major?????? no!!!!
     complex_PRECISION *operator, *eigenvalues, *bootstrap_eigenvalues;
   } interpolation_PRECISION_struct;
 
-  typedef struct {
+/*  typedef struct {
     int dim, nrhs, ldb, ldx, k;
     void *eigvals;
     vector_PRECISION B, X, B0, X0, C0;
@@ -136,7 +146,7 @@ typedef struct {//operator column major?????? no!!!!
     operator_PRECISION_struct *op;
     struct level_struct *l;
     struct Thread *threading;
-  } fabulous_PRECISION_struct;
+    } fabulous_PRECISION_struct;*/
 
   typedef struct {
     double time[_NUM_PROF];

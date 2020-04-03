@@ -46,7 +46,7 @@ void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operato
 #ifdef HAVE_TM
   config_PRECISION tm_term = op->tm_term+(start/nv)*12;
 #endif
-
+  //  printf("cl %g\n", creal_PRECISION(*op->tm_term));
   if ( g.csw == 0.0 ) {
 
     config_PRECISION clover = op->clover+(start/nv)*12;// why csw==0 => no clover????????
@@ -248,7 +248,7 @@ void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
   compute_core_start_end_custom(0, nv*n, &start, &end, l, threading, nv );//!!!!!
 
   SYNC_MASTER_TO_ALL(threading)
-  clover_PRECISION_new( eta, phi, op, start, end, l, threading );//eta=op*phi where clover term of op is applied
+    clover_PRECISION_new( eta, phi, op, start, end, l, threading );//printf("dplus clo\n");fflush(stdout);//eta=op*phi where clover term of op is applied
   START_MASTER(threading)
   PROF_PRECISION_START( _NC ); 
   END_MASTER(threading)

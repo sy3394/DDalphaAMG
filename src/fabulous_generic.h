@@ -20,9 +20,11 @@
 #ifndef FABULOUS_OP_H
    #define THREADING_H
 
-  void setup_fabulous_PRECISION( int iter, int restart, int v_type, PRECISION tol,
-				 fabulous_PRECISION_struct *fab, int nrhs, int dim, operator_PRECISION_struct *op, void (*eval_op)(),
-				 gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );
+  void fabulous_PRECISION_init( fabulous_PRECISION_struct *fab );
+//  void setup_fabulous_PRECISION( int iter, int restart, int v_type, PRECISION tol,
+//				 fabulous_PRECISION_struct *fab, int nrhs, int dim, operator_PRECISION_struct *op, void (*eval_op)(),
+//				 gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );
+  void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_struct *l, struct Thread *threading );
   int64_t mvp_PRECISION(  void *user_env, int N,
 			  const void *alpha, const void *XX, int ldx,
 			  const void *beta, void *BB, int ldb);
@@ -33,6 +35,6 @@
 				const void *B_, int ldb,
 				void *C_, int ldc);
 
-  void fabulous_PRECISION_free( fabulous_PRECISION_struct *fab, gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );
+  void fabulous_PRECISION_free( fabulous_PRECISION_struct *fab, level_struct *l, struct Thread *threading );
 
 #endif

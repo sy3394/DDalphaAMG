@@ -165,21 +165,21 @@ double prof_print( level_struct *l ) {
 #ifdef PROFILING
   
   if ( l != NULL && g.print > 0 ) {
-    if ( l->depth == 0 ) printf0("\n+----------------------------------------------------------+\n");
-    if ( l->depth == 0 ) printf0("| solver profiling                                         |\n");
-    printf0("+----------------------------------------------------------+\n");
-    printf0("| depth: %3d / level: %3d                time    ( count ) |\n", l->depth, l->level );
-    printf0("+----------------------------------------------------------+\n");
+    if ( l->depth == 0 ) printf0("\n+------------------------------------------------------------+\n");
+    if ( l->depth == 0 ) printf0("| solver profiling                                           |\n");
+    printf0("+------------------------------------------------------------+\n");
+    printf0("| depth: %3d / level: %3d                time     ( count  ) |\n", l->depth, l->level );
+    printf0("+------------------------------------------------------------+\n");
     flop += prof_double_print( l );
     flop += prof_float_print( l );
     flop += prof_print( l->next_level );
     if ( l->depth == 0 ) {
       int *ll = l->local_lattice;
-      printf0("+----------------------------------------------------------+\n");
-      printf0("| flop/lattice site: %9.2le                             |\n", flop );
-      printf0("| flop/s/MPIprocess: %9.2le                             |\n",
+      printf0("+------------------------------------------------------------+\n");
+      printf0("| flop/lattice site: %9.2le                               |\n", flop );
+      printf0("| flop/s/MPIprocess: %9.2le                               |\n",
               (flop/g.total_time)*ll[T]*ll[Z]*ll[Y]*ll[X] );
-      printf0("+----------------------------------------------------------+\n\n");
+      printf0("+------------------------------------------------------------+\n\n");
     }
   }
 #endif

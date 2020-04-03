@@ -44,6 +44,7 @@ void fgmres_PRECISION_struct_init( gmres_PRECISION_struct *p ) {
   p->s     = NULL;
   p->preconditioner = NULL;
   p->eval_operator  = NULL;
+  fabulous_PRECISION_init( &(p->fab) );
 }
 
 
@@ -80,9 +81,12 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
 *   c: cosine of Givens rotation
 *   s: sine of Givens rotation
 *********************************************************************************/  
-  
+
   long int total=0; // keep track of size of H allocated for H, y, gamma, c, s 
   int i, k=0, nvec=num_loop;//g.num_vect_now; //(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!!!
+#ifdef HAVE_TM1p1
+  nvec*=2;
+#endif
   
   p->restart_length = m;
   p->num_restart    = n;
@@ -90,13 +94,44 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
   p->eval_operator  = eval_op; 
   p->tol            = tol;
   p->kind           = prec_kind;
-#ifdef HAVE_TM1p1
-  nvec*=2;
-#endif
   p->num_vect       = nvec;
 
-  
-  if(m > 0) {
+  if ( type == _GLOBAL_FGMRES || type == _GLOBAL_FABULOUS ) {    
+    p->timing = 1;
+    p->print = g.vt.evaluation?0:1;
+    p->initial_guess_zero = 1;
+    p->v_start = 0;
+    p->v_end = l->inner_vector_size;
+    p->op = &(g.op_PRECISION);
+    if ( type == _GLOBAL_FABULOUS )
+      setup_fabulous_PRECISION( p, vl_type, l, no_threading );//!!!!!!no_threaing->threading desireble 
+  } else if ( type == _K_CYCLE ) {
+    // these settings also work for GMRES as a smoother
+    p->timing = 0;
+    p->print = 0;//just for debugging orig0
+    p->initial_guess_zero = 1;
+    p->v_start = 0;
+    p->v_end = l->inner_vector_size;
+    p->op = &(l->s_PRECISION.op);
+  } else if ( type == _COARSE_GMRES || type == _COARSE_FABULOUS ) {
+    p->timing = 0;
+    p->print = 0;
+    p->initial_guess_zero = 1;
+    p->layout = -1;
+    p->v_start = 0;
+    p->v_end = l->inner_vector_size;
+    if ( g.odd_even )
+      p->op = &(l->oe_op_PRECISION);
+    else  
+      p->op = &(l->s_PRECISION.op);
+    if ( type == _COARSE_FABULOUS )
+      setup_fabulous_PRECISION( p, vl_type, l, no_threading );//!!!!!!no_threaing->threading desireble
+  } else {
+    ASSERT( type < 4 );
+  }
+
+  //---- allocate vector fields
+  if( type != _GLOBAL_FABULOUS && type != _COARSE_FABULOUS && m > 0) {
     // allocate space for H, V, Z
     total += (m+1)*m*nvec; // for Hessenberg matrix
     MALLOC( p->H, complex_PRECISION*, m );
@@ -164,36 +199,12 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
     vector_PRECISION_alloc( &(p->b), vl_type, nvec, l, no_threading );
     
     ASSERT( p->total_storage == total );
-  }
-  
-  if ( type == _GLOBAL_FGMRES ) {    
-    p->timing = 1;
-    p->print = g.vt.evaluation?0:1;
-    p->initial_guess_zero = 1;
-    p->v_start = 0;
-    p->v_end = l->inner_vector_size;
-    p->op = &(g.op_PRECISION);
-  } else if ( type == _K_CYCLE ) {
-    // these settings also work for GMRES as a smoother
-    p->timing = 0;
-    p->print = 0;//just for debugging orig0
-    p->initial_guess_zero = 1;
-    p->v_start = 0;
-    p->v_end = l->inner_vector_size;
-    p->op = &(l->s_PRECISION.op);
-  } else if ( type == _COARSE_GMRES ) {
-    p->timing = 0;
-    p->print = 0;
-    p->initial_guess_zero = 1;
-    p->layout = -1;
-    p->v_start = 0;
-    p->v_end = l->inner_vector_size;
-    if ( g.odd_even )
-      p->op = &(l->oe_op_PRECISION);
-    else  
-      p->op = &(l->s_PRECISION.op);
-  } else {
-    ASSERT( type < 3 );
+  } else if ( type == _GLOBAL_FABULOUS || type == _COARSE_FABULOUS) {
+    //printf0("ssss fgm fab\n");
+    // x
+    vector_PRECISION_alloc( &(p->x), vl_type, nvec, l, no_threading );
+    // b
+    vector_PRECISION_alloc( &(p->b), vl_type, nvec, l, no_threading );
   }
   
 }
@@ -223,18 +234,24 @@ void fgmres_PRECISION_struct_free( gmres_PRECISION_struct *p, level_struct *l ) 
   }
 
   if(p->restart_length > 0) {
-    FREE( p->H[0], complex_PRECISION, p->total_storage );
-    FREE( p->H, complex_PRECISION*, p->restart_length );
-    for ( i=0; i<p->restart_length+1; i++ ) vector_PRECISION_free( &(p->V[i]), l, no_threading );
-    FREE( p->V, vector_PRECISION, p->restart_length+1 );
-    vector_PRECISION_free( &(p->w), l, no_threading );
-    vector_PRECISION_free( &(p->x), l, no_threading );
-    vector_PRECISION_free( &(p->r), l, no_threading );
-    vector_PRECISION_free( &(p->b), l, no_threading );
-    
-    if ( p->Z != NULL ) {
-      for ( i=0; i<k; i++ ) vector_PRECISION_free( &(p->Z[i]), l, no_threading );
-      FREE( p->Z, vector_PRECISION, k );
+    if ( p->fab.handle != NULL ) {
+      vector_PRECISION_free( &(p->x), l, no_threading );
+      vector_PRECISION_free( &(p->b), l, no_threading );
+      fabulous_PRECISION_free( &(p->fab), l, no_threading );
+    } else {
+      FREE( p->H[0], complex_PRECISION, p->total_storage );
+      FREE( p->H, complex_PRECISION*, p->restart_length );
+      for ( i=0; i<p->restart_length+1; i++ ) vector_PRECISION_free( &(p->V[i]), l, no_threading );
+      FREE( p->V, vector_PRECISION, p->restart_length+1 );
+      vector_PRECISION_free( &(p->w), l, no_threading );
+      vector_PRECISION_free( &(p->x), l, no_threading );
+      vector_PRECISION_free( &(p->r), l, no_threading );
+      vector_PRECISION_free( &(p->b), l, no_threading );
+      
+      if ( p->Z != NULL ) {
+	for ( i=0; i<k; i++ ) vector_PRECISION_free( &(p->Z[i]), l, no_threading );
+	FREE( p->Z, vector_PRECISION, k );
+      }
     }
   }
   
@@ -242,13 +259,27 @@ void fgmres_PRECISION_struct_free( gmres_PRECISION_struct *p, level_struct *l ) 
   p->clover = NULL;
 }
 
+int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading ) {
+
+  int iter = 0;
+
+  if ( p->fab.handle != NULL ) {
+    START_MASTER(threading)
+    iter = fabulous_PRECISION( p, no_threading );
+    END_MASTER(threading)
+  } else {
+    iter = fgmres_PRECISION( p, l, threading );
+  }
+  return iter;
+}
 
 int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading ) {
 
 /*********************************************************************************
-* Uses FGMRES to solve the system D x = b, where b is taken from p->b and x is 
+* Uses FGMRES or fabulous to solve the system D x = b, where b is taken from p->b and x is 
 * stored in p->x.                                                              
 *********************************************************************************/  
+
 
   // start and end indices for vector functions depending on thread
   int start;
@@ -257,7 +288,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   SYNC_MASTER_TO_ALL(threading)
   SYNC_CORES(threading)
 
-  int j=-1, finish=0, iter=0, il, ol, res;
+  int j=-1, finish=0, iter=0, il, ol, res;// related to the above change
   int n_vect=num_loop, i, jj;//!!!!!!!!!!!g.num_vect_now
   PRECISION beta[n_vect];
 
@@ -284,7 +315,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   if ( p->print && g.print > 0 ) printf0("+----------------------------------------------------------+\n");
 #endif
   END_LOCKED_MASTER(threading)
-    //  SYNC_MASTER_TO_ALL(threading)
+
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
   compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading,l->num_lattice_site_var);
@@ -468,33 +499,43 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
     START_MASTER(threading)
     prof_print( l );
     END_MASTER(threading)
-  }  
+  }
   return iter;
 }
 
-int fabulous_PRECISION( fabulous_PRECISION_struct fab, gmres_PRECISION_struct *p, struct Thread *threading ) {
-  //  printf0("begin PRECISION fab solve %d: %d %d %d %d %d\n", g.f_solver, fab.B.num_vect,p->b.num_vect_now, p->b.size, fab.B.size, fab.dim);fflush(stdout);
-  vector_PRECISION_copy_new( &(fab.B), &(p->b), 0, fab.dim, fab.l );
-  vector_PRECISION_copy_new( &(fab.X), &(p->x), 0, fab.dim, fab.l );
-  void *X = fab.X.vector_buffer, *B = fab.B.vector_buffer;
-  vector_PRECISION_change_layout( &(fab.B), &(fab.B), _NVEC_OUTER, no_threading );
-  vector_PRECISION_change_layout( &(fab.X), &(fab.X), _NVEC_OUTER, no_threading );
+int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
+
+  fabulous_PRECISION_struct *fab = &(p->fab);
+  level_struct * l = fab->l;
+  int even_size = p->op->num_even_sites*l->num_lattice_site_var;
+  printf0("begin PRECISION fab: solver %d depth %d: %d=%d? %d, sizes %d %d %d even sts %d\n", g.f_solver, l->depth, fab->nrhs,fab->B.num_vect,p->b.num_vect_now, p->b.size, fab->B.size, fab->dim, even_size);fflush(stdout);
+    
+  p->b.num_vect_now = num_loop; p->x.num_vect_now = num_loop;//!!!!!!
+
+  vector_PRECISION_copy_new( &(fab->B), &(p->b), 0, fab->dim, l );
+  vector_PRECISION_copy_new( &(fab->X), &(p->x), 0, fab->dim, l );
+  void *X = fab->X.vector_buffer, *B = fab->B.vector_buffer;
+  vector_PRECISION_change_layout( &(fab->B), &(fab->B), _NVEC_OUTER, threading );
+  vector_PRECISION_change_layout( &(fab->X), &(fab->X), _NVEC_OUTER, threading );
   switch ( g.f_solver ) {
-  case _GCR:    g.iter_count = fabulous_solve_GCR( fab.nrhs, B, fab.ldb, X, fab.ldx, fab.handle ); break;
-  case _IB:     g.iter_count = fabulous_solve_IB( fab.nrhs, B, fab.ldb, X, fab.ldx, fab.handle ); break;
-  case _DR:     g.iter_count = fabulous_solve_DR( fab.nrhs, B, fab.ldb, X, fab.ldx, fab.k, fab.eigvals, fab.handle ); break;
-  case _IBDR:   g.iter_count = fabulous_solve_IBDR( fab.nrhs, B, fab.ldb, X, fab.ldx, fab.k, fab.eigvals, fab.handle ); break;
-  case _QR:     g.iter_count = fabulous_solve_QR( fab.nrhs, B, fab.ldb, X, fab.ldx, fab.handle ); break;
-  case _QRIB:   g.iter_count = fabulous_solve_QRIB( fab.nrhs, B, fab.ldb, X, fab.ldx, fab.handle ); break;
-  case _QRDR:   g.iter_count = fabulous_solve_QRDR( fab.nrhs, B, fab.ldb, X, fab.ldx, fab.k, fab.eigvals, fab.handle ); break;
-  case _QRIBDR: g.iter_count = fabulous_solve_QRIBDR( fab.nrhs, B, fab.ldb, X, fab.ldx, fab.k, fab.eigvals, fab.handle ); break;
-  default:      g.iter_count = fabulous_solve( fab.nrhs, B, fab.ldb, X, fab.ldx, fab.handle ); break;
+  case _GCR:    g.iter_count = fabulous_solve_GCR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
+  case _IB:     g.iter_count = fabulous_solve_IB( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
+  case _DR:     g.iter_count = fabulous_solve_DR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
+  case _IBDR:   g.iter_count = fabulous_solve_IBDR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
+  case _QR:     g.iter_count = fabulous_solve_QR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
+  case _QRIB:   g.iter_count = fabulous_solve_QRIB( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
+  case _QRDR:   g.iter_count = fabulous_solve_QRDR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
+  case _QRIBDR: g.iter_count = fabulous_solve_QRIBDR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
+  default:      g.iter_count = fabulous_solve( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
   }
-  vector_PRECISION_change_layout( &(fab.B), &(fab.B), _NVEC_INNER, no_threading );
-  vector_PRECISION_change_layout( &(fab.X), &(fab.X), _NVEC_INNER, no_threading );
-  vector_PRECISION_copy_new( &(p->b), &(fab.B), 0, fab.dim, fab.l );
-  vector_PRECISION_copy_new( &(p->x), &(fab.X), 0, fab.dim, fab.l );
-  //  printf0("finish fab solve %d\n", g.f_solver);fflush(stdout);
+  //vector_PRECISION_change_layout( &(fab->B), &(fab->B), _NVEC_INNER, threading );
+  fab->B.layout = _NVEC_INNER;
+  vector_PRECISION_change_layout( &(fab->X), &(fab->X), _NVEC_INNER, threading );
+  //vector_PRECISION_copy_new( &(p->b), &(fab->B), 0, (g.odd_even)?even_size:fab->dim, l );
+  vector_PRECISION_copy_new( &(p->x), &(fab->X), 0, (g.odd_even&&l->depth!=0)?even_size:fab->dim, l );
+
+  fabulous_print_log_filename("convergence_histo.txt", "fab1", fab->handle);
+    printf0("finish fab solve %d\n", g.iter_count);fflush(stdout);
   return g.iter_count;
 }
 

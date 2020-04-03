@@ -27,6 +27,7 @@
 void smoother_PRECISION_def( level_struct *l ) { // used only at the top level
   
   if ( g.method >= 0 ) {
+    //    if ( g.method >= 0 || g.method == -2 ) {
     // Copies the Dirac operator and the clover term from g.op_double into the Schwarz l->s_PRECISION
     schwarz_PRECISION_alloc( &(l->s_PRECISION) , l );
     schwarz_layout_PRECISION_define( &(l->s_PRECISION), l );

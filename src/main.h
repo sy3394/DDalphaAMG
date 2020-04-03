@@ -222,13 +222,13 @@
   enum { _READ, _WRITE };
   enum { _NO_SHIFT };
   enum { _BTWN_ORTH = 20 };
-  enum { _GLOBAL_FGMRES, _K_CYCLE, _COARSE_GMRES, _SMOOTHER };
+  enum { _GLOBAL_FGMRES, _K_CYCLE, _COARSE_GMRES, _SMOOTHER, _GLOBAL_FABULOUS, _COARSE_FABULOUS };
   enum { _COARSE_GLOBAL };
   enum { _FULL_SYSTEM, _EVEN_SITES, _ODD_SITES };
   enum { _LEFT, _RIGHT, _NOTHING };
   enum { _PERIODIC, _ANTIPERIODIC, _TWISTED, _DIRICHLET };
   enum { _GIP, _PIP, _LA2, _LA6, _LA8, _LA, _CPY, _SET, _PR, _SC, _NC, _SM, _OP_COMM, _OP_IDLE, _ALLR, _GD_COMM, _GD_IDLE, _GRAM_SCHMIDT, _GRAM_SCHMIDT_ON_AGGREGATES,
-      _SM1, _SM2, _SM3, _SM4, _SMALL1, _SMALL2, _RS, _NUM_PROF }; // _NUM_PROF has always to be the last constant!
+	 _SM1, _SM2, _SM3, _SM4, _SMALL1, _SMALL2, _RS, _RL, _FIP, _FMVP, _FAB_COPY, _NUM_PROF }; // _NUM_PROF has always to be the last constant!
   enum { _VTS = 20 };
   enum { _TRCKD_VAL, _STP_TIME, _SLV_ITER, _SLV_TIME, _CRS_ITER, _CRS_TIME, _SLV_ERR, _CGNR_ERR, _NUM_OPTB };
   enum { _NVEC_OUTER, _NVEC_INNER }; //vector layout: spin first; vector first
@@ -319,9 +319,6 @@
     // dummy gmres struct
     gmres_float_struct dummy_p_float;
     gmres_double_struct dummy_p_double;
-    // fabulous solver
-    fabulous_float_struct fab_float;
-    fabulous_double_struct fab_double;
     //profiling
     profiling_float_struct prof_float;
     profiling_double_struct prof_double;
@@ -381,11 +378,15 @@
     operator_double_struct op_double;
     operator_float_struct op_float;
 
-    fabulous_float_struct fab_float;
-    fabulous_double_struct fab_double;
     int f_solver;
     fabulous_orthoscheme f_orthoscheme;
     fabulous_orthotype f_orthotype;
+    int max_mvp;               // Maximum number of Matrix X Vector product
+    int ortho_iter;            // #iteration for Iterated Schemas (IMGS and ICGS); Must be positive integer >= 2
+    int max_kept_direction;    // max #kept direction per iteration
+    int real_residual;         // if 1, compute X and R at each iteration such that the user can access them in CallBack????
+    int logger_user_data_size; // #slots for user data when calling fabulous_set_iteration_user_data()
+    int quiet;                 // if 1, no output to stdout when running
 
     // communication
     MPI_Comm comm_cart;

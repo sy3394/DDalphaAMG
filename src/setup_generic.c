@@ -462,7 +462,7 @@ static void inv_iter_inv_fcycle_PRECISION_new( int setup_iter, level_struct *l, 
       vector_PRECISION_alloc( &buf, _INNER, num_loop, l, threading );
       buf.num_vect_now = num_loop;
       for ( int i=0; i<nvec; i += num_loop ) {
-        vector_PRECISION_copy2_new( &buf, &(l->is_PRECISION.test_vector_vec), i, num_loop, 1, start, end, l );	//printfv_PRECISION(&buf);
+        vector_PRECISION_copy2_new( &buf, &(l->is_PRECISION.test_vector_vec), i, num_loop, 1, start, end, l );
 	// apply K-cycle
 	vcycle_PRECISION_new( &(l->p_PRECISION.x), NULL, &buf, _NO_RES, l, threading );
 	test_vector_PRECISION_update_new( i, l, threading );
