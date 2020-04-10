@@ -159,19 +159,10 @@ void next_level_PRECISION_setup( level_struct *l ) {
     // allocate l->next_level->p_PRECISION or just l->next_level->p_PRECISION.b&x
     if ( l->level == 1 && !l->next_level->idle ) {
       // if the next level is the bottom and I am not the idle process,
-      /*
-      if ( g.method == 4 )
-	// set fabulous as the coarsest solver
-	setup_fabulous_PRECISION( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol,
-				  &(l->next_level->fab_PRECISION), num_loop, l->next_level->inner_vector_size,
-				  g.odd_even?&(l->next_level->oe_op_PRECISION):&(l->next_level->s_PRECISION.op),
-				  g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
-				  &(l->next_level->p_PRECISION),l->next_level, no_threading );
-				  else*/
-	// set the coarsest gmres_PRECISION_struct as a coarse GMRES solver
-	fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol, 
-				       (g.method==4)?_COARSE_FABULOUS:_COARSE_GMRES, _NOTHING, NULL,
-				       g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
+      // set the coarsest gmres_PRECISION_struct as a coarse GMRES solver
+      fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol, 
+				     (g.method==4)?_COARSE_FABULOUS:_COARSE_GMRES, _NOTHING, NULL,
+				     g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
 				       &(l->next_level->p_PRECISION), l->next_level );
     } else {
       // if the next level is not the bottom

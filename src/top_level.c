@@ -202,17 +202,12 @@ static int wilson_driver( vector_double *solution, vector_double *source, level_
 #endif
   for ( int i=0; i<g.num_rhs_vect; i+=num_loop ) {
     vector_double_copy2_new( &rhs, source, i, num_loop, 1, start, end, l );
-    /*if ( g.method == -2 ) {//we might consider inverting all at once for this choice!!!!!
-      START_MASTER(threading)
-      iter = fabulous_double( &(g.fab_double), &(g.p), no_threading );// printf0("af wil fab %d\n",iter);fflush(stdout);
-      END_MASTER(threading)
-    }*/
     if ( g.method == -1 ) {
       cgn_double( &(g.p), l, threading );
     } else if ( g.mixed_precision == 2 ) {
       iter = fgmres_MP( &(g.p_MP), l, threading );
     } else {
-      iter = solver_double( &(g.p), l, threading );//fgmres_double( &(g.p), l, threading );
+      iter = solver_double( &(g.p), l, threading );
     }
     vector_double_copy2_new( solution, &sol, i, num_loop, -1, start, end, l );
   }
@@ -229,6 +224,6 @@ static int wilson_driver( vector_double *solution, vector_double *source, level_
   prof_print( l );
   END_MASTER(threading)
 #endif
-  
+    
   return iter;
 }

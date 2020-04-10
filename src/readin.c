@@ -166,7 +166,7 @@ static void read_global_info( FILE *in ) {
   
   save_pt = &(g.num_openmp_processes); g.num_openmp_processes = 1;
   read_parameter( &save_pt, "number of openmp threads:", "%d", 1, in, _DEFAULT_SET );
-  
+
 }
 
 // Default values are not available for the following variables.
@@ -463,7 +463,9 @@ static void read_solver_parameters( FILE *in ) {
   read_parameter( &save_pt, "fabulous user data size for log:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.quiet); g.quiet = 1;
   read_parameter( &save_pt, "fabulous silent run:", "%d", 1, in, _DEFAULT_SET );
-
+  save_pt = &(g.use_only_fgrmes_at_setup); g.use_only_fgrmes_at_setup = 0;
+  read_parameter( &save_pt, "use only FGMRES at setup:", "%d", 1, in, _DEFAULT_SET );
+  
   if ( g.randomize ) {
     srand( time( 0 ) + 1000*g.my_rank );
   } else 

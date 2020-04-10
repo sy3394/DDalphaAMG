@@ -71,6 +71,8 @@ void g_init(){
   g.in_setup = 0;
   g.num_rhs_vect = 0;
   g.num_vect_now=0;
+  g.use_only_fgrmes_at_setup = 1;
+    
 }
 
 // initialize level structure
@@ -129,6 +131,7 @@ void method_init( int *argc, char ***argv, level_struct *l ) {
   operator_double_define( &(g.op_double), l );
   MALLOC( g.odd_even_table, int, l->num_inner_lattice_sites );
   define_odd_even_table( l );
+  
 }
 
 void method_setup( vector_double *V, level_struct *l, struct Thread *threading ) {
@@ -206,11 +209,6 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     fine_level_double_alloc( l );
   }
   else if ( g.method == -2 ) {//----- pure fabulous solver
-    //oddeven_setup_double( &(g.op_double), l );
-    //setup_fabulous_double( &(g.fab_double), num_loop, l->inner_vector_size, (g.odd_even)?&(l->oe_op_double):&(g.op_double), (g.odd_even)?apply_schur_complement_double_new:d_plus_clover_double_new, l, no_threading);
-
-    //setup_fabulous_double( 1000, g.restart, _INNER, g.tol,
-    //&(g.fab_double), num_loop, l->inner_vector_size, &(g.op_double), d_plus_clover_double_new, &(g.p), l, no_threading);
     fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
 				_GLOBAL_FABULOUS, _NOTHING, NULL, d_plus_clover_double_new, &(g.p), l );
   }
@@ -221,13 +219,11 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   // l->p_PRECISION is not necessary if g.method==0, defined in smoother_PRECISION_def?????
   // for g.method=5, l->sp_PRECISION is not used???? if we set prec to preconditioner in g.p_* and change
   //   preconditioner.c as is suggested in the comment, sp_* will be used.
-    //    if ( g.method >= 0 || g.method == -2 ) {
   if ( g.method >= 0 ) {
     START_LOCKED_MASTER(threading)
     t0 = MPI_Wtime();
     if ( g.mixed_precision ) {
       smoother_float_def( l ); // define s_PRECISION, and s/p_PRECISION(gmres) if g.method=5 or 6
-      //if ( ( g.method >= 5 || g.method == -2 ) && g.odd_even )
       if ( g.method >= 5 && g.odd_even )
 	oddeven_setup_float( &(g.op_double), l );
     } else {
@@ -277,13 +273,17 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
         printf0("| postsmoothing %s-cycle                                    |\n", g.kcycle?"K":(l->n_cy>1?"W":"V") );
     }
     switch( g.method ) {
+      case -2: printf0("| pure Fabulous                                            |\n"); break;
       case -1: printf0("| pure CGN                                                 |\n"); break;
       case  0: printf0("| pure GMRES                                               |\n"); break;
       case  1: printf0("| FGMRES + additive Schwarz                                |\n"); break;
       case  2: printf0("| FGMRES + red-black multiplicative Schwarz                |\n"); break;
       case  3: printf0("| FGMRES + sixteen color multiplicative Schwarz            |\n"); break;
+      case  4: printf0("| FGMRES + red-black multiplicative Schwarz + Fabulous     |\n"); break;
       default: printf0("| FGMRES + GMRES                                           |\n"); break;
     }
+    if (g.method == -2 || g.method == 4 )
+      printf0("|          fabulous solver: %-2d                             |\n", g.f_solver );
     if ( g.method >=0  )
       printf0("|          restart length: %-3d                             |\n", g.restart );
     printf0("|                      m0: %+9.6lf                       |\n", g.m0 );
@@ -458,7 +458,7 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
     double t0=0, t1=0;
     START_LOCKED_MASTER(threading)
     g.in_setup = 1;
-    if ( l->depth==0 )//is this here to reset profiler????
+    if ( l->depth==0 ) // reset profiler
       prof_init( l );
     END_LOCKED_MASTER(threading)
 

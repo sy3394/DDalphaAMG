@@ -25,7 +25,7 @@
 static void vector_PRECISION_copy_fab( vector_PRECISION *z, vector_PRECISION *x, int vec_ind, int length, int dir, int start, int end, level_struct *l );
 
 void fabulous_PRECISION_init( fabulous_PRECISION_struct *fab ) {
-
+  //when dynamically alloc fab, then do here and free in the below
   vector_PRECISION *X = &(fab->X) , *B = &(fab->B), *B0 = &(fab->B0), *X0 = &(fab->X0), *C0 = &(fab->C0);
   
   vector_PRECISION_init(X);
@@ -47,16 +47,16 @@ void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_stru
   fabulous_PRECISION_struct *fab = &(p->fab);
   //some fields could be eliminated!!!!
   fab->nrhs =p->num_vect; 
-  int dim = p->v_end, nrhs = fab->nrhs;
+  int dim = (g.odd_even&&l->depth!=0)?(l->num_inner_lattice_sites/2)*l->num_lattice_site_var:p->v_end, nrhs = fab->nrhs;//!!!!!!
   fab->dim = dim; fab->ldb = dim; fab->ldx = dim;
   fab->l = l;
   fab->threading = threading;//needed?????
   //    printf0("fab PRECISION set: %d %d %d, %g %d %d\n",nrhs,dim,l->depth, p->tol, FABULOUS_COMPLEX_PRECISION, FABULOUS_COMPLEX_double);
   vector_PRECISION *X = &(fab->X) , *B = &(fab->B), *B0 = &(fab->B0), *X0 = &(fab->X0), *C0 = &(fab->C0);
-  // The following fields are used only internally; will be unnecessary if fabulous can handle _ORINARY properly!!!!
-  vector_PRECISION_alloc( X, _INNER, nrhs, l, threading ); X->num_vect_now = nrhs;
-  vector_PRECISION_alloc( B, _INNER, nrhs, l, threading ); B->num_vect_now = nrhs;
-  // The following fields are used in mvp_PRECISION for temporay storage
+  // The following fields are fed to fabulous solver; perhaps will be unnecessary if fabulous can handle _ORINARY properly!!!!
+  vector_PRECISION_alloc( X, (g.odd_even&&l->depth!=0)?_EVEN_INNER:_INNER, nrhs, l, threading ); X->num_vect_now = nrhs;
+  vector_PRECISION_alloc( B, (g.odd_even&&l->depth!=0)?_EVEN_INNER:_INNER, nrhs, l, threading ); B->num_vect_now = nrhs;
+  // The following fields are used in mvp_PRECISION as temporay storage
   vector_PRECISION_alloc( X0, v_type, nrhs, l, threading ); X0->num_vect_now = nrhs; X0->layout = _NVEC_OUTER;
   vector_PRECISION_alloc( B0, v_type, nrhs, l, threading ); B0->num_vect_now = nrhs; B0->layout = _NVEC_OUTER;
   vector_PRECISION_alloc( C0, v_type, nrhs, l, threading ); C0->num_vect_now = nrhs; C0->layout = _NVEC_OUTER;
@@ -64,8 +64,10 @@ void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_stru
     error0("set_fabulous_struct_PRECISION: assumptions are not met\n");
 
   fab->k = g.p.fab.k;
-  if ( fab->k > 0 )
+  if ( fab->k > 0 ) {
     MALLOC( fab->eigvals, complex_PRECISION, fab->k );
+    for ( int i=0; i<fab->k; i++ ) ((complex_PRECISION *) fab->eigvals)[i] = 0;
+  }
 
   //----- Set fabulous handle
   fab->handle = fabulous_create(FABULOUS_COMPLEX_PRECISION, fab->dim, (void *) p);
@@ -79,7 +81,7 @@ void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_stru
   // Setup parameters:
   fabulous_set_ortho_process(g.f_orthoscheme, g.f_orthotype, g.ortho_iter, fab->handle);
   PRECISION tolerance[1] = { p->tol };
-  fabulous_set_parameters( g.max_mvp, p->restart_length, tolerance, 1, fab->handle );
+  fabulous_set_parameters( p->restart_length*p->num_restart, p->restart_length, tolerance, 1, fab->handle );//g.max_mvp
   fabulous_set_advanced_parameters( g.max_kept_direction, g.real_residual, g.logger_user_data_size, g.quiet, fab->handle );
   //printf0("fab param: %d %d %d %g %d %d %d %d %d\n",g.f_orthoscheme, g.f_orthotype, g.ortho_iter,tolerance[0],g.max_mvp, p->restart_length,g.max_kept_direction, g.real_residual, g.logger_user_data_size);
 
@@ -96,6 +98,7 @@ void fabulous_PRECISION_free( fabulous_PRECISION_struct *fab, level_struct *l, s
      PUBLIC_FREE( fab->eigvals, PRECISION, fab->k );
   
   fabulous_destroy(fab->handle);
+  fab->handle = NULL;
 }
 
 // B <- beta*B+ alpha*A*X: Matrix x BlockOfVector product CALLBACK: vectors need to be in _NVEC_INNER

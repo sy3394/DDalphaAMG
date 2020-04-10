@@ -125,31 +125,6 @@ void test_routine_new( level_struct *l, struct Thread *threading ) {
 */
 #endif
 }
-#if 0
-static void mul_test( level_struct *l, struct Thread *threading ) {
-  START_UNTHREADED_FUNCTION(threading)
-  int j, jj;
-  vector_double buf1, buf2;
-  double t=0;
-  vector_double_init(&buf1);vector_double_init(&buf2);
-  vector_double_alloc(&buf1, _INNER, num_loop, l, no_threading);
-  vector_double_alloc(&buf2, _INNER, num_loop, l, no_threading);
-  vector_double_define_random_new(&buf1, 0, l->inner_vector_size, l);
-  vector_double_define_random_new(&buf2, 0, l->inner_vector_size, l);
-  t -=MPI_Wtime();
-  VECTOR_LOOP(j, l->inner_vector_size*num_loop, jj, MUL1_double(buf1.vector_buffer[j+jj], buf2.vector_buffer[j+jj], &(buf1.vector_buffer[j+jj]));)
-  t += MPI_Wtime();
-  printf0("Type 1 Cmplx Mul: %g\n", t);
-  t=0;
-  t -=MPI_Wtime();
-  VECTOR_LOOP(j, l->inner_vector_size*num_loop, jj, buf1.vector_buffer[j+jj] = buf1.vector_buffer[j+jj]*buf2.vector_buffer[j+jj];)
-  t += MPI_Wtime();
-  printf0("Type 2 Cmplx Mul: %g\n", t);
-  vector_double_free(&buf1, l, no_threading);
-  vector_double_free(&buf2, l, no_threading);
-  END_UNTHREADED_FUNCTION(threading)
-}
-#endif 
 
 void prof_init( level_struct *l ) {
   if ( l->depth == 0 ) { g.coarse_time=0; g.coarse_iter_count=0; }

@@ -434,7 +434,7 @@ static void inv_iter_inv_fcycle_PRECISION_new( int setup_iter, level_struct *l, 
 #endif
       END_LOCKED_MASTER(threading)
 
-	gram_schmidt_PRECISION_new( &(l->is_PRECISION.test_vector_vec), l->num_eig_vect, l, threading );
+      gram_schmidt_PRECISION_new( &(l->is_PRECISION.test_vector_vec), l->num_eig_vect, l, threading );
 #if 0
       complex_PRECISION *buffer = NULL;
       PUBLIC_MALLOC( buffer, complex_PRECISION, 2*l->num_eig_vect );

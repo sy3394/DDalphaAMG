@@ -60,17 +60,17 @@ typedef PRECISION_complex *buffer_PRECISION;
   } comm_PRECISION_struct;
   
   typedef struct {
-    int ilde, //?????????
-      dist_local_lattice[4],    // dims of a local coarsened lattice?????
-      dist_inner_lattice_sites, // #local lattice inner sites of a coarsened lattice
-        *permutation, *gather_list, gather_list_length;
+
+    int dist_local_lattice[4];    // dims of a local coarsened lattice?????
+    int dist_inner_lattice_sites; // #local lattice inner sites of a coarsened lattice
+    int  *permutation, *gather_list, gather_list_length;
     vector_PRECISION buffer, transfer_buffer;// buffer is used in gather routines
     MPI_Request *reqs;
     MPI_Group level_comm_group;
     MPI_Comm level_comm;
   } gathering_PRECISION_struct;
   
-typedef struct {//operator column major?????? no!!!!
+typedef struct {//operators are row-major
     double m0;
     config_PRECISION D, clover, clover_oo_inv;
     config_PRECISION odd_proj; //identity on the odd sites
@@ -117,7 +117,7 @@ typedef struct {//operator column major?????? no!!!!
   
   typedef struct {
     operator_PRECISION_struct op;
-    vector_PRECISION buf[5];//buf1, buf2, buf3, buf4, buf5;//!!!!!!!!!
+    vector_PRECISION buf[5];
     vector_PRECISION oe_buf[4];
     buffer_PRECISION local_minres_buffer[3];
     int block_oe_offset, *index[4],  dir_length[4], num_blocks, //# blocks within a local lattice
@@ -136,17 +136,6 @@ typedef struct {//operator column major?????? no!!!!
     vector_PRECISION *bootstrap_vector, tmp, test_vector_vec, interpolation_vec;//*test_vector, *interpolatio
     complex_PRECISION *operator, *eigenvalues, *bootstrap_eigenvalues;
   } interpolation_PRECISION_struct;
-
-/*  typedef struct {
-    int dim, nrhs, ldb, ldx, k;
-    void *eigvals;
-    vector_PRECISION B, X, B0, X0, C0;
-    void (*apply_op_PRECISION)( vector_PRECISION *, vector_PRECISION *, operator_PRECISION_struct *, struct level_struct *, struct Thread * );
-    fabulous_handle handle;
-    operator_PRECISION_struct *op;
-    struct level_struct *l;
-    struct Thread *threading;
-    } fabulous_PRECISION_struct;*/
 
   typedef struct {
     double time[_NUM_PROF];

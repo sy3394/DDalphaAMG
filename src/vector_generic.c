@@ -48,6 +48,10 @@ void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect
     PUBLIC_MALLOC( vec->vector_buffer, complex_PRECISION, l->inner_vector_size*num_vect );
     vec->size = l->inner_vector_size;
     break;
+  case _EVEN_INNER:
+    PUBLIC_MALLOC( vec->vector_buffer, complex_PRECISION, (l->num_inner_lattice_sites/2)*l->num_lattice_site_var*num_vect );
+    vec->size = (l->num_inner_lattice_sites/2)*l->num_lattice_site_var;
+    break;
   }
 
   vec->type         = type;
@@ -63,11 +67,13 @@ void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect
 void vector_PRECISION_free( vector_PRECISION *vec, level_struct *l, struct Thread *threading ) {//make sure threading (used in PUBLIC_FREE) is not freed yet!!!!
   // PUBLIC_FREE requires threading to exist (in most cases no_threading)!!!!!!!!!!!
   switch (vec->type){
-  case _ORDINARY : PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->vector_size*vec->num_vect );
+  case _ORDINARY :   PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->vector_size*vec->num_vect );
     break;
-  case _SCHWARZ :  PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->schwarz_vector_size*vec->num_vect );
+  case _SCHWARZ :    PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->schwarz_vector_size*vec->num_vect );
     break;
-  case _INNER :    PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->inner_vector_size*vec->num_vect );
+  case _INNER :      PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->inner_vector_size*vec->num_vect );
+    break;
+  case _EVEN_INNER : PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, (l->num_inner_lattice_sites/2)*l->num_lattice_site_var*vec->num_vect );
     break;
   }
 }

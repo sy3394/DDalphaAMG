@@ -39,7 +39,7 @@ void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector
 	// if the initial guess is 0, the resid on the next level is restircted rhs
 	l->next_level->p_PRECISION.b.num_vect_now = nvec;//eta->num_vect_now;//!!!!!!!
         restrict_PRECISION_new( &(l->next_level->p_PRECISION.b), eta, l, threading );
-      } else {printf("vc: res\n");
+      } else {
 	// otherwise, compute R(b_l - D_l eta_l)
         int start = threading->start_index[l->depth];
         int end   = threading->end_index[l->depth];
@@ -67,22 +67,11 @@ void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector
 	  }
 	} else { 
 	  // if the next level is the bottom
-	  /*
-	  if ( g.method == 4 ) {
-	    START_LOCKED_MASTER(threading)
-	    if( g.odd_even ) {
-	      coarse_fabulous_solve_odd_even_PRECISION( &(l->next_level->fab_PRECISION), &(l->next_level->p_PRECISION), no_threading );
-	    } else {
-	      fabulous_PRECISION( &(l->next_level->fab_PRECISION), &(l->next_level->p_PRECISION), no_threading );
-	    }
-	    END_LOCKED_MASTER(threading)
-	    } else {*/
 	    if ( g.odd_even ) {
 	      coarse_solve_odd_even_PRECISION_new( &(l->next_level->p_PRECISION), &(l->next_level->oe_op_PRECISION), l->next_level, threading );
 	    } else {
 	      solver_PRECISION( &(l->next_level->p_PRECISION), l->next_level, threading );
 	    }
-	    //}
 	}
         START_MASTER(threading)
 	if ( l->depth == 0 )

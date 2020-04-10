@@ -52,7 +52,7 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
 *********************************************************************************/  
 
   long int total=0; 
-  int i, k=0, nvec=num_loop;//g.num_vect_now;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!! can take it as input//more efficient if g.num_vect_now
+  int i, k=0, nvec=num_loop;
 
   // double                                       // single
   p->dp.restart_length = m;                       p->sp.restart_length = m;           
@@ -202,7 +202,8 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
 
   p->dp.w.num_vect_now = n_vect; p->dp.x.num_vect_now = n_vect; p->dp.r.num_vect_now = n_vect; p->dp.b.num_vect_now = n_vect;
   p->sp.w.num_vect_now = n_vect; p->sp.x.num_vect_now = n_vect; p->sp.r.num_vect_now = n_vect; p->sp.b.num_vect_now = n_vect;
-  p->sp.Z[0].num_vect_now = n_vect;p->sp.V[0].num_vect_now = n_vect;
+  //p->sp.Z[0].num_vect_now = n_vect;p->sp.V[0].num_vect_now = n_vect;//!!!!!!!
+  p->sp.V[0].num_vect_now = n_vect;
 
   VECTOR_LOOP(i, n_vect, jj, norm_r0[i+jj]=1;
                              gamma_jp1[i+jj]=1;)
@@ -218,7 +219,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   if ( p->dp.print && g.print > 0 ) printf0("+----------------------------------------------------------+\n");
 #endif
   END_LOCKED_MASTER(threading)
-    //SYNC_MASTER_TO_ALL(threading)
+
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
   //compute_core_start_end(p->dp.v_start, p->dp.v_end, &start, &end, l, threading);
@@ -239,7 +240,6 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
     START_MASTER(threading)
     VECTOR_LOOP(i, n_vect, jj, p->dp.gamma[i+jj] = (complex_double) gamma0_real[i+jj];)
     END_MASTER(threading)
-      //SYNC_MASTER_TO_ALL(threading)
 
     // report
     if( ol == 0) {
@@ -383,8 +383,6 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
                       complex_double **H, complex_double* buffer, int j, void (*prec)(),
                       gmres_float_struct *p, level_struct *l, struct Thread *threading ) {
 
-  //SYNC_MASTER_TO_ALL(threading)
-    //SYNC_CORES(threading)
   int i, jj, n, n_vect = w->num_vect_now;//g.num_vect_now, n, jj;//!!!!!!!
   double H_tot;
   complex_float H_float[n_vect];
@@ -393,13 +391,14 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
   int end;
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-  //compute_core_start_end(p->v_start, p->v_end, &start, &end, l, threading);
   compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var);
 
-  Z[j].num_vect_now = n_vect; V[j].num_vect_now = n_vect; V[j+1].num_vect_now = n_vect;//can move to fgmres????   
+  //Z[j].num_vect_now = n_vect; V[j].num_vect_now = n_vect; V[j+1].num_vect_now = n_vect;//can move to fgmres????
+  V[j].num_vect_now = n_vect; V[j+1].num_vect_now = n_vect;//can move to fgmres????   
 
   //--- apply D (and preconditioner) to V[j]
   if ( prec != NULL ) {
+    Z[j].num_vect_now = n_vect;
     if ( p->kind == _LEFT ) {
       apply_operator_float( &Z[0], &V[j], p, l, threading );
       prec( w, NULL, &Z[0], _NO_RES, l, threading );

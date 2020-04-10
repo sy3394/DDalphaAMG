@@ -881,38 +881,7 @@ void coarse_solve_odd_even_PRECISION_new( gmres_PRECISION_struct *p, operator_PR
   PROF_PRECISION_STOP( _SC, 1, threading );
   SYNC_CORES(threading)
 }
-#if 0
-void coarse_fabulous_solve_odd_even_PRECISION( fabulous_PRECISION_struct *fab, gmres_PRECISION_struct *p, struct Thread *threading ) {
-  /****************************************************************************************
-   * Descripton: Solve D*x = b in the even-odd preconditioning using Schur complement D_sc
-   *   D_sc = D_ee - D_eo D_oo ^{-1} D_oe
-   *   x_e = D_sc^{-1} (b_e - D_eo*D_oo^{-1}*b_o)
-   *   x_o = D_oo^{-1} (b_o - D_oe*x_e)  
-   ****************************************************************************************/
-  level_struct *l = fab->l;
-  p->b.num_vect_now = num_loop; p->x.num_vect_now = num_loop;//!!!!!!
 
-  // solve for x_e
-  SYNC_CORES(threading)
-  PROF_PRECISION_START( _SC, threading );
-  coarse_diag_oo_inv_PRECISION_new( &p->x, &p->b, fab->op, l, threading ); // x_o = D_oo^{-1}*b_o
-  PROF_PRECISION_STOP( _SC, 0, threading );
-  PROF_PRECISION_START( _NC, threading );
-  coarse_n_hopping_term_PRECISION_new( &p->b, &p->x, fab->op, _EVEN_SITES, l, threading ); // b_e = b_e - D_eo*D_oo^{-1}*b_o
-  PROF_PRECISION_STOP( _NC, 0, threading );
-  
-  fabulous_PRECISION( fab, p, threading ); // x_e = D_sc^{-1} (b_e - D_eo*D_oo^{-1}*b_o)
-  
-  // construct x_o from x_e
-  PROF_PRECISION_START( _NC, threading );
-  coarse_n_hopping_term_PRECISION_new( &p->b, &p->x, fab->op, _ODD_SITES, l, threading ); // b_o = b_o - D_oe*x_e
-  PROF_PRECISION_STOP( _NC, 1, threading );
-  PROF_PRECISION_START( _SC, threading );
-  coarse_diag_oo_inv_PRECISION_new( &p->x, &p->b, fab->op, l, threading ); // x_o = D_oo^{-1} (b_o - D_oe*x_e)
-  PROF_PRECISION_STOP( _SC, 1, threading );
-  SYNC_CORES(threading)
-}
-#endif
 /************************  TEST ROUTINES  ********************************************/
 
 void coarse_odd_even_PRECISION_test_new( vector_PRECISION *out, vector_PRECISION *in, level_struct *l, struct Thread *threading ) {

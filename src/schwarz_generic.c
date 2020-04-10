@@ -27,13 +27,11 @@
 void smoother_PRECISION_def( level_struct *l ) { // used only at the top level
   
   if ( g.method >= 0 ) {
-    //    if ( g.method >= 0 || g.method == -2 ) {
     // Copies the Dirac operator and the clover term from g.op_double into the Schwarz l->s_PRECISION
     schwarz_PRECISION_alloc( &(l->s_PRECISION) , l );
     schwarz_layout_PRECISION_define( &(l->s_PRECISION), l );
     schwarz_PRECISION_setup( &(l->s_PRECISION), &(g.op_double), l );
   }
-  //    schwarz_PRECISION_def( &(l->s_PRECISION), &(g.op_double), l );// Copies the Dirac operator and the clover term from g.op_double into the Schwarz s
   
   // when l->depth != 0, l->p_PRECISION is set using fgmres_PRECISION_struct_alloc
   l->p_PRECISION.op = &(l->s_PRECISION.op);
@@ -41,14 +39,7 @@ void smoother_PRECISION_def( level_struct *l ) { // used only at the top level
   l->p_PRECISION.v_end = l->inner_vector_size;
   l->p_PRECISION.eval_operator = (l->depth > 0)?apply_coarse_operator_PRECISION_new:d_plus_clover_PRECISION_new;
 }
-/*
-void schwarz_PRECISION_def( schwarz_PRECISION_struct *s, operator_double_struct *op, level_struct *l ) {
 
-  schwarz_PRECISION_alloc( s, l );
-  schwarz_layout_PRECISION_define( s, l );
-  schwarz_PRECISION_setup( s, op, l );
-}
-*/
 void smoother_PRECISION_free( level_struct *l ) {
   
   if ( g.method >= 0 )

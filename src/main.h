@@ -216,7 +216,7 @@
   enum { _NO_DEFAULT_SET, _DEFAULT_SET };
   enum { _NO_REORDERING, _REORDER };
   enum { _ADD, _COPY };
-  enum { _ORDINARY, _SCHWARZ, _ODDEVEN, _INNER };
+  enum { _ORDINARY, _SCHWARZ, _ODDEVEN, _INNER, _EVEN_INNER };
   enum { _RES, _NO_RES };// _RES: Use residual r as the right-side; _NO_RES: Use b as the right-hand side, which occurs when x=0 as r=b-Ax_0 = b.  
   enum { _STANDARD, _LIME }; //formats
   enum { _READ, _WRITE };
@@ -387,7 +387,8 @@
     int real_residual;         // if 1, compute X and R at each iteration such that the user can access them in CallBack????
     int logger_user_data_size; // #slots for user data when calling fabulous_set_iteration_user_data()
     int quiet;                 // if 1, no output to stdout when running
-
+    int use_only_fgrmes_at_setup;
+    
     // communication
     MPI_Comm comm_cart;
     MPI_Group global_comm_group;
