@@ -40,7 +40,7 @@ void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector
 	l->next_level->p_PRECISION.b.num_vect_now = nvec;//eta->num_vect_now;//!!!!!!!
         restrict_PRECISION_new( &(l->next_level->p_PRECISION.b), eta, l, threading );
       } else {
-	// otherwise, compute R(b_l - D_l eta_l)
+	// otherwise, compute b_(l+1) = R(b_l - D_l eta_l)
         int start = threading->start_index[l->depth];
         int end   = threading->end_index[l->depth];
 	//l->vbuf_PRECISION[2].num_vect_now = phi->num_vect_now; l->vbuf_PRECISION[3].num_vect_now = eta->num_vect_now; l->next_level->p_PRECISION.b.num_vect_now=eta->num_vect_now;
@@ -59,7 +59,7 @@ void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector
 	if ( l->level > 1 ) {
 	  // If the next level is not at the bottom
 	  if ( g.kcycle )//default
-	    fgmres_PRECISION( &(l->next_level->p_PRECISION), l->next_level, threading );//in this function, call vcycle as p_PRECISION use it as prec
+	    solver_PRECISION( &(l->next_level->p_PRECISION), l->next_level, threading );//in this function, call vcycle as p_PRECISION use it as prec
 	  else {
 	    // dive one level down 
 	    l->next_level->p_PRECISION.x.num_vect_now = nvec;//l->next_level->p_PRECISION.b.num_vect_now;//!!!!!!????????

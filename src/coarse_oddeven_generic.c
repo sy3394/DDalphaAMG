@@ -850,7 +850,7 @@ static void coarse_diag_oo_inv_PRECISION_new( vector_PRECISION *y, vector_PRECIS
 
 }
 
-void coarse_solve_odd_even_PRECISION_new( gmres_PRECISION_struct *p, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
+int coarse_solve_odd_even_PRECISION_new( gmres_PRECISION_struct *p, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
   /****************************************************************************************
    * Descripton: Solve D*x = b in the even-odd preconditioning using Schur complement D_sc
    *   D_sc = D_ee - D_eo D_oo ^{-1} D_oe
@@ -870,7 +870,7 @@ void coarse_solve_odd_even_PRECISION_new( gmres_PRECISION_struct *p, operator_PR
   coarse_n_hopping_term_PRECISION_new( &p->b, &p->x, op, _EVEN_SITES, l, threading ); // b_e = b_e - D_eo*D_oo^{-1}*b_o
   PROF_PRECISION_STOP( _NC, 0, threading );
 
-  solver_PRECISION( p, l, threading ); // x_e = D_sc^{-1} (b_e - D_eo*D_oo^{-1}*b_o)
+  int iter = solver_PRECISION( p, l, threading ); // x_e = D_sc^{-1} (b_e - D_eo*D_oo^{-1}*b_o)
   
   // construct x_o from x_e
   PROF_PRECISION_START( _NC, threading );
@@ -880,6 +880,8 @@ void coarse_solve_odd_even_PRECISION_new( gmres_PRECISION_struct *p, operator_PR
   coarse_diag_oo_inv_PRECISION_new( &p->x, &p->b, op, l, threading ); // x_o = D_oo^{-1} (b_o - D_oe*x_e)
   PROF_PRECISION_STOP( _SC, 1, threading );
   SYNC_CORES(threading)
+    
+  return iter;
 }
 
 /************************  TEST ROUTINES  ********************************************/

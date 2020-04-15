@@ -107,7 +107,7 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
 
-#if 0 //my addition     
+#if 1 //my addition     
   if (g.my_rank == 0){//need to update it
     START_LOCKED_MASTER(threading)
     vector_double_change_layout( &solution, &solution, _NVEC_OUTER, no_threading );

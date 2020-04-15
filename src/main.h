@@ -387,7 +387,7 @@
     int real_residual;         // if 1, compute X and R at each iteration such that the user can access them in CallBack????
     int logger_user_data_size; // #slots for user data when calling fabulous_set_iteration_user_data()
     int quiet;                 // if 1, no output to stdout when running
-    int use_only_fgrmes_at_setup;
+    int use_only_fgrmes_at_setup, use_fab_as_outer;
     
     // communication
     MPI_Comm comm_cart;

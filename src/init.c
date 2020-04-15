@@ -175,7 +175,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     } else {
 #endif
       fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
-                                  _GLOBAL_FGMRES, _RIGHT, preconditioner_new,
+				  (g.method==4&&g.use_fab_as_outer)?_GLOBAL_FABULOUS: _GLOBAL_FGMRES, _RIGHT, preconditioner_new,
 				  d_plus_clover_double_new, &(g.p), l );
     }
 #ifdef INIT_ONE_PREC
@@ -213,7 +213,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 				_GLOBAL_FABULOUS, _NOTHING, NULL, d_plus_clover_double_new, &(g.p), l );
   }
   END_LOCKED_MASTER(threading)
-
+    printf0("init %d\n",g.mixed_precision);
   //------------------ Set the level structure for AMG recursively
   // l->s_PRECISION is not necessary if g.method==0, defined in smoother_PRECISION_def????? op in s_* is used; see linsolve_*
   // l->p_PRECISION is not necessary if g.method==0, defined in smoother_PRECISION_def?????

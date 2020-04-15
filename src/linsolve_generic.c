@@ -113,6 +113,8 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
     p->v_start = 0;
     p->v_end = l->inner_vector_size;
     p->op = &(l->s_PRECISION.op);
+    if ( g.use_fab_as_outer )
+      setup_fabulous_PRECISION( p, vl_type, l, no_threading );//!!!!!!no_threaing->threading desireble 
   } else if ( type == _COARSE_GMRES || type == _COARSE_FABULOUS ) {
     p->timing = 0;
     p->print = 0;
@@ -131,7 +133,7 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
   }
 
   //---- allocate vector fields
-  if( (type!=_GLOBAL_FABULOUS && type!=_COARSE_FABULOUS || g.use_only_fgrmes_at_setup) && m > 0) {
+  if((type!=_GLOBAL_FABULOUS && type!=_COARSE_FABULOUS && !g.use_fab_as_outer || g.use_only_fgrmes_at_setup) && m > 0) {
     // allocate space for H, V, Z
     total += (m+1)*m*nvec; // for Hessenberg matrix
     MALLOC( p->H, complex_PRECISION*, m );
@@ -199,7 +201,7 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
     vector_PRECISION_alloc( &(p->b), vl_type, nvec, l, no_threading );
     
     ASSERT( p->total_storage == total );
-  } else if ( type == _GLOBAL_FABULOUS || type == _COARSE_FABULOUS) {
+  } else if ( type == _GLOBAL_FABULOUS || type == _COARSE_FABULOUS || g.use_fab_as_outer ) {
     // x
     vector_PRECISION_alloc( &(p->x), vl_type, nvec, l, no_threading );
     // b
@@ -232,25 +234,22 @@ void fgmres_PRECISION_struct_free( gmres_PRECISION_struct *p, level_struct *l ) 
 #endif
   }
 
-  if(p->restart_length > 0) {
-    if ( p->fab.handle != NULL && g.use_only_fgrmes_at_setup ) {
-      vector_PRECISION_free( &(p->x), l, no_threading );
-      vector_PRECISION_free( &(p->b), l, no_threading );
-      fabulous_PRECISION_free( &(p->fab), l, no_threading );
-    } else {
+  if(p->restart_length > 0) { //for good correspondence, this needs to be combined with the next if-clause
+    vector_PRECISION_free( &(p->x), l, no_threading );
+    vector_PRECISION_free( &(p->b), l, no_threading );
+    if ( p->fab.handle == NULL || g.use_only_fgrmes_at_setup ) {
       FREE( p->H[0], complex_PRECISION, p->total_storage );
       FREE( p->H, complex_PRECISION*, p->restart_length );
       for ( i=0; i<p->restart_length+1; i++ ) vector_PRECISION_free( &(p->V[i]), l, no_threading );
       FREE( p->V, vector_PRECISION, p->restart_length+1 );
       vector_PRECISION_free( &(p->w), l, no_threading );
-      vector_PRECISION_free( &(p->x), l, no_threading );
       vector_PRECISION_free( &(p->r), l, no_threading );
-      vector_PRECISION_free( &(p->b), l, no_threading );
-      
       if ( p->Z != NULL ) {
 	for ( i=0; i<k; i++ ) vector_PRECISION_free( &(p->Z[i]), l, no_threading );
 	FREE( p->Z, vector_PRECISION, k );
       }
+    } else {
+      fabulous_PRECISION_free( &(p->fab), l, no_threading );
     }
   }
   
@@ -258,21 +257,49 @@ void fgmres_PRECISION_struct_free( gmres_PRECISION_struct *p, level_struct *l ) 
   p->clover = NULL;
 }
 
+// so far integrated interface to fgmres and fabulous
 int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading ) {
 
   int iter = 0;
 
+  START_LOCKED_MASTER(threading)
+  if ( l->depth==0 && ( p->timing || p->print ) ) prof_init( l );
+  if ( l->level==0 && g.num_levels > 1 && g.interpolation ) p->tol = g.coarse_tol;
+  if ( l->depth > 0 ) p->timing = 1;
+  END_LOCKED_MASTER(threading)
+    
   if ( p->fab.handle != NULL && !(g.use_only_fgrmes_at_setup && g.in_setup) ) {//need more generality if we are to use this as generic entry pt
     START_MASTER(threading)
-      iter = fabulous_PRECISION( p, no_threading );
+    iter = fabulous_PRECISION( p, no_threading );
     END_MASTER(threading)
   } else {
-    if ( g.odd_even && l->level == 0 && g.num_levels > 1 ) {
-      //iter = coarse_solve_odd_even_PRECISION_new( &p, &(l->oe_op_PRECISION), l, threading );//need to change def of this func
-    } else {
-      iter = fgmres_PRECISION( p, l, threading );
+    iter = fgmres_PRECISION( p, l, threading );
+  }
+
+  if ( l->level == 0 ) {
+    START_LOCKED_MASTER(threading)
+    g.coarse_iter_count += iter;
+    END_LOCKED_MASTER(threading)
+  }
+    
+  if ( l->depth == 0 && g.vt.p_end != NULL  ) {
+    if ( g.vt.p_end != NULL ) {
+      START_LOCKED_MASTER(threading)
+      printf0("solve iter: %d\n", iter );
+      printf0("solve time: %le seconds\n", g.total_time );
+      g.vt.p_end->values[_SLV_TIME] += g.total_time/((double)g.vt.average_over);
+      g.vt.p_end->values[_SLV_ITER] += iter/((double)g.vt.average_over);
+      g.vt.p_end->values[_CRS_ITER] += (((double)g.coarse_iter_count)/((double)iter))/((double)g.vt.average_over);
+      g.vt.p_end->values[_CRS_TIME] += g.coarse_time/((double)g.vt.average_over);
+    END_LOCKED_MASTER(threading)
     }
   }
+  if ( l->depth == 0 && ( p->timing || p->print ) && !(g.vt.p_end != NULL )  ) {
+    START_MASTER(threading)
+    prof_print( l );
+    END_MASTER(threading)
+  }
+  
   return iter;
 }
 
@@ -308,11 +335,6 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
                              gamma_jp1[i+jj]=1;)
   
   START_LOCKED_MASTER(threading)
-
-  if ( l->depth==0 && ( p->timing || p->print ) ) prof_init( l );
-
-  if ( l->level==0 && g.num_levels > 1 && g.interpolation ) p->tol = g.coarse_tol;
-  if ( l->depth > 0 ) p->timing = 1;
   if ( l->depth == 0 ) t0 = MPI_Wtime();
 #if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
   if ( p->print && g.print > 0 ) printf0("+----------------------------------------------------------+\n");
@@ -480,29 +502,6 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   }
 #endif
 
-  if ( l->level == 0 ) {
-    START_LOCKED_MASTER(threading)
-    g.coarse_iter_count += iter;
-    END_LOCKED_MASTER(threading)
-  }
-    
-  if ( l->depth == 0 && g.vt.p_end != NULL  ) {
-    if ( g.vt.p_end != NULL ) {
-      START_LOCKED_MASTER(threading)
-      printf0("solve iter: %d\n", iter );
-      printf0("solve time: %le seconds\n", t1-t0 );
-      g.vt.p_end->values[_SLV_TIME] += (t1-t0)/((double)g.vt.average_over);
-      g.vt.p_end->values[_SLV_ITER] += iter/((double)g.vt.average_over);
-      g.vt.p_end->values[_CRS_ITER] += (((double)g.coarse_iter_count)/((double)iter))/((double)g.vt.average_over);
-      g.vt.p_end->values[_CRS_TIME] += g.coarse_time/((double)g.vt.average_over);
-    END_LOCKED_MASTER(threading)
-    }
-  }
-  if ( l->depth == 0 && ( p->timing || p->print ) && !(g.vt.p_end != NULL )  ) {
-    START_MASTER(threading)
-    prof_print( l );
-    END_MASTER(threading)
-  }
   return iter;
 }
 
@@ -510,16 +509,21 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
 
   fabulous_PRECISION_struct *fab = &(p->fab);
   level_struct * l = fab->l;
-  int iter, even_size = p->op->num_even_sites*l->num_lattice_site_var;
-  //printf0("begin PRECISION fab: solver %d depth %d: %d=%d? %d, sizes %d %d %d even sts %d\n", g.f_solver, l->depth, fab->nrhs,fab->B.num_vect,p->b.num_vect_now, p->b.size, fab->B.size, fab->dim, even_size);fflush(stdout);
+  int iter = 0, even_size = p->op->num_even_sites*l->num_lattice_site_var;
+  PRECISION t0, t1;
+  printf0("begin PRECISION fab: solver %d depth %d: %d=%d? %d, sizes %d %d %d even sts %d\n", g.f_solver, l->depth, fab->nrhs,fab->B.num_vect,p->b.num_vect_now, p->b.size, fab->B.size, fab->dim, even_size);fflush(stdout);
     
   p->b.num_vect_now = num_loop; p->x.num_vect_now = num_loop;//!!!!!!
 
+  START_LOCKED_MASTER(threading)
+  if ( l->depth == 0 ) t0 = MPI_Wtime();
+  END_LOCKED_MASTER(threading)
+    
   vector_PRECISION_copy_new( &(fab->B), &(p->b), 0, fab->dim, l );
   vector_PRECISION_copy_new( &(fab->X), &(p->x), 0, fab->dim, l );
-  void *X = fab->X.vector_buffer, *B = fab->B.vector_buffer;
   vector_PRECISION_change_layout( &(fab->B), &(fab->B), _NVEC_OUTER, threading );
   vector_PRECISION_change_layout( &(fab->X), &(fab->X), _NVEC_OUTER, threading );
+  void *X = fab->X.vector_buffer, *B = fab->B.vector_buffer;
   switch ( g.f_solver ) {
   case _GCR:    iter = fabulous_solve_GCR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
   case _IB:     iter = fabulous_solve_IB( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
@@ -538,12 +542,25 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   //vector_PRECISION_copy_new( &(p->x), &(fab->X), 0, (g.odd_even&&l->depth!=0)?even_size:fab->dim, l );
   vector_PRECISION_copy_new( &(p->x), &(fab->X), 0, fab->dim, l );
 
-  //fabulous_print_log_filename("convergence_histo.txt", "fab1", fab->handle);
-  //printf0("finish fab solve %d\n", iter);fflush(stdout);
+  printf0("finish fab solve %d\n", iter);fflush(stdout);
 
-  if ( l->depth == 0 ) g.iter_count = iter;
-  if ( l->level == 0 ) g.coarse_iter_count += iter;
-  
+  START_LOCKED_MASTER(threading)
+  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.total_time = t1-t0; g.iter_count = iter; }
+  if ( p->print > 0 ) {
+    printf0("+----------------------------------------------------------+\n");
+    printf0("|      Fabulous iterations: %-6d coarse average: %-6.2lf   |\n", iter,
+	    ((double)g.coarse_iter_count)/((double)iter) );
+    printf0("| elapsed wall clock time: %-8.4lf seconds                |\n", t1-t0 );
+    if ( g.coarse_time > 0 )
+      printf0("|        coarse grid time: %-8.4lf seconds (%04.1lf%%)        |\n",
+              g.coarse_time, 100*(g.coarse_time/(t1-t0)) );
+    printf0("|  consumed core minutes*: %-8.2le (solve only)           |\n", ((t1-t0)*g.num_processes*MAX(1,threading->n_core))/60.0 );
+    printf0("|    max used mem/MPIproc: %-8.2le GB                     |\n", g.max_storage/1024.0 );
+    printf0("+----------------------------------------------------------+\n");
+    printf0("*: only correct if #MPIprocs*#threads == #CPUs\n\n");
+  }
+  END_LOCKED_MASTER(threading)
+      
   return iter;
 }
 

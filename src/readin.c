@@ -443,6 +443,8 @@ static void read_solver_parameters( FILE *in ) {
   save_pt = &(g.num_rhs_vect); g.num_rhs_vect=1;
   read_parameter( &save_pt, "number of rhs vectors:", "%d", 1, in, _DEFAULT_SET );
 
+  save_pt = &(g.use_fab_as_outer); g.use_fab_as_outer = 0;
+  read_parameter( &save_pt, "use fabulous as outer algorithm:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.max_mvp); g.max_mvp = 1000;
   read_parameter( &save_pt, "fabulous max mat vec prod:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.f_orthoscheme); g.f_orthoscheme = FABULOUS_MGS;
@@ -552,16 +554,20 @@ static void validate_parameters( int ls, level_struct *l ) {
     warning0("Pure GMRES uses either mixed precision solver or double precision solver.\n         Switching to doule precision\n");
     g.mixed_precision = 0;
   }
-  if ( g.method == -2 )
+  if ( g.method == -2 ) {
     if ( g.mixed_precision != 0 ) {
       warning0("Pure fabulous solver uses double precision\n");
       g.mixed_precision = 0;
     }
-
-  if ( g.method == -2 || g.method ==4 ) {
+  }
+  if ( g.method == -2 || g.method == 4 ) {
     if ( g.f_solver == 1 && g.f_orthotype != FABULOUS_BLOCK ) {
       warning0("Only BLOCK-wise orthogonalization is currently implemented for BCGR. The BLOCK-wise version will be used\n");
       g.f_orthotype = FABULOUS_BLOCK;
+    }
+    if ( g.use_fab_as_outer && g.mixed_precision == 2 ) {
+      warning0("Fabulous solver with AMG as preconditioner does not support mixed precision.\n         Switching to single precision.\n");
+      g.mixed_precision = 1;
     }
   }
   
