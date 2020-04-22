@@ -378,15 +378,16 @@
     operator_double_struct op_double;
     operator_float_struct op_float;
 
-    int f_solver;
-    fabulous_orthoscheme f_orthoscheme;
-    fabulous_orthotype f_orthotype;
-    int max_mvp;               // Maximum number of Matrix X Vector product
-    int ortho_iter;            // #iteration for Iterated Schemas (IMGS and ICGS); Must be positive integer >= 2
-    int max_kept_direction;    // max #kept direction per iteration
+    int *f_solver;
+    fabulous_orthoscheme *f_orthoscheme;
+    fabulous_orthotype *f_orthotype;
+    int max_mvp;               // Maximum number of Matrix X Vector product: not used!!!!
+    int *ortho_iter;           // #iteration for Iterated Schemas (IMGS and ICGS); Must be positive integer >= 2
+    int *max_kept_direction;   // max #kept direction per iteration
     int real_residual;         // if 1, compute X and R at each iteration such that the user can access them in CallBack????
     int logger_user_data_size; // #slots for user data when calling fabulous_set_iteration_user_data()
     int quiet;                 // if 1, no output to stdout when running
+    int *k;                    // #deflating eigevecs at each level
     int use_only_fgrmes_at_setup, use_fab_as_outer;
     
     // communication

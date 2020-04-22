@@ -84,13 +84,13 @@ void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector
         interpolate3_PRECISION_new( phi, &(l->next_level->p_PRECISION.x), l, threading );
       else
         interpolate_PRECISION_new( phi, &(l->next_level->p_PRECISION.x), l, threading );
-      //--- Perform post smoothing
+      //--- Perform post smoothing: phi <- Smooth(phi;eta)
       smoother_PRECISION_new( phi, Dphi, eta, l->post_smooth_iter, _RES, l, threading );
 
       if ( !g.kcycle )//my addition
 	vector_PRECISION_copy_new( &(l->p_PRECISION.x), phi, threading->start_index[l->depth], threading->end_index[l->depth], l );
       res = _RES;
-    }
+    } //END: for ( int i=0; i<l->n_cy; i++ )
   } else { // if AMG is not chosen or at the bottom
     smoother_PRECISION_new( phi, Dphi, eta, (l->depth==0)?l->n_cy:l->post_smooth_iter, res, l, threading );
   }

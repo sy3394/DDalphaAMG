@@ -236,7 +236,7 @@ static void read_geometry_data( FILE *in, int ls ) {
   void *save_pt;
   char inputstr[STRINGLENGTH];
   int i, mu, nb, nls, nlls, flag;
-  
+
   for ( i=0; i<ls; i++ ) {
     
     if(i>0) {
@@ -382,7 +382,31 @@ static void read_geometry_data( FILE *in, int ls ) {
     if ( i==0 ) g.num_eig_vect[i] = 24;
     else g.num_eig_vect[i] = 28;
     read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
-        
+
+    sprintf( inputstr, "d%d fabulous solver:", i );
+    save_pt = &(g.f_solver[i]); g.f_solver[i] = _IB;
+    read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
+
+    sprintf( inputstr, "d%d fabulous orthogonalization scheme:", i );
+    save_pt = &(g.f_orthoscheme[i]); g.f_orthoscheme[i] = FABULOUS_MGS;
+    read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
+
+    sprintf( inputstr, "d%d fabulous orthogonalization type:", i );
+    save_pt = &(g.f_orthotype[i]); g.f_orthotype[i] = FABULOUS_RUHE;
+    read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
+
+    sprintf( inputstr, "d%d fabulous orthogonalization iter:", i );
+    save_pt = &(g.ortho_iter[i]); g.ortho_iter[i] = 2;
+    read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
+
+    sprintf( inputstr, "d%d fabulous max kept dir:", i );
+    save_pt = &(g.max_kept_direction[i]); g.max_kept_direction[i] = -1;
+    read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
+
+    sprintf( inputstr, "d%d number of deflating eigenvectors for fabulous:", i );
+    save_pt = &(g.k[i]); g.k[i] = 0;
+    read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
+
   }
 }
 
@@ -445,28 +469,16 @@ static void read_solver_parameters( FILE *in ) {
 
   save_pt = &(g.use_fab_as_outer); g.use_fab_as_outer = 0;
   read_parameter( &save_pt, "use fabulous as outer algorithm:", "%d", 1, in, _DEFAULT_SET );
+  save_pt = &(g.use_only_fgrmes_at_setup); g.use_only_fgrmes_at_setup = 0;
+  read_parameter( &save_pt, "use only FGMRES at setup:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.max_mvp); g.max_mvp = 1000;
   read_parameter( &save_pt, "fabulous max mat vec prod:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.f_orthoscheme); g.f_orthoscheme = FABULOUS_MGS;
-  read_parameter( &save_pt, "fabulous orthogonalization scheme:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.f_orthotype); g.f_orthotype = FABULOUS_RUHE;
-  read_parameter( &save_pt, "fabulous orthogonalization type:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.ortho_iter); g.ortho_iter = 2;
-  read_parameter( &save_pt, "fabulous orthogonalization iter:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.f_solver); g.f_solver = _IB;
-  read_parameter( &save_pt, "fabulous solver:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.p.fab.k); g.p.fab.k = 0;
-  read_parameter( &save_pt, "number of deflating eigenvectors for fabulous:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.max_kept_direction); g.max_kept_direction = -1;
-  read_parameter( &save_pt, "fabulous max kept dir:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.real_residual); g.real_residual = 0;;
   read_parameter( &save_pt, "fabulous compute real residual:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.logger_user_data_size); g.logger_user_data_size = 0;
   read_parameter( &save_pt, "fabulous user data size for log:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.quiet); g.quiet = 1;
   read_parameter( &save_pt, "fabulous silent run:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.use_only_fgrmes_at_setup); g.use_only_fgrmes_at_setup = 0;
-  read_parameter( &save_pt, "use only FGMRES at setup:", "%d", 1, in, _DEFAULT_SET );
   
   if ( g.randomize ) {
     srand( time( 0 ) + 1000*g.my_rank );
@@ -561,13 +573,21 @@ static void validate_parameters( int ls, level_struct *l ) {
     }
   }
   if ( g.method == -2 || g.method == 4 ) {
-    if ( g.f_solver == 1 && g.f_orthotype != FABULOUS_BLOCK ) {
-      warning0("Only BLOCK-wise orthogonalization is currently implemented for BCGR. The BLOCK-wise version will be used\n");
-      g.f_orthotype = FABULOUS_BLOCK;
-    }
-    if ( g.use_fab_as_outer && g.mixed_precision == 2 ) {
-      warning0("Fabulous solver with AMG as preconditioner does not support mixed precision.\n         Switching to single precision.\n");
-      g.mixed_precision = 1;
+    for ( i=0; i<g.num_levels; i++ )
+      if ( g.f_solver[i] == 1 && g.f_orthotype[i] != FABULOUS_BLOCK ) {
+	warning0("Only BLOCK-wise orthogonalization is currently implemented for BCGR. The BLOCK-wise version will be used at depth %d\n", i);
+	g.f_orthotype[i] = FABULOUS_BLOCK;
+      }
+    if ( g.use_fab_as_outer ) {
+      if ( g.mixed_precision == 2 ) {
+	warning0("Fabulous solver with AMG as preconditioner does not support mixed precision.\n         Switching to single precision.\n");
+	g.mixed_precision = 1;
+      }
+      for ( i=0; i<g.num_levels-1; i++ )
+	if ( g.f_solver[i] != 1 ) {
+	  warning0("Fabulous solver with AMG as preconditioner requires a flexible solver.\n         Switching to BGCR method at depth %d.\n", i);
+	  g.f_solver[i] = 1;
+	}
     }
   }
   
@@ -664,7 +684,12 @@ static void allocate_for_global_struct_after_read_global_info( int ls ) {
   MALLOC( g.block_iter, int, ls );
   MALLOC( g.setup_iter, int, ls );
   MALLOC( g.num_eig_vect, int, ls );
-  
+  MALLOC( g.f_solver, int, ls );
+  MALLOC( g.f_orthoscheme, fabulous_orthoscheme, ls );
+  MALLOC( g.f_orthotype, fabulous_orthotype, ls );
+  MALLOC( g.ortho_iter, int, ls );
+  MALLOC( g.max_kept_direction, int, ls );
+  MALLOC( g.k, int, ls );
   for ( i=1; i<ls; i++ ) {
     g.global_lattice[i] = g.global_lattice[0] + i*4;
     g.local_lattice[i] = g.local_lattice[0] + i*4;

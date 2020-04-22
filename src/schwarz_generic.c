@@ -46,6 +46,7 @@ void smoother_PRECISION_free( level_struct *l ) {
     schwarz_PRECISION_free( &(l->s_PRECISION), l );
 }
 
+// phi <- smooth(phi,eta): update phi given eta
 void smoother_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRECISION *eta,
 			     int n, const int res, level_struct *l, struct Thread *threading ) {
 

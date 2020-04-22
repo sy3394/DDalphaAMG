@@ -32,6 +32,7 @@ void preconditioner_new( vector_double *phi, vector_double *Dphi, vector_double 
   if ( g.method == 0 )
     vector_double_copy_new( phi, eta, threading->start_index[l->depth], threading->end_index[l->depth], l );
   else if ( g.method < 5 || !g.odd_even ) {
+    // In this case, l->s_PRECISION.op is used as D so that reordering is necessary
     if ( g.mixed_precision ) {
       for ( int i=0; i<2; i++ ) 
 	l->sbuf_float[i].num_vect_now = num_loop;//eta->num_vect_now;//g.num_vect_now;//!!!!!!!!!!!

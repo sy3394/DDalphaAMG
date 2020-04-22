@@ -213,7 +213,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 				_GLOBAL_FABULOUS, _NOTHING, NULL, d_plus_clover_double_new, &(g.p), l );
   }
   END_LOCKED_MASTER(threading)
-    printf0("init %d\n",g.mixed_precision);
+
   //------------------ Set the level structure for AMG recursively
   // l->s_PRECISION is not necessary if g.method==0, defined in smoother_PRECISION_def????? op in s_* is used; see linsolve_*
   // l->p_PRECISION is not necessary if g.method==0, defined in smoother_PRECISION_def?????
@@ -594,6 +594,11 @@ void method_finalize( level_struct *l ) {
   FREE( g.block_iter, int, ls );
   FREE( g.setup_iter, int, ls );
   FREE( g.num_eig_vect, int, ls );
+  FREE( g.f_solver, int, ls );
+  FREE( g.f_orthoscheme, fabulous_orthoscheme, ls );
+  FREE( g.f_orthotype, fabulous_orthotype, ls );
+  FREE( g.ortho_iter, int, ls );
+  FREE( g.k, int, ls );
   cart_free( l );
   var_table_free( &(g.vt) );
   
