@@ -58,7 +58,7 @@ void smoother_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vect
 
   if ( g.method == 1 ) {
     additive_schwarz_PRECISION_new( phi, Dphi, eta, n, res, &(l->s_PRECISION), l, threading );
-  } else if ( g.method == 2 || g.method == 4) {
+  } else if ( g.method == 2 ) {
     red_black_schwarz_PRECISION_new( phi, Dphi, eta, n, res, &(l->s_PRECISION), l, threading );
   } else if ( g.method == 3 ) {
     sixteen_color_schwarz_PRECISION_new( phi, Dphi, eta, n, res, &(l->s_PRECISION), l, threading );
@@ -101,13 +101,13 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
   //why are they here??????
   if ( g.method == 5 ) {//FGMRES + GMRES
     fgmres_PRECISION_struct_alloc( l->block_iter, 1, (l->depth==0)?_INNER:_ORDINARY,
-                                   EPS_PRECISION, _COARSE_GMRES, _NOTHING, NULL,
+                                   EPS_PRECISION, _COARSE_SOLVER, _NOTHING, NULL,
                                    (l->depth==0)?(g.odd_even?apply_schur_complement_PRECISION_new:d_plus_clover_PRECISION_new):
                                    (g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new),
                                    &(l->sp_PRECISION), l );
   } else if ( g.method == 6 ) {//FGMRES + biCGstab (no AMG)
     fgmres_PRECISION_struct_alloc( 5, 1, (l->depth==0)?_INNER:_ORDINARY,
-                                   EPS_PRECISION, _COARSE_GMRES, _NOTHING, NULL,
+                                   EPS_PRECISION, _COARSE_SOLVER, _NOTHING, NULL,
                                    (l->depth==0)?(g.odd_even?apply_schur_complement_PRECISION_new:d_plus_clover_PRECISION_new):
                                    (g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new),
                                    &(l->sp_PRECISION), l );
@@ -150,7 +150,7 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
     j = s->num_blocks/16;
     for ( i=1; i<16; i++ )
       s->block_list[i] = s->block_list[0]+i*j;
-  } else if ( g.method == 2 || g.method == 4) {
+  } else if ( g.method == 2 ) {
     MALLOC( s->block_list_length, int, 8 );
     MALLOC( s->block_list, int*, 8 );
     for ( i=0; i<8; i++ ) {
@@ -277,7 +277,7 @@ void schwarz_layout_PRECISION_define( schwarz_PRECISION_struct *s, level_struct 
   // Define coloring    
   if ( g.method == 1 )        // Additive
     s->num_colors = 1;
-  else if ( g.method == 2 || g.method == 4)   // Red-Black
+  else if ( g.method == 2 )   // Red-Black
     s->num_colors = 2;
   else if ( g.method == 3 ) { // 16 Color
     int flag = 0;
@@ -302,7 +302,7 @@ void schwarz_layout_PRECISION_define( schwarz_PRECISION_struct *s, level_struct 
   s->block_oe_offset = 0;
   s->num_aggregates = 1;
   
-  if ( g.method == 2 || g.method == 4) {
+  if ( g.method == 2 ) {
     for ( i=0; i<8; i++ )
       s->block_list_length[i]=0;
   }

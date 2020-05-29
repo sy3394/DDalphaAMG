@@ -96,14 +96,14 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
   p->kind           = prec_kind;
   p->num_vect       = nvec;
 
-  if ( type == _GLOBAL_FGMRES || type == _GLOBAL_FABULOUS ) {    
+  if ( type == _GLOBAL_FSOLVER ) {
     p->timing = 1;
     p->print = g.vt.evaluation?0:1;
     p->initial_guess_zero = 1;
     p->v_start = 0;
     p->v_end = l->inner_vector_size;
     p->op = &(g.op_PRECISION);
-    if ( type == _GLOBAL_FABULOUS )
+    if ( g.solver[l->depth] )
       setup_fabulous_PRECISION( p, vl_type, l, no_threading );//!!!!!!no_threaing->threading desireble 
   } else if ( type == _K_CYCLE ) {
     // these settings also work for GMRES as a smoother
@@ -113,9 +113,9 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
     p->v_start = 0;
     p->v_end = l->inner_vector_size;
     p->op = &(l->s_PRECISION.op);
-    if ( g.use_fab_as_outer )
+    if ( g.solver[l->depth] )
       setup_fabulous_PRECISION( p, vl_type, l, no_threading );//!!!!!!no_threaing->threading desireble 
-  } else if ( type == _COARSE_GMRES || type == _COARSE_FABULOUS ) {
+  } else if ( type == _COARSE_SOLVER ) {
     p->timing = 0;
     p->print = 0;
     p->initial_guess_zero = 1;
@@ -126,14 +126,14 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
       p->op = &(l->oe_op_PRECISION);
     else  
       p->op = &(l->s_PRECISION.op);
-    if ( type == _COARSE_FABULOUS )
+    if ( g.solver[l->depth] )
       setup_fabulous_PRECISION( p, vl_type, l, no_threading );//!!!!!!no_threaing->threading desireble
   } else {
     ASSERT( type < 6 );
   }
 
   //---- allocate vector fields
-  if((type!=_COARSE_FABULOUS && !g.use_fab_as_outer || g.use_only_fgrmes_at_setup) && m > 0) {
+  if(( !g.solver[l->depth] || g.use_only_fgrmes_at_setup) && m > 0) {
     // allocate space for H, V, Z
     total += (m+1)*m*nvec; // for Hessenberg matrix
     MALLOC( p->H, complex_PRECISION*, m );
@@ -201,7 +201,7 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
     vector_PRECISION_alloc( &(p->b), vl_type, nvec, l, no_threading );
     
     ASSERT( p->total_storage == total );
-  } else if ( type == _COARSE_FABULOUS || g.use_fab_as_outer ) {
+  } else if ( g.solver[l->depth] ) {
     // x
     vector_PRECISION_alloc( &(p->x), vl_type, nvec, l, no_threading );
     // b
@@ -234,24 +234,23 @@ void fgmres_PRECISION_struct_free( gmres_PRECISION_struct *p, level_struct *l ) 
 #endif
   }
 
-  if(p->restart_length > 0) { //for good correspondence, this needs to be combined with the next if-clause
-    vector_PRECISION_free( &(p->x), l, no_threading );
-    vector_PRECISION_free( &(p->b), l, no_threading );
-    if ( p->fab.handle == NULL || g.use_only_fgrmes_at_setup ) {printf0("fg free 1 %d\n",l->depth);fflush(stdout);
-      FREE( p->H[0], complex_PRECISION, p->total_storage );
-      FREE( p->H, complex_PRECISION*, p->restart_length );
-      for ( i=0; i<p->restart_length+1; i++ ) vector_PRECISION_free( &(p->V[i]), l, no_threading );
-      FREE( p->V, vector_PRECISION, p->restart_length+1 );
-      vector_PRECISION_free( &(p->w), l, no_threading );
-      vector_PRECISION_free( &(p->r), l, no_threading );
-      if ( p->Z != NULL ) {
-	for ( i=0; i<k; i++ ) vector_PRECISION_free( &(p->Z[i]), l, no_threading );
-	FREE( p->Z, vector_PRECISION, k );
-      }
+  vector_PRECISION_free( &(p->x), l, no_threading );
+  vector_PRECISION_free( &(p->b), l, no_threading );
+  if((!g.solver[l->depth]||g.use_only_fgrmes_at_setup)&&p->restart_length > 0) {
+    printf0("fg free 1 %d\n",l->depth);fflush(stdout);
+    FREE( p->H[0], complex_PRECISION, p->total_storage );
+    FREE( p->H, complex_PRECISION*, p->restart_length );
+    for ( i=0; i<p->restart_length+1; i++ ) vector_PRECISION_free( &(p->V[i]), l, no_threading );
+    FREE( p->V, vector_PRECISION, p->restart_length+1 );
+    vector_PRECISION_free( &(p->w), l, no_threading );
+    vector_PRECISION_free( &(p->r), l, no_threading );
+    if ( p->Z != NULL ) {
+      for ( i=0; i<k; i++ ) vector_PRECISION_free( &(p->Z[i]), l, no_threading );
+      FREE( p->Z, vector_PRECISION, k );
     }
-    if ( p->fab.handle != NULL ) {
-      fabulous_PRECISION_free( &(p->fab), l, no_threading );
-    }
+  }
+  if ( p->fab.handle != NULL ) {
+    fabulous_PRECISION_free( &(p->fab), l, no_threading );
   }
   
   p->D = NULL;
@@ -268,7 +267,7 @@ int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   if ( l->level==0 && g.num_levels > 1 && g.interpolation ) p->tol = g.coarse_tol;
   if ( l->depth > 0 ) p->timing = 1;
   END_LOCKED_MASTER(threading)
-    
+
   if ( p->fab.handle != NULL && !(g.use_only_fgrmes_at_setup && g.in_setup) ) {//need more generality if we are to use this as generic entry pt
     iter = fabulous_PRECISION( p, threading );
   } else {
@@ -504,13 +503,14 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   return iter;
 }
 
+//#define FAB_OPENMP
 int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
 
   fabulous_PRECISION_struct *fab = &(p->fab);
   level_struct * l = fab->l;
   int iter = 0, even_size = p->op->num_even_sites*l->num_lattice_site_var;
   PRECISION t0, t1;
-  //printf0("begin PRECISION fab: solver %d depth %d: %d=%d? %d, sizes %d %d %d even sts %d\n", g.f_solver, l->depth, fab->nrhs,fab->B.num_vect,p->b.num_vect_now, p->b.size, fab->B.size, fab->dim, even_size);fflush(stdout);
+  //printf0("begin PRECISION fab: solver %d depth %d: %d=%d? %d, sizes %d %d %d even sts %d\n", g.solver, l->depth, fab->nrhs,fab->B.num_vect,p->b.num_vect_now, p->b.size, fab->B.size, fab->dim, even_size);fflush(stdout);
     
   p->b.num_vect_now = num_loop; p->x.num_vect_now = num_loop;//!!!!!!
 
@@ -518,7 +518,9 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   if ( l->depth == 0 ) t0 = MPI_Wtime();
   END_LOCKED_MASTER(threading)
 
-    //fab->threading = threading; // if fabulous is OpenMP safe.  This can be uncommented.
+#ifdef FAB_OPENMP
+  fab->threading = threading; // if fabulous is OpenMP safe.  This can be uncommented.
+#endif
   vector_PRECISION_copy_new( &(fab->B), &(p->b), 0, fab->dim, l );
   if( p->initial_guess_zero ) {
     vector_PRECISION_define_new( &(fab->X), 0, 0, fab->dim, l );
@@ -526,10 +528,13 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
     vector_PRECISION_copy_new( &(fab->X), &(p->x), 0, fab->dim, l );
   }
   START_LOCKED_MASTER(threading)
-  vector_PRECISION_change_layout( &(fab->B), &(fab->B), _NVEC_OUTER, threading );
-  vector_PRECISION_change_layout( &(fab->X), &(fab->X), _NVEC_OUTER, threading );
+  vector_PRECISION_change_layout( &(fab->B), &(fab->B), _NVEC_OUTER, no_threading );
+  vector_PRECISION_change_layout( &(fab->X), &(fab->X), _NVEC_OUTER, no_threading );
+#ifdef FAB_OPENMP
+  END_LOCKED_MASTER(threading)
+#endif
   void *X = fab->X.vector_buffer, *B = fab->B.vector_buffer;
-  switch ( g.f_solver[l->depth] ) {
+  switch ( g.solver[l->depth] ) {
   case _GCR:    iter = fabulous_solve_GCR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
   case _IB:     iter = fabulous_solve_IB( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
   case _DR:     iter = fabulous_solve_DR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
@@ -540,11 +545,12 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   case _QRIBDR: iter = fabulous_solve_QRIBDR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
   default:      iter = fabulous_solve( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
   }
-  //vector_PRECISION_change_layout( &(fab->B), &(fab->B), _NVEC_INNER, threading );
+#ifdef FAB_OPENMP
+  START_LOCKED_MASTER(threading)
+#endif
   fab->B.layout = _NVEC_INNER;
-  vector_PRECISION_change_layout( &(fab->X), &(fab->X), _NVEC_INNER, threading );
+  vector_PRECISION_change_layout( &(fab->X), &(fab->X), _NVEC_INNER, no_threading );
   END_LOCKED_MASTER(threading)
-  //vector_PRECISION_copy_new( &(p->b), &(fab->B), 0, (g.odd_even)?even_size:fab->dim, l );
   //vector_PRECISION_copy_new( &(p->x), &(fab->X), 0, (g.odd_even&&l->depth!=0)?even_size:fab->dim, l );
   vector_PRECISION_copy_new( &(p->x), &(fab->X), 0, fab->dim, l );
 
@@ -553,13 +559,13 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   int end;
   PRECISION norm[num_loop], norm2[num_loop];
   compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading,l->num_lattice_site_var);
-  apply_operator_PRECISION( &(fab->B0), &(p->x), p, l, threading ); // compute w = D*x                                                                                                                                                       
-  vector_PRECISION_minus_new( &(fab->B), &(p->b), &(fab->B0), 0, p->v_end, l ); // compute r = b - w = b - D*x                                                                                                                                      
+  apply_operator_PRECISION( &(fab->B0), &(p->x), p, l, threading ); // compute w = D*x
+  vector_PRECISION_minus_new( &(fab->B), &(p->b), &(fab->B0), 0, p->v_end, l ); // compute r = b - w = b - D*x
   global_norm_PRECISION_new( norm, &(fab->B), p->v_start, p->v_end, l, threading ); // gamma_0 = norm(r)
   global_norm_PRECISION_new( norm2, &(p->b), p->v_start, p->v_end, l, threading );
-  
   //printf0("finish fab solve %d; %g %e\n", iter,creal_PRECISION(p->x.vector_buffer[0]),norm[0]/norm2[0]);fflush(stdout);
 #endif
+  
   START_LOCKED_MASTER(threading)
   if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.total_time = t1-t0; g.iter_count = iter; }
   if ( p->print > 0 ) {
@@ -1017,7 +1023,7 @@ int arnoldi_step_PRECISION_new( vector_PRECISION *V, vector_PRECISION *Z, vector
           prec( &Z[j], NULL, &V[j], _NO_RES, l, threading );
           apply_operator_PRECISION( &V[j+1], &Z[j], p, l, threading );
         } else {
-          if ( g.mixed_precision == 2 && (g.method >= 1 && g.method <= 2 || g.method == 4) ) {
+          if ( g.mixed_precision == 2 && (g.method >= 1 && g.method <= 2 ) ) {
             prec( &Z[j], &V[j+1], &V[j], _NO_RES, l, threading );
             // obtains w = D * Z[j] from Schwarz
           } else {

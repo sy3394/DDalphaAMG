@@ -36,6 +36,11 @@
   int64_t fabulous_rightprecond_PRECISION(void *user_env, int N,
 					  const void *XX, int ldx,
 					  void *BB, int ldb);
+  void fabulous_print_PRECISION(void *user_env,
+				int iter, int NRHS,
+				const void *XX, int ldx,
+				const void *RR, int ldr,
+				fabulous_handle handle);
 
   void fabulous_PRECISION_free( fabulous_PRECISION_struct *fab, level_struct *l, struct Thread *threading );
 

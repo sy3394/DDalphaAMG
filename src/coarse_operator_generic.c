@@ -833,7 +833,7 @@ void coarse_operator_PRECISION_test_routine_new( level_struct *l, struct Thread 
 #endif
       //      printf0("eval me 4 depth %d\n",l->depth);
       /*
-      if (g.method == 4) {
+      if (g.method == 2) {
 	l->next_level->p_PRECISION.eval_operator = g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new;
 	if ( g.odd_even )
 	  l->next_level->p_PRECISION.op = &(l->next_level->oe_op_PRECISION);

@@ -318,7 +318,7 @@ static void inv_iter_2lvl_extension_setup_PRECISION_new( int setup_iter, level_s
     START_LOCKED_MASTER(threading)
     fgmres_PRECISION_struct_init( &gmres );
     fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol, 
-                                   _COARSE_GMRES, _NOTHING, NULL, apply_coarse_operator_PRECISION_new, &gmres, l->next_level );
+                                   _COARSE_SOLVER, _NOTHING, NULL, apply_coarse_operator_PRECISION_new, &gmres, l->next_level );
     END_LOCKED_MASTER(threading)
     l->is_PRECISION.test_vector_vec.num_vect_now = n_vect;
     l->is_PRECISION.interpolation_vec.num_vect_now = n_vect;

@@ -37,6 +37,7 @@ void fabulous_PRECISION_init( fabulous_PRECISION_struct *fab ) {
 
   fab->eigvals = NULL;
   fab->k = 0;
+  fab->threading = NULL;
   fab->handle = NULL;
   
 }
@@ -74,17 +75,22 @@ void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_stru
   if ( fab->handle == NULL )
     error0("fabulous handle has not been created!\n");
 
-  // Set callback:
+  // Set callbacks:
   fabulous_set_mvp(&mvp_PRECISION, fab->handle);
   fabulous_set_dot_product(&dot_product_PRECISION, fab->handle);
-  if ( g.use_fab_as_outer && l->level > 0 )
+  if ( g.solver[l->depth] && l->level > 0 )
     fabulous_set_rightprecond(&fabulous_rightprecond_PRECISION, fab->handle);
+  if ( p->print && g.print > 0 ) {
+    if ( g.solver[l->depth] != _GCR )
+      g.real_residual[l->depth] = 1;
+    fabulous_set_callback(&fabulous_print_PRECISION, fab->handle);
+  }
   
   // Setup parameters:
   fabulous_set_ortho_process(g.f_orthoscheme[l->depth], g.f_orthotype[l->depth], g.ortho_iter[l->depth], fab->handle);
   PRECISION tolerance[1] = { p->tol };
   fabulous_set_parameters( fab->nrhs*p->restart_length*p->num_restart, fab->nrhs*p->restart_length, tolerance, 1, fab->handle );//g.max_mvp
-  fabulous_set_advanced_parameters( g.max_kept_direction[l->depth], g.real_residual, g.logger_user_data_size, g.quiet, fab->handle );
+  fabulous_set_advanced_parameters( g.max_kept_direction[l->depth], g.real_residual[l->depth], g.logger_user_data_size, g.quiet, fab->handle );
   //printf0("fab param %d: %d %d %d %g %d %d %d %d %d\n",l->depth,g.f_orthoscheme[l->depth], g.f_orthotype[l->depth], g.ortho_iter[l->depth],tolerance[0],g.max_mvp, p->restart_length,g.max_kept_direction[l->depth], g.real_residual, g.logger_user_data_size);
 
 }
@@ -165,6 +171,7 @@ int64_t mvp_PRECISION(  void *user_env, int N,
     
   return sizeof(PRECISION)/4*N*ldx*ldx;//this is actually wrong!!!!!;
 }
+
 // C = A^{H} * B: Dot product CALLBACK: vectors need to be in _NVEC_INNER 
 int64_t dot_product_PRECISION(void *user_env,
 			      int M, int N,
@@ -255,7 +262,7 @@ int64_t fabulous_rightprecond_PRECISION(void *user_env, int N,
   if ( l->level > 0 ) {//  printf0("fab prec PRECISION: %d->%d %d; %d vs %d: %d %d %d\n",l->depth,l->next_level->depth,l->is_PRECISION.num_agg,N,n,B0.size,ldb,fab->dim);fflush(stdout);
     //vector_PRECISION_copy_fab( &B0, &B, 0, N, 1, 0, fab->dim, l );
     vector_PRECISION_copy_fab( &X0, &X, 0, N, 1, 0, fab->dim, l );
-    //for ( int i=N; i<n; i++ )  vector_PRECISION_copy_fab( &X0, &X, i, 1, -1, 0, fab->dim, l );
+    for ( int i=N; i<n; i++ )  vector_PRECISION_copy_fab( &X0, &X, i, 1, -1, 0, fab->dim, l );// just to avoid overall divergence due to unused vector fields in FGMRES
     START_LOCKED_MASTER(threading)
     vector_PRECISION_change_layout( &X0, &X0, _NVEC_INNER, no_threading );
     B0.layout = _NVEC_INNER;
@@ -268,14 +275,59 @@ int64_t fabulous_rightprecond_PRECISION(void *user_env, int N,
     vector_PRECISION_change_layout( &B0, &B0, _NVEC_OUTER, no_threading );//printfv_PRECISION(&B0);
     END_LOCKED_MASTER(threading)
     vector_PRECISION_copy_fab( &B, &B0, 0, N, -1, 0, fab->dim, l );
-  }/* else {//this is not necessary due to setup!!!!
-    vector_PRECISION_copy_fab( &B, &X, 0, N, -1, 0, fab->dim, l );
-    }*/
+  } else {
+    error0("fabulous_rightprecond_PRECISION: should not be called at the bottom\n");
+  }
 
   //START_LOCKED_MASTER(threading)
   //printf0("end fab prec PRECISION: %d->%d %d; %d, %g\n",l->depth,l->next_level->depth,l->is_PRECISION.num_agg,N, creal_PRECISION(B.vector_buffer[0]));fflush(stdout);
   return 4; //This is a random number
     
+}
+
+void fabulous_print_PRECISION(void *user_env,
+                              int iter, int NRHS,
+                              const void *XX, int ldx,
+                              const void *RR, int ldr,
+                              fabulous_handle handle) {
+
+  gmres_PRECISION_struct *p      = user_env;
+  fabulous_PRECISION_struct *fab = &(p->fab);
+  level_struct *l                = fab->l;
+  struct Thread *threading       = fab->threading;
+
+  int start, end;
+  compute_core_start_end_custom(0, fab->dim, &start, &end, l, threading, l->num_lattice_site_var);
+
+  int i, n = fab->X0.num_vect;
+  PRECISION res[n], norm[n];
+
+  vector_PRECISION X, R, B0 = fab->B0, X0 = fab->X0, C0 = fab->C0;
+  vector_PRECISION_duplicate( &R, &C0, 0, l ); R.num_vect = NRHS; R.num_vect_now = NRHS; R.size = ldr;
+  vector_PRECISION_duplicate( &X, &C0, 0, l ); X.num_vect = NRHS; X.num_vect_now = NRHS; X.size = ldx;
+  START_MASTER(threading)
+  R.vector_buffer = (const buffer_PRECISION) RR;
+  X.vector_buffer = (const buffer_PRECISION) XX;
+  END_MASTER(threading)
+
+  if ( p->print && g.print > 0 ) {
+    vector_PRECISION_copy_fab( &C0, &R, 0, NRHS, 1, start, end, l );
+    START_LOCKED_MASTER(threading)
+    vector_PRECISION_change_layout( &C0, &C0, _NVEC_INNER, no_threading );
+    END_LOCKED_MASTER(threading)
+    global_norm_PRECISION_new(res, &C0, start, end, l, threading );
+    
+    vector_PRECISION_copy_fab( &C0, &X, 0, NRHS, 1, start, end, l );
+    START_LOCKED_MASTER(threading)
+    C0.layout = _NVEC_OUTER;
+    vector_PRECISION_change_layout( &C0, &C0, _NVEC_INNER, no_threading );
+    C0.layout = _NVEC_OUTER;
+    END_LOCKED_MASTER(threading)
+    global_norm_PRECISION_new(norm, &C0, start, end, l, threading );
+    
+    for( i=0; i<NRHS; i++ )
+      printf0("| vector %d, depth: %d, approx. rel. res. after  %-6d iterations: %e |\n", i, l->depth, iter, res[i]/norm[i]);
+  }
 }
 
 // dir == 1: z[0:length] <-x[vec_ind:vec_ind+length]; dir==-1: z[vec_ind:vec_ind+length] <- x[0:length]

@@ -403,7 +403,7 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
       apply_operator_float( &Z[0], &V[j], p, l, threading );
       prec( w, NULL, &Z[0], _NO_RES, l, threading );
     } else {
-      if ( g.mixed_precision == 2 && (g.method >= 1 && g.method <= 2 || g.method == 4) ) {
+      if ( g.mixed_precision == 2 && (g.method >= 1 && g.method <= 2) ) {
         prec( &Z[j], w, &V[j], _NO_RES, l, threading );    // obtains w = D * Z[j] from Schwarz
       } else {
         prec( &Z[j], NULL, &V[j], _NO_RES, l, threading );

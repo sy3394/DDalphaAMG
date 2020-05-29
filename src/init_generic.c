@@ -161,7 +161,7 @@ void next_level_PRECISION_setup( level_struct *l ) {
       // if the next level is the bottom and I am not the idle process,
       // set the coarsest gmres_PRECISION_struct as a coarse GMRES solver
       fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol, 
-				     (g.method==4)?_COARSE_FABULOUS:_COARSE_GMRES, _NOTHING, NULL,
+				     _COARSE_SOLVER, _NOTHING, NULL,
 				     g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
 				     &(l->next_level->p_PRECISION), l->next_level );
     } else {

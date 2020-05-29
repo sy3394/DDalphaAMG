@@ -317,7 +317,7 @@ static void read_geometry_data( FILE *in, int ls ) {
             }
           }
           
-          if ( flag == 1 && (g.method == 2 || g.method == 4) && nb == 1 ) {//??????
+          if ( flag == 1 && g.method == 2 && nb == 1 ) {//??????
             mu = shortest_dir( g.local_lattice[i] );
             if ( g.global_lattice[i][mu] > g.local_lattice[i][mu] ) {
               g.local_lattice[i][mu] *= lcm( g.local_lattice[i][mu],
@@ -383,8 +383,8 @@ static void read_geometry_data( FILE *in, int ls ) {
     else g.num_eig_vect[i] = 28;
     read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
 
-    sprintf( inputstr, "d%d fabulous solver:", i );
-    save_pt = &(g.f_solver[i]); g.f_solver[i] = _IB;
+    sprintf( inputstr, "d%d solver:", i );
+    save_pt = &(g.solver[i]); g.solver[i] = _FGMRES;
     read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
 
     sprintf( inputstr, "d%d fabulous orthogonalization scheme:", i );
@@ -405,6 +405,10 @@ static void read_geometry_data( FILE *in, int ls ) {
 
     sprintf( inputstr, "d%d number of deflating eigenvectors for fabulous:", i );
     save_pt = &(g.k[i]); g.k[i] = 0;
+    read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
+
+    sprintf( inputstr, "d%d fabulous compute real residual:", i );
+    save_pt = &(g.real_residual[i]); g.real_residual[i] = 0;
     read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
 
   }
@@ -467,14 +471,10 @@ static void read_solver_parameters( FILE *in ) {
   save_pt = &(g.num_rhs_vect); g.num_rhs_vect=1;
   read_parameter( &save_pt, "number of rhs vectors:", "%d", 1, in, _DEFAULT_SET );
 
-  save_pt = &(g.use_fab_as_outer); g.use_fab_as_outer = 0;
-  read_parameter( &save_pt, "use fabulous as outer algorithm:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.use_only_fgrmes_at_setup); g.use_only_fgrmes_at_setup = 0;
   read_parameter( &save_pt, "use only FGMRES at setup:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.max_mvp); g.max_mvp = 1000;
   read_parameter( &save_pt, "fabulous max mat vec prod:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.real_residual); g.real_residual = 0;;
-  read_parameter( &save_pt, "fabulous compute real residual:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.logger_user_data_size); g.logger_user_data_size = 0;
   read_parameter( &save_pt, "fabulous user data size for log:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.quiet); g.quiet = 1;
@@ -562,32 +562,37 @@ static void validate_parameters( int ls, level_struct *l ) {
     g.interpolation = 0;
     //ASSERT ( g.interpolation == 0 );
   }
+  
   if ( g.method == 0 && g.mixed_precision == 1 ) {
     warning0("Pure GMRES uses either mixed precision solver or double precision solver.\n         Switching to doule precision\n");
     g.mixed_precision = 0;
   }
+  
   if ( g.method == -2 ) {
     if ( g.mixed_precision != 0 ) {
       warning0("Pure fabulous solver uses double precision\n");
       g.mixed_precision = 0;
     }
+    if ( g.solver[0] == _FGMRES ) {
+      warning0("Pure fabulous solver does not use the FGMRES solver\n         Switching to BGMRES\n");
+      g.solver[0] == _BGMRES;
+    }
   }
-  if ( g.method == -2 || g.method == 4 ) {
-    for ( i=0; i<g.num_levels; i++ )
-      if ( g.f_solver[i] == 1 && g.f_orthotype[i] != FABULOUS_BLOCK ) {
+  
+  if ( (g.method == -2 || g.method == 2) && g.solver[0] ) {
+    if ( g.mixed_precision == 2 ) {
+      warning0("Fabulous solver with AMG as preconditioner does not support mixed precision.\n         Switching to single precision.\n");
+      g.mixed_precision = 1;
+    }
+    for ( i=0; i<g.num_levels; i++ ) {
+      if ( i < g.num_levels-1  && g.solver[i] != _GCR ) {
+	warning0("Fabulous solver using AMG as its right preconditioner needs to be flexible.\n         Switching to BGCR method at depth %d.\n", i);
+	g.solver[i] = _GCR;
+      }
+      if ( g.solver[i] == _GCR && g.f_orthotype[i] != FABULOUS_BLOCK ) {
 	warning0("Only BLOCK-wise orthogonalization is currently implemented for BCGR. The BLOCK-wise version will be used at depth %d\n", i);
 	g.f_orthotype[i] = FABULOUS_BLOCK;
       }
-    if ( g.use_fab_as_outer ) {
-      if ( g.mixed_precision == 2 ) {
-	warning0("Fabulous solver with AMG as preconditioner does not support mixed precision.\n         Switching to single precision.\n");
-	g.mixed_precision = 1;
-      }
-      for ( i=0; i<g.num_levels-1; i++ )
-	if ( g.f_solver[i] != 1 ) {
-	  warning0("Fabulous solver with AMG as preconditioner requires a flexible solver.\n         Switching to BGCR method at depth %d.\n", i);
-	  g.f_solver[i] = 1;
-	}
     }
   }
   
@@ -619,7 +624,7 @@ static void validate_parameters( int ls, level_struct *l ) {
     ASSERT( DIVIDES( 2, coarse_sites_per_core ) );
   }
 
-  if ( g.method == 2 || g.method == 4 ) {
+  if ( g.method == 2 ) {
     for ( i=0; i<ls-1; i++ ) {
       int num_blocks = 1;
       for ( mu=0; mu<4; mu++) {
@@ -684,12 +689,13 @@ static void allocate_for_global_struct_after_read_global_info( int ls ) {
   MALLOC( g.block_iter, int, ls );
   MALLOC( g.setup_iter, int, ls );
   MALLOC( g.num_eig_vect, int, ls );
-  MALLOC( g.f_solver, int, ls );
+  MALLOC( g.solver, int, ls );
   MALLOC( g.f_orthoscheme, fabulous_orthoscheme, ls );
   MALLOC( g.f_orthotype, fabulous_orthotype, ls );
   MALLOC( g.ortho_iter, int, ls );
   MALLOC( g.max_kept_direction, int, ls );
   MALLOC( g.k, int, ls );
+  MALLOC( g.real_residual, int, ls );
   for ( i=1; i<ls; i++ ) {
     g.global_lattice[i] = g.global_lattice[0] + i*4;
     g.local_lattice[i] = g.local_lattice[0] + i*4;

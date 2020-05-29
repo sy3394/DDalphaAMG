@@ -175,7 +175,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     } else {
 #endif
       fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
-				  (g.method==4&&g.use_fab_as_outer)?_GLOBAL_FABULOUS: _GLOBAL_FGMRES, _RIGHT, preconditioner_new,
+				  _GLOBAL_FSOLVER, _RIGHT, preconditioner_new,
 				  d_plus_clover_double_new, &(g.p), l );
     }
 #ifdef INIT_ONE_PREC
@@ -197,7 +197,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     } else {
 #endif
       fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
-                                  _GLOBAL_FGMRES, _NOTHING, NULL, d_plus_clover_double_new,
+                                  _GLOBAL_FSOLVER, _NOTHING, NULL, d_plus_clover_double_new,
                                   &(g.p), l );
 #ifdef INIT_ONE_PREC
     }
@@ -205,12 +205,12 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   } 
   else if ( g.method == -1 ) {//----- pure CGN (no AMG) 
     fgmres_double_struct_alloc( 4, g.restart*g.max_restart, _INNER, g.tol,
-                                _GLOBAL_FGMRES, _NOTHING, NULL, d_plus_clover_double_new, &(g.p), l );
+                                _GLOBAL_FSOLVER, _NOTHING, NULL, d_plus_clover_double_new, &(g.p), l );
     fine_level_double_alloc( l );
   }
   else if ( g.method == -2 ) {//----- pure fabulous solver
     fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
-				_GLOBAL_FABULOUS, _NOTHING, NULL, d_plus_clover_double_new, &(g.p), l );
+				_GLOBAL_FSOLVER, _NOTHING, NULL, d_plus_clover_double_new, &(g.p), l );
   }
   END_LOCKED_MASTER(threading)
 
@@ -277,13 +277,12 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
       case -1: printf0("| pure CGN                                                 |\n"); break;
       case  0: printf0("| pure GMRES                                               |\n"); break;
       case  1: printf0("| FGMRES + additive Schwarz                                |\n"); break;
-      case  2: printf0("| FGMRES + red-black multiplicative Schwarz                |\n"); break;
+      case  2: printf0("| FGMRES/fab + red-black multiplicative Schwarz            |\n"); break;
       case  3: printf0("| FGMRES + sixteen color multiplicative Schwarz            |\n"); break;
-      case  4: printf0("| FGMRES + red-black multiplicative Schwarz + Fabulous     |\n"); break;
       default: printf0("| FGMRES + GMRES                                           |\n"); break;
     }
-    if (g.method == -2 || g.method == 4 )
-      printf0("|          fabulous solver: %-2d                             |\n", g.f_solver );
+    if (g.method == -2 )
+      printf0("|             solver type: %-2d                             |\n", g.solver[0] );
     if ( g.method >=0  )
       printf0("|          restart length: %-3d                             |\n", g.restart );
     printf0("|                      m0: %+9.6lf                       |\n", g.m0 );
@@ -310,7 +309,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     if ( g.method > 0 ) {
       printf0("+----------------------------------------------------------+\n");
       printf0("|%17s cycles: %-6d                          |\n", "preconditioner", l->n_cy );
-      printf0("|            inner solver: %-26s      |\n", g.method==4?"GMRES":"minimal residual iteration" );
+      printf0("|            inner solver: %-26s      |\n", g.method==5?"GMRES":"minimal residual iteration" );
       printf0("|               precision: %6s                          |\n", g.mixed_precision?"single":"double" );
     }
     for ( int i=0; i<g.num_levels; i++ ) {
@@ -320,6 +319,8 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
       printf0("|           local lattice: %-3d %-3d %-3d %-3d                 |\n", ll[0], ll[1], ll[2], ll[3] );
       if ( g.method > 0 ) {
         printf0("|           block lattice: %-3d %-3d %-3d %-3d                 |\n", bl[0], bl[1], bl[2], bl[3] );
+	if ( g.method == 2 )
+	  printf0("|             solver type: %-2d                             |\n", g.solver[i] );
         if ( i+1 < g.num_levels ) {
           printf0("|        post smooth iter: %-3d                             |\n", g.post_smooth_iter[i] );
           printf0("|     smoother inner iter: %-3d                             |\n", g.block_iter[i] );
@@ -548,9 +549,7 @@ void method_free( level_struct *l ) {
       }
   } else if ( g.method == -1 ) {
     fine_level_double_free( l );
-  }/* else if ( g.method == -2 ) {
-    fgmres_double_struct_free( &(g.p), l );
-    }*/
+  }
 
 #ifdef INIT_ONE_PREC
   if ( g.mixed_precision == 2 && g.method >= 0 ) {
@@ -594,11 +593,12 @@ void method_finalize( level_struct *l ) {
   FREE( g.block_iter, int, ls );
   FREE( g.setup_iter, int, ls );
   FREE( g.num_eig_vect, int, ls );
-  FREE( g.f_solver, int, ls );
+  FREE( g.solver, int, ls );
   FREE( g.f_orthoscheme, fabulous_orthoscheme, ls );
   FREE( g.f_orthotype, fabulous_orthotype, ls );
   FREE( g.ortho_iter, int, ls );
   FREE( g.k, int, ls );
+  FREE( g.real_residual, int, ls) ;
   cart_free( l );
   var_table_free( &(g.vt) );
   
