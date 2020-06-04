@@ -159,6 +159,18 @@ void next_level_PRECISION_setup( level_struct *l ) {
     // allocate l->next_level->p_PRECISION or just l->next_level->p_PRECISION.b&x
     if ( l->level == 1 && !l->next_level->idle ) {
       // if the next level is the bottom and I am not the idle process,
+      /* suggestion!!! also change validatation to make sure num_levels==2
+      if ( g.method == 5 ) {//set the bottom solver to GMRES
+	fgmres_PRECISION_struct_alloc( l->block_iter, 1, _ORDINARY,
+				       EPS_PRECISION, _COARSE_SOLVER, _NOTHING, NULL,
+				       g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
+				       &(l->sp_PRECISION), l );
+      } else if ( g.method == 6 ) {//set the bottom solver to biCGstab (no AMG)
+        fgmres_PRECISION_struct_alloc( 5, 1, _ORDINARY,
+				       EPS_PRECISION, _COARSE_SOLVER, _NOTHING, NULL,
+				       g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
+				       &(l->sp_PRECISION), l );
+	*/
       // set the coarsest gmres_PRECISION_struct as a coarse GMRES solver
       fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol, 
 				     _COARSE_SOLVER, _NOTHING, NULL,

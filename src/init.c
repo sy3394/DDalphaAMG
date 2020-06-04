@@ -123,9 +123,6 @@ void method_init( int *argc, char ***argv, level_struct *l ) {
   g.Cart_coords = MPI_Cart_coords;
   cart_define( MPI_COMM_WORLD, l );
 
-  //no_threading = (struct Thread *)malloc(sizeof(struct Thread));//my porosal
-  //setup_no_threading(no_threading, l);//my proposal
-
   // The following fields are used in dirac_setup
   operator_double_alloc( &(g.op_double), _ORDINARY, l ); 
   operator_double_define( &(g.op_double), l );
@@ -151,11 +148,11 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     prof_init( l );
   
   //-------------- Setup g.p(_MP) for the solver part (gmres_PRECISION_struct in global_struct: used only in the solver part)
-  //                  if g.mixed_precision == 2, prec = vcycle_float; otherwise, prec = preconditioner
-  //                  if g.mixed_precision == 2, use MP solver; if ==1, use double solver at the top and single solver below; if ==0, double everywhere
-  // not sure what method =  5 - FGMRES + GMRES implies. as of now it is not diff. from g.method==2
+  //                  The top level solver is MP(g.mixed_precision==2)/PRECISION(g.mixed_precision=0:double,1:single)
+  //                  The lower level solvers are of double precision if g.mixed_precision=0 and of float otherwise
+  // g.method==5,6 2-level method???
+  // g.method==5,6 works as expexted only with odd_even, double and not inc????
   //   if the changeds suggested in the comments are implementd, if g.even_odd, it will behave diff'ly; FGMRES+noAMG+prec.(_COARSE_GMRES)
-  // apparently, g.method==6 used only in conjunction with odd_even prec. and not inc????
 #ifdef HAVE_TM1p1
   nvec *= 2;
 #endif
@@ -208,22 +205,16 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
                                 _GLOBAL_FSOLVER, _NOTHING, NULL, d_plus_clover_double_new, &(g.p), l );
     fine_level_double_alloc( l );
   }
-  else if ( g.method == -2 ) {//----- pure fabulous solver
-    fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
-				_GLOBAL_FSOLVER, _NOTHING, NULL, d_plus_clover_double_new, &(g.p), l );
-  }
   END_LOCKED_MASTER(threading)
 
   //------------------ Set the level structure for AMG recursively
   // l->s_PRECISION is not necessary if g.method==0, defined in smoother_PRECISION_def????? op in s_* is used; see linsolve_*
   // l->p_PRECISION is not necessary if g.method==0, defined in smoother_PRECISION_def?????
-  // for g.method=5, l->sp_PRECISION is not used???? if we set prec to preconditioner in g.p_* and change
-  //   preconditioner.c as is suggested in the comment, sp_* will be used.
   if ( g.method >= 0 ) {
     START_LOCKED_MASTER(threading)
     t0 = MPI_Wtime();
     if ( g.mixed_precision ) {
-      smoother_float_def( l ); // define s_PRECISION, and s/p_PRECISION(gmres) if g.method=5 or 6
+      smoother_float_def( l ); // define s_PRECISION
       if ( g.method >= 5 && g.odd_even )
 	oddeven_setup_float( &(g.op_double), l );
     } else {
@@ -281,8 +272,6 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
       case  3: printf0("| FGMRES + sixteen color multiplicative Schwarz            |\n"); break;
       default: printf0("| FGMRES + GMRES                                           |\n"); break;
     }
-    if (g.method == -2 )
-      printf0("|             solver type: %-2d                             |\n", g.solver[0] );
     if ( g.method >=0  )
       printf0("|          restart length: %-3d                             |\n", g.restart );
     printf0("|                      m0: %+9.6lf                       |\n", g.m0 );

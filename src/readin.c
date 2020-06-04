@@ -556,7 +556,7 @@ static void validate_parameters( int ls, level_struct *l ) {
   }
 
   ASSERT( ASCENDING( 0, g.rhs, 2 ) );
-  ASSERT( ASCENDING( -2, g.method, 6 ) );
+  ASSERT( ASCENDING( -1, g.method, 6 ) );
   if ( g.method < 1 ) {
     warning0("Multigrid is not supported.\n         Switching to the chosen method with no AMG (g.interpolation=0).\n");
     g.interpolation = 0;
@@ -568,24 +568,13 @@ static void validate_parameters( int ls, level_struct *l ) {
     g.mixed_precision = 0;
   }
   
-  if ( g.method == -2 ) {
-    if ( g.mixed_precision != 0 ) {
-      warning0("Pure fabulous solver uses double precision\n");
-      g.mixed_precision = 0;
-    }
-    if ( g.solver[0] == _FGMRES ) {
-      warning0("Pure fabulous solver does not use the FGMRES solver\n         Switching to BGMRES\n");
-      g.solver[0] == _BGMRES;
-    }
-  }
-  
-  if ( (g.method == -2 || g.method == 2) && g.solver[0] ) {
-    if ( g.mixed_precision == 2 ) {
+  if ( g.method == 0 || g.method == 2 ) {
+    if ( g.mixed_precision == 2 && g.solver[0] ) {
       warning0("Fabulous solver with AMG as preconditioner does not support mixed precision.\n         Switching to single precision.\n");
       g.mixed_precision = 1;
     }
     for ( i=0; i<g.num_levels; i++ ) {
-      if ( i < g.num_levels-1  && g.solver[i] != _GCR ) {
+      if ( i < g.num_levels-1  && g.solver[i] != _GCR && g.solver[0] != _FGMRES ) {
 	warning0("Fabulous solver using AMG as its right preconditioner needs to be flexible.\n         Switching to BGCR method at depth %d.\n", i);
 	g.solver[i] = _GCR;
       }

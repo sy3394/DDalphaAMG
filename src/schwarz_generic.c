@@ -98,7 +98,7 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
   
   int i, j, n, mu, nu, *bl = l->block_lattice;
   
-  //why are they here??????
+  //why are they here?????? can move to init_generic.c, why is there depth==0???
   if ( g.method == 5 ) {//FGMRES + GMRES
     fgmres_PRECISION_struct_alloc( l->block_iter, 1, (l->depth==0)?_INNER:_ORDINARY,
                                    EPS_PRECISION, _COARSE_SOLVER, _NOTHING, NULL,

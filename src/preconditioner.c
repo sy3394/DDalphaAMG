@@ -25,7 +25,7 @@
 #include "main.h"
 #include "preconditioner.h"
 
-// chosen as preconditioner only for solver part and called only at the top level
+// chosen as preconditioner only for solver part and called only at the top level for double precision solver
 void preconditioner_new( vector_double *phi, vector_double *Dphi, vector_double *eta,
                       const int res, level_struct *l, struct Thread *threading ) {
 
