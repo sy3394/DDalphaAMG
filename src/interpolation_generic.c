@@ -49,23 +49,13 @@ void interpolation_PRECISION_free( level_struct *l ) {
   vector_PRECISION_free(&(l->is_PRECISION.test_vector_vec), l, no_threading );
 }
 
-//??????
 void interpolation_PRECISION_dummy_alloc( level_struct *l ) {
-  
-  int n = num_loop;//g.num_rhs_vect;
-
-  vector_PRECISION_alloc(&(l->is_PRECISION.interpolation_vec), _ORDINARY, n, l, no_threading );
-  vector_PRECISION_alloc(&(l->is_PRECISION.test_vector_vec), _INNER, n, l, no_threading );
 }
 
-//??????
 void interpolation_PRECISION_dummy_free( level_struct *l ) {
-  
-  vector_PRECISION_free(&(l->is_PRECISION.interpolation_vec), l, no_threading );
-  vector_PRECISION_free(&(l->is_PRECISION.test_vector_vec), l, no_threading );
 }
 
-void define_interpolation_PRECISION_operator_new( vector_PRECISION *interpolation, level_struct *l, struct Thread *threading ) {
+void define_interpolation_PRECISION_operator( vector_PRECISION *interpolation, level_struct *l, struct Thread *threading ) {
   /****************************************
    *INPUT:
    *  vector_PRECISION *interpolation: test vectors
@@ -75,10 +65,6 @@ void define_interpolation_PRECISION_operator_new( vector_PRECISION *interpolatio
    ***************************************/
   int i, j, jj, num_eig_vect = l->num_eig_vect;
   complex_PRECISION *operator = l->is_PRECISION.operator;
-  /*
-  int start = threading->start_index[l->depth];
-  int end   = threading->end_index[l->depth];
-  */
   int start, end;
   compute_core_start_end_custom(0, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );
 
@@ -93,7 +79,7 @@ void define_interpolation_PRECISION_operator_new( vector_PRECISION *interpolatio
 }
 
 //work not distributed among threads
-void interpolate_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c, level_struct *l, struct Thread *threading ) {
+void interpolate_PRECISION( vector_PRECISION *phi, vector_PRECISION *phi_c, level_struct *l, struct Thread *threading ) {
   /**********************************************
    * Assume: phi.num_vect == phi_c.num_vect && l->level is the level where phi is defined
    * Input:
@@ -120,7 +106,7 @@ void interpolate_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c, 
 
   l->next_level->gs_PRECISION.transfer_buffer.num_vect_now = n_vect;
   START_LOCKED_MASTER(threading)
-  vector_PRECISION_distribute_new( &(l->next_level->gs_PRECISION.transfer_buffer), phi_c, l->next_level );
+  vector_PRECISION_distribute( &(l->next_level->gs_PRECISION.transfer_buffer), phi_c, l->next_level );
   END_LOCKED_MASTER(threading)
   SYNC_HYPERTHREADS(threading)
 
@@ -148,7 +134,7 @@ void interpolate_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c, 
   SYNC_HYPERTHREADS(threading)
 }
 
-void interpolate3_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c, level_struct *l, struct Thread *threading ) {
+void interpolate3_PRECISION( vector_PRECISION *phi, vector_PRECISION *phi_c, level_struct *l, struct Thread *threading ) {
   /**********************************************
    * Assume: phi.num_vect == phi_c.num_vect && l->level is the level where phi is defined
    * Input:
@@ -175,7 +161,7 @@ void interpolate3_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c,
 
   l->next_level->gs_PRECISION.transfer_buffer.num_vect_now = n_vect;
   START_LOCKED_MASTER(threading)
-  vector_PRECISION_distribute_new( &(l->next_level->gs_PRECISION.transfer_buffer), phi_c, l->next_level );
+  vector_PRECISION_distribute( &(l->next_level->gs_PRECISION.transfer_buffer), phi_c, l->next_level );
   END_LOCKED_MASTER(threading)
   SYNC_HYPERTHREADS(threading)
   for ( i=threading->n_thread*threading->core + threading->thread; i<num_aggregates; i+=threading->n_core*threading->n_thread ) {
@@ -204,7 +190,7 @@ void interpolate3_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *phi_c,
   SYNC_HYPERTHREADS(threading)
 }
 
-void restrict_PRECISION_new( vector_PRECISION *phi_c, vector_PRECISION *phi, level_struct *l, struct Thread *threading ) {
+void restrict_PRECISION( vector_PRECISION *phi_c, vector_PRECISION *phi, level_struct *l, struct Thread *threading ) {
   /************************************************
    * Assume: phi.num_vect == phi_c.num_vect
    * Input:
@@ -258,7 +244,7 @@ void restrict_PRECISION_new( vector_PRECISION *phi_c, vector_PRECISION *phi, lev
 
   SYNC_HYPERTHREADS(threading)
   START_LOCKED_MASTER(threading)
-  vector_PRECISION_gather_new( phi_c, &(l->next_level->gs_PRECISION.transfer_buffer), l->next_level );
+  vector_PRECISION_gather( phi_c, &(l->next_level->gs_PRECISION.transfer_buffer), l->next_level );
   END_LOCKED_MASTER(threading)
   PROF_PRECISION_STOP( _PR, 1, threading );
 }

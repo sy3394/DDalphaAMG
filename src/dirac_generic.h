@@ -28,15 +28,15 @@
   struct Thread;
   
 
-  void clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, int start, int end, level_struct *l, struct Thread *threading );
-  void d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
-  void block_d_plus_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
+  void clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, int start, int end, level_struct *l, struct Thread *threading );
+  void d_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
+  void block_d_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
 
-  void diagonal_aggregate_PRECISION_new( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, config_PRECISION diag, level_struct *l );
-  void d_plus_clover_aggregate_PRECISION_new( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, schwarz_PRECISION_struct *s, level_struct *l );
-  void d_neighbor_aggregate_PRECISION_new( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, const int mu, schwarz_PRECISION_struct *s, level_struct *l );
+  void diagonal_aggregate_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, config_PRECISION diag, level_struct *l );
+  void d_plus_clover_aggregate_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, schwarz_PRECISION_struct *s, level_struct *l );
+  void d_neighbor_aggregate_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, const int mu, schwarz_PRECISION_struct *s, level_struct *l );
 
-  void apply_twisted_bc_to_vector_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, double *theta, level_struct *l);
+  void apply_twisted_bc_to_vector_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, double *theta, level_struct *l);
 
   void operator_updates_PRECISION( level_struct *l, struct Thread *threading );
   void m0_update_PRECISION( PRECISION m0,operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
@@ -45,7 +45,7 @@
   void epsbar_term_PRECISION_setup( PRECISION epsbar, PRECISION even, PRECISION odd, operator_PRECISION_struct *op,
                                     level_struct *l, struct Thread *threading );
 
-  void gamma5_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, level_struct *l, struct Thread *threading );
+  void gamma5_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, level_struct *l, struct Thread *threading );
 
   void gamma5_set_even_to_zero_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, level_struct *l, struct Thread *threading );//used in DDalphaAMG_interface 
   void gamma5_set_odd_to_zero_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, level_struct *l, struct Thread *threading );//used in DDalphaAMG_interface
@@ -59,7 +59,7 @@
 
 
 //eta+= diag*phi
-  static inline void add_diagonal_PRECISION_new( const vector_PRECISION *eta, const vector_PRECISION *phi,
+  static inline void add_diagonal_PRECISION( const vector_PRECISION *eta, const vector_PRECISION *phi,
              const config_PRECISION diag, const int length ) {
     int i, j, jj, n_vect_phi = phi->num_vect_now, n_vect_eta = eta->num_vect_now;
     config_PRECISION diag_pt = diag;
@@ -111,7 +111,7 @@
 #endif
 
   // eta = D*phi
-  static inline void mvm_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D, const buffer_PRECISION phi, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+  static inline void mvm_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D, const buffer_PRECISION phi, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, eta[0*n_vect_eta+j+jj]  = D[0]*phi[0*n_vect_phi+j+jj];
                                eta[0*n_vect_eta+j+jj] += D[1]*phi[1*n_vect_phi+j+jj];
@@ -125,7 +125,7 @@
   }
 
   // eta = D**H*phi
-  static inline void mvmh_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D, const buffer_PRECISION phi, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+  static inline void mvmh_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D, const buffer_PRECISION phi, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     int j, jj;
     //  printf("d_plus_clover_aggrmvmv_PRECISION: %d %d %d %d\n",n_vect, n_vect_eta, n_vect_phi );
     VECTOR_LOOP(j, n_vect, jj, eta[0*n_vect_eta+j+jj]  = conj_PRECISION(D[0])*phi[0*n_vect_phi+j+jj];
@@ -140,7 +140,7 @@
   }
   
   // eta = -D*phi
-  static inline void nmvm_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D, const buffer_PRECISION phi, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+  static inline void nmvm_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D, const buffer_PRECISION phi, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, eta[0*n_vect_eta+j+jj]  = - D[0]*phi[0*n_vect_phi+j+jj];
                                eta[0*n_vect_eta+j+jj] -=   D[1]*phi[1*n_vect_phi+j+jj];
@@ -154,7 +154,7 @@
   }
 
   // eta = -D**H*phi
-  static inline void nmvmh_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D, const buffer_PRECISION phi, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+  static inline void nmvmh_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D, const buffer_PRECISION phi, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, eta[0*n_vect_eta+j+jj]  = - conj_PRECISION(D[0])*phi[0*n_vect_phi+j+jj];
                                eta[1*n_vect_eta+j+jj]  = - conj_PRECISION(D[1])*phi[0*n_vect_phi+j+jj];
@@ -168,7 +168,7 @@
   }
 
   // 1 - gamma_T
-  static inline void prp_T_PRECISION_new( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prp, const int n_vect_l  ) {
+  static inline void prp_T_PRECISION( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prp, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, prp_pt[0*n_vect_prp+j+jj] = l_pt[0*n_vect_l+j+jj] -GAMMA_T_SPIN0_VAL*l_pt[ 3*GAMMA_T_SPIN0_CO   *n_vect_l+j+jj];
                                prp_pt[1*n_vect_prp+j+jj] = l_pt[1*n_vect_l+j+jj] -GAMMA_T_SPIN0_VAL*l_pt[(3*GAMMA_T_SPIN0_CO+1)*n_vect_l+j+jj];
@@ -179,7 +179,7 @@
   }
 
   // 1 + gamma_T
-  static inline void prn_T_PRECISION_new( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prn, const int n_vect_l ) {//start?
+  static inline void prn_T_PRECISION( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prn, const int n_vect_l ) {//start?
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, prn_pt[0*n_vect_prn+j+jj] = l_pt[0*n_vect_l+j+jj] +GAMMA_T_SPIN0_VAL*l_pt[ 3*GAMMA_T_SPIN0_CO   *n_vect_l+j+jj];
                                prn_pt[1*n_vect_prn+j+jj] = l_pt[1*n_vect_l+j+jj] +GAMMA_T_SPIN0_VAL*l_pt[(3*GAMMA_T_SPIN0_CO+1)*n_vect_l+j+jj];
@@ -190,7 +190,7 @@
   }
 
   // - (1 - gamma_T)
-  static inline void pbp_su3_T_PRECISION_new( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_pbp, const int n_vect_l  ) {
+  static inline void pbp_su3_T_PRECISION( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_pbp, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, l_pt[ 0*n_vect_l+j+jj] -= prp_su3_pt[0*n_vect_pbp+j+jj];
                                l_pt[ 1*n_vect_l+j+jj] -= prp_su3_pt[1*n_vect_pbp+j+jj];
@@ -207,7 +207,7 @@
   }
 
   // -(1 + gamma_T)
-  static inline void pbn_su3_T_PRECISION_new( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prn, const int n_vect_l  ) {
+  static inline void pbn_su3_T_PRECISION( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prn, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, l_pt[ 0*n_vect_l+j+jj] -= prn_su3_pt[0*n_vect_prn+j+jj];
                                l_pt[ 1*n_vect_l+j+jj] -= prn_su3_pt[1*n_vect_prn+j+jj];
@@ -224,7 +224,7 @@
   }
 
   // 1 - gamma_Z
-  static inline void prp_Z_PRECISION_new( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prp, const int n_vect_l  ) {
+  static inline void prp_Z_PRECISION( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prp, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, prp_pt[0*n_vect_prp+j+jj] = l_pt[0*n_vect_l+j+jj] -GAMMA_Z_SPIN0_VAL*l_pt[ 3*GAMMA_Z_SPIN0_CO   *n_vect_l+j+jj];
                                prp_pt[1*n_vect_prp+j+jj] = l_pt[1*n_vect_l+j+jj] -GAMMA_Z_SPIN0_VAL*l_pt[(3*GAMMA_Z_SPIN0_CO+1)*n_vect_l+j+jj];
@@ -235,7 +235,7 @@
   }
 
   // 1 + gamma_Z
-  static inline void prn_Z_PRECISION_new( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prn, const int n_vect_l  ) {
+  static inline void prn_Z_PRECISION( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prn, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, prn_pt[0*n_vect_prn+j+jj] = l_pt[0*n_vect_l+j+jj] +GAMMA_Z_SPIN0_VAL*l_pt[ 3*GAMMA_Z_SPIN0_CO   *n_vect_l+j+jj];
                                prn_pt[1*n_vect_prn+j+jj] = l_pt[1*n_vect_l+j+jj] +GAMMA_Z_SPIN0_VAL*l_pt[(3*GAMMA_Z_SPIN0_CO+1)*n_vect_l+j+jj];
@@ -246,7 +246,7 @@
   }
 
   // - (1 - gamma_Z)
-  static inline void pbp_su3_Z_PRECISION_new( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_pbp, const int n_vect_l  ) {
+  static inline void pbp_su3_Z_PRECISION( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_pbp, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, l_pt[ 0*n_vect_l+j+jj] -= prp_su3_pt[0*n_vect_pbp+j+jj];
                                l_pt[ 1*n_vect_l+j+jj] -= prp_su3_pt[1*n_vect_pbp+j+jj];
@@ -263,7 +263,7 @@
   }
 
   // -(1 + gamma_Z)
-  static inline void pbn_su3_Z_PRECISION_new( const buffer_PRECISION pbn_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_pbn, const int n_vect_l  ) {
+  static inline void pbn_su3_Z_PRECISION( const buffer_PRECISION pbn_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_pbn, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, l_pt[ 0*n_vect_l+j+jj] -= pbn_su3_pt[0*n_vect_pbn+j+jj];
                                l_pt[ 1*n_vect_l+j+jj] -= pbn_su3_pt[1*n_vect_pbn+j+jj];
@@ -280,7 +280,7 @@
   }
 
   // 1 - gamma_Y
-  static inline void prp_Y_PRECISION_new( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prp, const int n_vect_l  ) {
+  static inline void prp_Y_PRECISION( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prp, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, prp_pt[0*n_vect_prp+j+jj] = l_pt[0*n_vect_l+j+jj] -GAMMA_Y_SPIN0_VAL*l_pt[ 3*GAMMA_Y_SPIN0_CO   *n_vect_l+j+jj];
                                prp_pt[1*n_vect_prp+j+jj] = l_pt[1*n_vect_l+j+jj] -GAMMA_Y_SPIN0_VAL*l_pt[(3*GAMMA_Y_SPIN0_CO+1)*n_vect_l+j+jj];
@@ -291,7 +291,7 @@
   }
 
   // 1 + gamma_Y
-  static inline void prn_Y_PRECISION_new( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prn, const int n_vect_l  ) {
+  static inline void prn_Y_PRECISION( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prn, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, prn_pt[0*n_vect_prn+j+jj] = l_pt[0*n_vect_l+j+jj] +GAMMA_Y_SPIN0_VAL*l_pt[ 3*GAMMA_Y_SPIN0_CO   *n_vect_l+j+jj];
                                prn_pt[1*n_vect_prn+j+jj] = l_pt[1*n_vect_l+j+jj] +GAMMA_Y_SPIN0_VAL*l_pt[(3*GAMMA_Y_SPIN0_CO+1)*n_vect_l+j+jj];
@@ -302,7 +302,7 @@
   }
 
   // - (1 - gamma_Y)
-  static inline void pbp_su3_Y_PRECISION_new( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prp, const int n_vect_l  ) {
+  static inline void pbp_su3_Y_PRECISION( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prp, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, l_pt[ 0*n_vect_l+j+jj] -= prp_su3_pt[0*n_vect_prp+j+jj];
                                l_pt[ 1*n_vect_l+j+jj] -= prp_su3_pt[1*n_vect_prp+j+jj];
@@ -319,7 +319,7 @@
   }
 
   // -(1 + gamma_Y)
-  static inline void pbn_su3_Y_PRECISION_new( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prn, const int n_vect_l  ) {
+  static inline void pbn_su3_Y_PRECISION( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prn, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, l_pt[ 0*n_vect_l+j+jj] -= prn_su3_pt[0*n_vect_prn+j+jj];
                                l_pt[ 1*n_vect_l+j+jj] -= prn_su3_pt[1*n_vect_prn+j+jj];
@@ -336,7 +336,7 @@
   }
 
   // 1 - gamma_X
-  static inline void prp_X_PRECISION_new( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prp, const int n_vect_l  ) {
+  static inline void prp_X_PRECISION( const buffer_PRECISION prp_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prp, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, prp_pt[0*n_vect_prp+j+jj] = l_pt[0*n_vect_l+j+jj] -GAMMA_X_SPIN0_VAL*l_pt[ 3*GAMMA_X_SPIN0_CO   *n_vect_l+j+jj];
                                prp_pt[1*n_vect_prp+j+jj] = l_pt[1*n_vect_l+j+jj] -GAMMA_X_SPIN0_VAL*l_pt[(3*GAMMA_X_SPIN0_CO+1)*n_vect_l+j+jj];
@@ -347,7 +347,7 @@
   }
 
   // 1 + gamma_X
-  static inline void prn_X_PRECISION_new( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prn, const int n_vect_l  ) {
+  static inline void prn_X_PRECISION( const buffer_PRECISION prn_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_prn, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, prn_pt[0*n_vect_prn+j+jj] = l_pt[0*n_vect_l+j+jj] +GAMMA_X_SPIN0_VAL*l_pt[ 3*GAMMA_X_SPIN0_CO   *n_vect_l+j+jj];
                                prn_pt[1*n_vect_prn+j+jj] = l_pt[1*n_vect_l+j+jj] +GAMMA_X_SPIN0_VAL*l_pt[(3*GAMMA_X_SPIN0_CO+1)*n_vect_l+j+jj];
@@ -358,7 +358,7 @@
   }
 
   // - (1 - gamma_Y)
-  static inline void pbp_su3_X_PRECISION_new( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_pbp, const int n_vect_l  ) {
+  static inline void pbp_su3_X_PRECISION( const buffer_PRECISION prp_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_pbp, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, l_pt[ 0*n_vect_l+j+jj] -= prp_su3_pt[0*n_vect_pbp+j+jj];
                                l_pt[ 1*n_vect_l+j+jj] -= prp_su3_pt[1*n_vect_pbp+j+jj];
@@ -375,7 +375,7 @@
   }
 
   // -(1 + gamma_X)
-  static inline void pbn_su3_X_PRECISION_new( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_pbn, const int n_vect_l  ) {
+  static inline void pbn_su3_X_PRECISION( const buffer_PRECISION prn_su3_pt, const buffer_PRECISION l_pt, const int n_vect, const int n_vect_pbn, const int n_vect_l  ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, l_pt[ 0*n_vect_l+j+jj] -= prn_su3_pt[0*n_vect_pbn+j+jj];
                                l_pt[ 1*n_vect_l+j+jj] -= prn_su3_pt[1*n_vect_pbn+j+jj];
@@ -755,7 +755,7 @@
 #endif
 /************************************* END  **********************************************/
 
-  static inline void twospin_p_T_PRECISION_new( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
+  static inline void twospin_p_T_PRECISION( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
     int j, jj;                                                          
     VECTOR_LOOP(j, n_vect, jj,  out_spin0and1[ 0*n_vect01+j+jj] -= in[ 0*n_vect_in+j+jj];
                                 out_spin0and1[ 1*n_vect01+j+jj] -= in[ 1*n_vect_in+j+jj];
@@ -783,7 +783,7 @@
                                 out_spin2and3[11*n_vect23+j+jj] -= in[11*n_vect_in+j+jj];)
   }
 
-  static inline void twospin2_p_T_PRECISION_new( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
+  static inline void twospin2_p_T_PRECISION( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, out_spin0and1[ 0*n_vect01+j+jj] = in[ 0*n_vect_in+j+jj];
                                out_spin0and1[ 1*n_vect01+j+jj] = in[ 1*n_vect_in+j+jj];
@@ -811,7 +811,7 @@
                                out_spin2and3[11*n_vect23+j+jj] = in[11*n_vect_in+j+jj];)
   }
 
-  static inline void twospin_n_T_PRECISION_new( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
+  static inline void twospin_n_T_PRECISION( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj,  out_spin0and1[ 0*n_vect01+j+jj] -= in[ 0*n_vect_in+j+jj];
                                 out_spin0and1[ 1*n_vect01+j+jj] -= in[ 1*n_vect_in+j+jj];
@@ -839,7 +839,7 @@
                                 out_spin2and3[11*n_vect23+j+jj] -= in[11*n_vect_in+j+jj];)
   }
 
-  static inline void twospin_p_Z_PRECISION_new( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
+  static inline void twospin_p_Z_PRECISION( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj,  out_spin0and1[ 0*n_vect01+j+jj] -= in[ 0*n_vect_in+j+jj];
                                 out_spin0and1[ 1*n_vect01+j+jj] -= in[ 1*n_vect_in+j+jj];
@@ -867,7 +867,7 @@
                                 out_spin2and3[11*n_vect23+j+jj] -= in[11*n_vect_in+j+jj];)
   }
 
-  static inline void twospin2_p_Z_PRECISION_new( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
+  static inline void twospin2_p_Z_PRECISION( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj,  out_spin0and1[ 0*n_vect01+j+jj] = in[ 0*n_vect_in+j+jj];
                                 out_spin0and1[ 1*n_vect01+j+jj] = in[ 1*n_vect_in+j+jj];
@@ -895,7 +895,7 @@
                                 out_spin2and3[11*n_vect23+j+jj] = in[11*n_vect_in+j+jj];)
   }
 
-  static inline void twospin_n_Z_PRECISION_new( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
+  static inline void twospin_n_Z_PRECISION( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj,  out_spin0and1[ 0*n_vect01+j+jj] -= in[ 0*n_vect_in+j+jj];
                                 out_spin0and1[ 1*n_vect01+j+jj] -= in[ 1*n_vect_in+j+jj];
@@ -923,7 +923,7 @@
                                 out_spin2and3[11*n_vect23+j+jj] -= in[11*n_vect_in+j+jj];)
   }
 
-  static inline void twospin_p_Y_PRECISION_new( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
+  static inline void twospin_p_Y_PRECISION( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj,  out_spin0and1[ 0*n_vect01+j+jj] -= in[ 0*n_vect_in+j+jj];
                                 out_spin0and1[ 1*n_vect01+j+jj] -= in[ 1*n_vect_in+j+jj];
@@ -951,7 +951,7 @@
                                 out_spin2and3[11*n_vect23+j+jj] -= in[11*n_vect_in+j+jj];)
   }
 
-  static inline void twospin2_p_Y_PRECISION_new( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
+  static inline void twospin2_p_Y_PRECISION( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj,  out_spin0and1[ 0*n_vect01+j+jj] = in[ 0*n_vect_in+j+jj];
                                 out_spin0and1[ 1*n_vect01+j+jj] = in[ 1*n_vect_in+j+jj];
@@ -979,7 +979,7 @@
                                 out_spin2and3[11*n_vect23+j+jj] = in[11*n_vect_in+j+jj];)
   }
 
-  static inline void twospin_n_Y_PRECISION_new( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
+  static inline void twospin_n_Y_PRECISION( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj,  out_spin0and1[ 0*n_vect01+j+jj] -= in[ 0*n_vect_in+j+jj];
                                 out_spin0and1[ 1*n_vect01+j+jj] -= in[ 1*n_vect_in+j+jj];
@@ -1007,7 +1007,7 @@
                                 out_spin2and3[11*n_vect23+j+jj] -= in[11*n_vect_in+j+jj];)
   }
 
-  static inline void twospin_p_X_PRECISION_new( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
+  static inline void twospin_p_X_PRECISION( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj,  out_spin0and1[ 0*n_vect01+j+jj] -= in[ 0*n_vect_in+j+jj];
                                 out_spin0and1[ 1*n_vect01+j+jj] -= in[ 1*n_vect_in+j+jj];
@@ -1035,7 +1035,7 @@
                                 out_spin2and3[11*n_vect23+j+jj] -= in[11*n_vect_in+j+jj];)
   }
 
-  static inline void twospin2_p_X_PRECISION_new( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
+  static inline void twospin2_p_X_PRECISION( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj,  out_spin0and1[ 0*n_vect01+j+jj] = in[ 0*n_vect_in+j+jj];
                                 out_spin0and1[ 1*n_vect01+j+jj] = in[ 1*n_vect_in+j+jj];
@@ -1063,7 +1063,7 @@
                                 out_spin2and3[11*n_vect23+j+jj] = in[11*n_vect_in+j+jj];)
   }
 
-  static inline void twospin_n_X_PRECISION_new( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
+  static inline void twospin_n_X_PRECISION( const buffer_PRECISION out_spin0and1, const buffer_PRECISION out_spin2and3, const buffer_PRECISION in, const int n_vect, const int n_vect01, const int n_vect23, const int n_vect_in ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj,  out_spin0and1[ 0*n_vect01+j+jj] -= in[ 0*n_vect_in+j+jj];
                                 out_spin0and1[ 1*n_vect01+j+jj] -= in[ 1*n_vect_in+j+jj];
@@ -1244,7 +1244,7 @@
     eta[23] += conj_PRECISION(clover[41])*phi[22];
   }
 
-  static inline void spin0and1_site_clover_PRECISION_new( const buffer_PRECISION eta, const buffer_PRECISION phi, const config_PRECISION clover, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+  static inline void spin0and1_site_clover_PRECISION( const buffer_PRECISION eta, const buffer_PRECISION phi, const config_PRECISION clover, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     int j, jj;
     // diagonal//????????
     VECTOR_LOOP( j, n_vect, jj, eta[ 0*n_vect_eta+j+jj] = clover[ 0]*phi[ 0*n_vect_phi+j+jj];
@@ -1292,7 +1292,7 @@
                                 eta[5*n_vect_eta+j+jj] += conj_PRECISION(clover[26])*phi[4*n_vect_phi+j+jj];)
   }
 
-  static inline void spin2and3_site_clover_PRECISION_new( const buffer_PRECISION eta, const buffer_PRECISION phi, const config_PRECISION clover, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+  static inline void spin2and3_site_clover_PRECISION( const buffer_PRECISION eta, const buffer_PRECISION phi, const config_PRECISION clover, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     int j, jj;
                                 // diagonal
     VECTOR_LOOP( j, n_vect, jj, eta[ 0*n_vect_eta+j+jj] = _COMPLEX_PRECISION_ZERO;
@@ -1340,7 +1340,7 @@
                                 eta[11*n_vect_eta+j+jj] += conj_PRECISION(clover[41])*phi[10*n_vect_phi+j+jj];)
   }
 
-  static inline void site_clover_PRECISION_new( const buffer_PRECISION eta, const buffer_PRECISION phi, const config_PRECISION clover, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+  static inline void site_clover_PRECISION( const buffer_PRECISION eta, const buffer_PRECISION phi, const config_PRECISION clover, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     int j, jj;
     VECTOR_LOOP(j, n_vect, jj, // diagonal
                                eta[ 0*n_vect_eta+j+jj] = clover[ 0]*phi[ 0*n_vect_phi+j+jj];

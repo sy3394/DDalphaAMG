@@ -104,12 +104,12 @@ double prof_PRECISION_print( level_struct *l ) {
 
 void fine_level_PRECISION_alloc( level_struct *l ) {
   
-  int i, nvecs = num_loop;
+  int i, nvecs = num_loop, n = (g.method != -1)?2:4;
 
 #ifdef HAVE_TM1p1
   nvecs *= 2;
 #endif
-  for ( i=0; i<9; i++ )
+  for ( i=0; i<n; i++ )
     vector_PRECISION_alloc( &(l->vbuf_PRECISION[i]), _ORDINARY, nvecs, l, no_threading );
   vector_PRECISION_alloc( &(l->p_PRECISION.b), _INNER, nvecs, l, no_threading );
   vector_PRECISION_alloc( &(l->p_PRECISION.x), _INNER, nvecs, l, no_threading ); 
@@ -118,7 +118,7 @@ void fine_level_PRECISION_alloc( level_struct *l ) {
 
 void fine_level_PRECISION_free( level_struct *l ) {
   
-  int n = 9;
+  int n = (g.method != -1)?2:4;
 
   for ( int i=0; i<n; i++ )
     vector_PRECISION_free( &(l->vbuf_PRECISION[i]), l, no_threading );
@@ -128,7 +128,7 @@ void fine_level_PRECISION_free( level_struct *l ) {
 
 void level_PRECISION_init( level_struct *l ) {
 
-  for ( int i=0; i<10; i++ )
+  for ( int i=0; i<5; i++ )
     vector_PRECISION_init( &(l->vbuf_PRECISION[i]) );
   
   operator_PRECISION_init( &(l->op_PRECISION) );
@@ -159,30 +159,18 @@ void next_level_PRECISION_setup( level_struct *l ) {
     // allocate l->next_level->p_PRECISION or just l->next_level->p_PRECISION.b&x
     if ( l->level == 1 && !l->next_level->idle ) {
       // if the next level is the bottom and I am not the idle process,
-      /* suggestion!!! also change validatation to make sure num_levels==2
-      if ( g.method == 5 ) {//set the bottom solver to GMRES
-	fgmres_PRECISION_struct_alloc( l->block_iter, 1, _ORDINARY,
-				       EPS_PRECISION, _COARSE_SOLVER, _NOTHING, NULL,
-				       g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
-				       &(l->sp_PRECISION), l );
-      } else if ( g.method == 6 ) {//set the bottom solver to biCGstab (no AMG)
-        fgmres_PRECISION_struct_alloc( 5, 1, _ORDINARY,
-				       EPS_PRECISION, _COARSE_SOLVER, _NOTHING, NULL,
-				       g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
-				       &(l->sp_PRECISION), l );
-	*/
       // set the coarsest gmres_PRECISION_struct as a coarse GMRES solver
       fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol, 
 				     _COARSE_SOLVER, _NOTHING, NULL,
-				     g.odd_even?coarse_apply_schur_complement_PRECISION_new:apply_coarse_operator_PRECISION_new,
+				     g.odd_even?coarse_apply_schur_complement_PRECISION:apply_coarse_operator_PRECISION,
 				     &(l->next_level->p_PRECISION), l->next_level );
     } else {
       // if the next level is not the bottom
       if ( g.kcycle ) { 
 	// and K-cycle is chosen as a preconditioner;
         fgmres_PRECISION_struct_alloc( g.kcycle_restart, g.kcycle_max_restart, _ORDINARY, g.kcycle_tol, 
-                                       _K_CYCLE, _RIGHT, vcycle_PRECISION_new,
-				       apply_coarse_operator_PRECISION_new,
+                                       _K_CYCLE, _RIGHT, vcycle_PRECISION,
+				       apply_coarse_operator_PRECISION,
                                        &(l->next_level->p_PRECISION), l->next_level );
       } else {
 	// otherwise only p_PRECISION.b/x are used
@@ -194,7 +182,7 @@ void next_level_PRECISION_setup( level_struct *l ) {
     }
 
     // alocate vbuf_PRECISION
-    int i, n = (l->next_level->level>0)?7:4;
+    int i, n = (g.method != -1)?2:((l->next_level->level>0)?4:2);
     for ( i=0; i<n; i++ )
       vector_PRECISION_alloc( &(l->next_level->vbuf_PRECISION[i]), _ORDINARY, nvec, l->next_level, no_threading );
   }
@@ -205,14 +193,14 @@ void next_level_PRECISION_free( level_struct *l ) {
   coarse_grid_correction_PRECISION_free( l );
 
   if ( !l->idle ) {
-    if ( (l->level == 1 && !l->next_level->idle) || g.kcycle ) {printf0("next level %d\n",l->next_level->depth);
+    if ( (l->level == 1 && !l->next_level->idle) || g.kcycle ) {
       fgmres_PRECISION_struct_free( &(l->next_level->p_PRECISION), l->next_level );
     } else {
       vector_PRECISION_free( &(l->next_level->p_PRECISION.b), l->next_level, no_threading );
       vector_PRECISION_free( &(l->next_level->p_PRECISION.x), l->next_level, no_threading );
     }
   
-    int i, n = (l->next_level->level>0)?7:4;  
+    int i, n = (g.method != -1)?2:((l->next_level->level>0)?4:2);
     for ( i=0; i<n; i++)
       vector_PRECISION_free( &(l->next_level->vbuf_PRECISION[i]), l->next_level, no_threading );
     coarsening_index_table_PRECISION_free( &(l->is_PRECISION), l );

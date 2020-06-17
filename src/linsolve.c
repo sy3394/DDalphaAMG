@@ -58,7 +58,7 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
   p->dp.restart_length = m;                       p->sp.restart_length = m;           
   p->dp.num_restart = n;                          p->sp.num_restart = n;
   p->dp.preconditioner = NULL;                    p->sp.preconditioner = precond;
-  p->dp.eval_operator = d_plus_clover_double_new; p->sp.eval_operator = d_plus_clover_float_new;
+  p->dp.eval_operator = d_plus_clover_double; p->sp.eval_operator = d_plus_clover_float;
 
   p->dp.tol = tol;                                p->sp.tol = MAX(tol,1E-5);
   p->dp.kind = _NOTHING;                          p->sp.kind = prec_kind;
@@ -72,7 +72,7 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
   p->dp.op = &(g.op_double);                      p->sp.op = &(l->s_float.op);
   
   //g.p.op = &(g.op_double);//this showed up in method_init too??????? ony when INIT_PREC is not enabled
-  //g.p.eval_operator = d_plus_clover_double_new;//why here????? ony when INIT_PREC is not enabled
+  //g.p.eval_operator = d_plus_clover_double;//why here????? ony when INIT_PREC is not enabled
   
 #ifdef HAVE_TM1p1
   nvec*=2;
@@ -230,13 +230,13 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
     
     //------- iniital setup: Compute r_0 = b − Dx_0 , β := ||r_0||_2 , and v_1 := r_0 /β
     if( ol == 0 && p->dp.initial_guess_zero ) {
-      vector_double_copy_new( &(p->dp.r), &(p->dp.b), start, end, l );
+      vector_double_copy( &(p->dp.r), &(p->dp.b), start, end, l );
     } else { 
       // if the initial guess is not zero, need to compute b_l-D_l phi_i 
       apply_operator_double( &(p->dp.r), &(p->dp.x), &(p->dp), l, threading );     // compute r <- D*x
-      vector_double_minus_new( &(p->dp.r), &(p->dp.b), &(p->dp.r), start, end, l );// compute r <- b - r = b - D*x
+      vector_double_minus( &(p->dp.r), &(p->dp.b), &(p->dp.r), start, end, l );// compute r <- b - r = b - D*x
     }
-    global_norm_double_new( gamma0_real, &(p->dp.r), p->dp.v_start, p->dp.v_end, l, threading );// gamma_0 = norm(r)
+    global_norm_double( gamma0_real, &(p->dp.r), p->dp.v_start, p->dp.v_end, l, threading );// gamma_0 = norm(r)
     START_MASTER(threading)
     VECTOR_LOOP(i, n_vect, jj, p->dp.gamma[i+jj] = (complex_double) gamma0_real[i+jj];)
     END_MASTER(threading)
@@ -244,7 +244,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
     // report
     if( ol == 0) {
       if (l->depth == 0 && !p->dp.initial_guess_zero) {
-	global_norm_double_new( norm_r0, &(p->dp.b), start, end, l, threading );
+	global_norm_double( norm_r0, &(p->dp.b), start, end, l, threading );
 	START_MASTER(threading)
 	for( i=0; i<n_vect; i++ ) 
 	  printf0("| initial guess relative residual (%d):            %le |\n", i, gamma0_real[i]/norm_r0[i]);
@@ -266,21 +266,21 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
       }
     }
 #endif
-    trans_float_new( &(p->sp.V[0]), &(p->dp.r), l->s_float.op.translation_table, l, threading );
+    // turn into float
+    trans_float( &(p->sp.V[0]), &(p->dp.r), l->s_float.op.translation_table, l, threading );
     VECTOR_LOOP(i, n_vect, jj, gamma_float[i+jj]= (complex_float) p->dp.gamma[0*n_vect+i+jj];)
-    vector_float_real_scale_new( &(p->sp.V[0]), &(p->sp.V[0]), gamma_float, 0, 1, start, end, l ); // V[0] <- r / gamma_0
+    vector_float_real_scale( &(p->sp.V[0]), &(p->sp.V[0]), gamma_float, 0, 1, start, end, l ); // V[0] <- r / gamma_0
 
     // inner loop in single precision
     for( il=0; il<p->dp.restart_length && finish==0; il++) { // if (dim of the Krylov subspace)>p->dp.restart_length or has converged, exit this loop  
       j = il; iter++;
 
-      // extend the Arnoldi basis, p->sp.V, by one
-      arnoldi_step_MP_new( p->sp.V, p->sp.Z, &(p->sp.w), p->dp.H, p->dp.y, j, p->sp.preconditioner, &(p->sp), l, threading );
+      // extend the Arnoldi basis, p->sp.V, by one; Hessenberg matrix and sol vector y are of double precision
+      arnoldi_step_MP( p->sp.V, p->sp.Z, &(p->sp.w), p->dp.H, p->dp.y, j, p->sp.preconditioner, &(p->sp), l, threading );
 
       // perhaps need to change here!!!!!
       H_tot=0;
       VECTOR_LOOP(i, n_vect, jj, H_tot += cabs( p->dp.H[j][(j+1)*n_vect+i+jj] );)//????what is this for????
-      //if ( cabs( p->dp.H[j][j+1] ) > 1E-15 )
       if ( H_tot > n_vect*1E-15 ) {
         qr_update_double( p->dp.H, p->dp.s, p->dp.c, p->dp.gamma, j, l, threading );
         VECTOR_LOOP(i, n_vect, jj, gamma_jp1[i+jj] = cabs( p->dp.gamma[(j+1)*n_vect+i+jj] );)
@@ -312,14 +312,14 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
         finish = 1;
       }
     } // end of a single restart
-    compute_solution_MP_new( &(p->sp.w), (p->sp.preconditioner&&p->sp.kind==_RIGHT)?p->sp.Z:p->sp.V,
+    compute_solution_MP( &(p->sp.w), (p->sp.preconditioner&&p->sp.kind==_RIGHT)?p->sp.Z:p->sp.V,
                          p->dp.y, p->dp.gamma, p->dp.H, j, &(p->sp), l, threading );
                            
-    trans_back_float_new( &(p->dp.r), &(p->sp.w), l->s_float.op.translation_table, l, threading );
+    trans_back_float( &(p->dp.r), &(p->sp.w), l->s_float.op.translation_table, l, threading );
     if ( ol == 0 ) {
-      vector_double_copy_new( &(p->dp.x), &(p->dp.r), start, end, l );
+      vector_double_copy( &(p->dp.x), &(p->dp.r), start, end, l );
     } else {
-      vector_double_plus_new( &(p->dp.x), &(p->dp.x), &(p->dp.r), start, end, l ); // p->dp.x += p->dp.r
+      vector_double_plus( &(p->dp.x), &(p->dp.x), &(p->dp.r), start, end, l ); // p->dp.x += p->dp.r
     }
   } // end of fgmres
   
@@ -330,8 +330,8 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   if ( p->dp.print ) {
 #ifdef FGMRES_RESTEST
     apply_operator_double( &(p->dp.r), &(p->dp.x), &(p->dp), l, threading );
-    vector_double_minus_new( &(p->dp.r), &(p->dp.b), &(p->dp.r), start, end, l ); 
-    global_norm_double_new( beta, &(p->dp.r), p->dp.v_start, p->dp.v_end, l, threading );
+    vector_double_minus( &(p->dp.r), &(p->dp.b), &(p->dp.r), start, end, l ); 
+    global_norm_double( beta, &(p->dp.r), p->dp.v_start, p->dp.v_end, l, threading );
 #else
     VECTOR_LOOP(i, n_vect, jj, beta[i+jj] = creal(gamma_jp1[i+jj]);)
 #endif
@@ -379,7 +379,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   return iter;
 }
 
-void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
+void arnoldi_step_MP( vector_float *V, vector_float *Z, vector_float *w,
                       complex_double **H, complex_double* buffer, int j, void (*prec)(),
                       gmres_float_struct *p, level_struct *l, struct Thread *threading ) {
 
@@ -393,7 +393,6 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
   compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var);
 
-  //Z[j].num_vect_now = n_vect; V[j].num_vect_now = n_vect; V[j+1].num_vect_now = n_vect;//can move to fgmres????
   V[j].num_vect_now = n_vect; V[j+1].num_vect_now = n_vect;//can move to fgmres????   
 
   //--- apply D (and preconditioner) to V[j]
@@ -415,7 +414,7 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
   }
 
   complex_double tmp[(j+1)*n_vect];
-  process_multi_inner_product_MP_new( j+1, tmp, V, w, p->v_start, p->v_end, l, threading );
+  process_multi_inner_product_MP( j+1, tmp, V, w, p->v_start, p->v_end, l, threading );
   START_MASTER(threading)
   for( i=0; i<=j; i++ )
     VECTOR_LOOP(n, n_vect, jj, buffer[i*n_vect+n+jj] = tmp[i*n_vect+n+jj];)
@@ -435,20 +434,20 @@ void arnoldi_step_MP_new( vector_float *V, vector_float *Z, vector_float *w,
   complex_float alpha[(j+1)*n_vect]; 
   for( i=0; i<=j; i++ )
     VECTOR_LOOP(n, n_vect, jj, alpha[i*n_vect+n+jj] = (complex_float) H[j][i*n_vect+n+jj];)
-  vector_float_multi_saxpy_new( w, V, alpha, -1, j+1, start, end, l, threading );
+  vector_float_multi_saxpy( w, V, alpha, -1, j+1, start, end, l, threading );
 
   // V_j+1 = w / H_j+1,j
   double tmp2[n_vect];
-  global_norm_MP_new( tmp2, w, p->v_start, p->v_end, l, threading );
+  global_norm_MP( tmp2, w, p->v_start, p->v_end, l, threading );
   START_MASTER(threading)
   VECTOR_LOOP(n, n_vect, jj, H[j][(j+1)*n_vect+n+jj] = tmp2[n+jj];)
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
   VECTOR_LOOP(n, n_vect, jj,  H_float[n+jj] = ( cabs_double( H[j][(j+1)*n_vect+n+jj] ) > 1e-15 )?(float)tmp2[n+jj]:1;)
-  vector_float_real_scale_new( &V[j+1], w, H_float, 0, 1, start, end, l );
+  vector_float_real_scale( &V[j+1], w, H_float, 0, 1, start, end, l );
 }
 
-void compute_solution_MP_new( vector_float *x, vector_float *V, complex_double *y,
+void compute_solution_MP( vector_float *x, vector_float *V, complex_double *y,
                           complex_double *gamma, complex_double **H, int j,
                           gmres_float_struct *p, level_struct *l, struct Thread *threading ) {
   
@@ -459,11 +458,8 @@ void compute_solution_MP_new( vector_float *x, vector_float *V, complex_double *
   int end;
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-#ifdef CLOOP
-  compute_core_start_end(p->v_start, p->v_end, &start, &end, l, threading);
-#else
-  compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var );//1 );//num_loop);
-#endif
+  compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var );
+
   START_MASTER(threading)
   
   PROF_double_START( _SMALL2 );
@@ -483,11 +479,11 @@ void compute_solution_MP_new( vector_float *x, vector_float *V, complex_double *
   
   // x = V*y
   VECTOR_LOOP(n, n_vect, jj, y_float[n+jj]= (complex_float) y[0*n_vect+n+jj];)
-  vector_float_scale_new( x, &V[0], y_float, 0, start, end, l ); // x = y_0 * V_0 where V_0 is the first basis vector 
+  vector_float_scale( x, &V[0], y_float, 0, start, end, l ); // x = y_0 * V_0 where V_0 is the first basis vector 
 
   complex_float alpha[j*n_vect];
   for ( i=1; i<=j; i++ )
     VECTOR_LOOP(n, n_vect, jj, alpha[(i-1)*n_vect+n+jj] = (complex_float) y[i*n_vect+n+jj];)
-  vector_float_multi_saxpy_new( x, &V[1], alpha, 1, j, start, end, l, threading );
+  vector_float_multi_saxpy( x, &V[1], alpha, 1, j, start, end, l, threading );
 
 }

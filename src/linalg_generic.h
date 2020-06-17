@@ -23,15 +23,15 @@
   
   struct Thread;
 
-  void global_norm_PRECISION_new( PRECISION *res, vector_PRECISION *x, int start, int end, level_struct *l, struct Thread *threading );
-  void global_inner_product_PRECISION_new( complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi, 
+  void global_norm_PRECISION( PRECISION *res, vector_PRECISION *x, int start, int end, level_struct *l, struct Thread *threading );
+  void global_inner_product_PRECISION( complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi, 
 					   int start, int end, level_struct *l, struct Thread *threading );
-  void process_multi_inner_product_PRECISION_new( int count, complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi,
+  void process_multi_inner_product_PRECISION( int count, complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi,
 						  int start, int end, level_struct *l, struct Thread *threading );
 
-  void local_xy_over_xx_PRECISION_new( complex_PRECISION *res, vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l  );
+  void local_xy_over_xx_PRECISION( complex_PRECISION *res, vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l  );
 
-  void gram_schmidt_PRECISION_new( vector_PRECISION *V, const int nvec, level_struct *l, struct Thread *threading );
-  void gram_schmidt_on_aggregates_PRECISION_new( vector_PRECISION *phi, const int num_vec, level_struct *l, struct Thread *threading );
+  void gram_schmidt_PRECISION( vector_PRECISION *V, const int nvec, level_struct *l, struct Thread *threading );
+  void gram_schmidt_on_aggregates_PRECISION( vector_PRECISION *phi, const int num_vec, level_struct *l, struct Thread *threading );
 
 #endif

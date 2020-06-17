@@ -23,9 +23,9 @@
   void fabulous_PRECISION_init( fabulous_PRECISION_struct *fab );
   void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_struct *l, struct Thread *threading );
 
-  int64_t mvp_PRECISION(  void *user_env, int N,
-			  const void *alpha, const void *XX, int ldx,
-			  const void *beta, void *BB, int ldb);
+  int64_t mvpf_PRECISION(  void *user_env, int N,
+			   const void *alpha, const void *XX, int ldx,
+			   const void *beta, void *BB, int ldb);
 
   int64_t dot_product_PRECISION(void *user_env,
 				int M, int N,

@@ -25,7 +25,7 @@
 
 #include "main.h"
 
-void global_norm_PRECISION_new( PRECISION *res, vector_PRECISION *x, int start, int end, level_struct *l, struct Thread *threading ) {
+void global_norm_PRECISION( PRECISION *res, vector_PRECISION *x, int start, int end, level_struct *l, struct Thread *threading ) {
 
   int i, j, jj, nvec = x->num_vect_now;
   int thread = omp_get_thread_num();
@@ -76,7 +76,7 @@ void global_norm_PRECISION_new( PRECISION *res, vector_PRECISION *x, int start, 
     PROF_PRECISION_STOP( _GIP, (double)(end-start)/(double)l->inner_vector_size, threading );
 }
 
-void global_inner_product_PRECISION_new( complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l, struct Thread *threading ) {
+void global_inner_product_PRECISION( complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l, struct Thread *threading ) {
   
   if ( phi->num_vect_now != psi->num_vect_now )
     error0("global_inner_product_PRECISION: phi->num_vect_now != psi->num_vect_now \n");
@@ -128,7 +128,7 @@ void global_inner_product_PRECISION_new( complex_PRECISION *results, vector_PREC
 
 // results <- (phi's, psi) processwise
 // assume resutls have phi->num_vect_now fields
-void process_multi_inner_product_PRECISION_new( int count, complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi,
+void process_multi_inner_product_PRECISION( int count, complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi,
 						int start, int end, level_struct *l, struct Thread *threading ) {
   /******************************************
    * Input:
@@ -175,7 +175,7 @@ void process_multi_inner_product_PRECISION_new( int count, complex_PRECISION *re
 }
 
 // res <- <phi,psi>/<phi,phi> with each vector sliced from start to end
-void local_xy_over_xx_PRECISION_new( complex_PRECISION *res, vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l  ) {
+void local_xy_over_xx_PRECISION( complex_PRECISION *res, vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l  ) {
   
   if ( phi->num_vect_now != psi->num_vect_now )
     error0("local_xy_over_xx_PRECISION: phi->num_vect_now != psi->num_vect_now \n");
@@ -197,7 +197,7 @@ void local_xy_over_xx_PRECISION_new( complex_PRECISION *res, vector_PRECISION *p
   VECTOR_LOOP(j, nvec, jj, res[j+jj] = numerator[j+jj]/denominator[j+jj];)
 }
 
-void gram_schmidt_PRECISION_new( vector_PRECISION *V, const int nvec, level_struct *l, struct Thread *threading ) {
+void gram_schmidt_PRECISION( vector_PRECISION *V, const int nvec, level_struct *l, struct Thread *threading ) {
   /*****************************
    * a set of vectors in V are orthonormalized
    * nvec: #first vectors in the set to be orthonormalized
@@ -301,7 +301,7 @@ void gram_schmidt_PRECISION_new( vector_PRECISION *V, const int nvec, level_stru
   SYNC_CORES(threading)
 }
 
-void gram_schmidt_on_aggregates_PRECISION_new( vector_PRECISION *phi, const int num_vect, level_struct *l, struct Thread *threading ) {
+void gram_schmidt_on_aggregates_PRECISION( vector_PRECISION *phi, const int num_vect, level_struct *l, struct Thread *threading ) {
   /************************************************
    * vector_PRECISION *phi: a set of vectors to be orthogonalized 
    * num_vect: should be equal to phi->num_vect_now

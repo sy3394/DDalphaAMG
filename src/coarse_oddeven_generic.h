@@ -34,24 +34,24 @@
   void coarse_oddeven_PRECISION_set_self_couplings( level_struct *l, struct Thread *threading );
 
 
-  void coarse_diag_ee_PRECISION_new( vector_PRECISION *y, vector_PRECISION *x, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
-  void coarse_diag_oo_PRECISION_new( vector_PRECISION *y, vector_PRECISION *x, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
-  int coarse_solve_odd_even_PRECISION_new( gmres_PRECISION_struct *p, operator_PRECISION_struct *op, level_struct *l, 
+  void coarse_diag_ee_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
+  void coarse_diag_oo_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
+  int coarse_solve_odd_even_PRECISION( gmres_PRECISION_struct *p, operator_PRECISION_struct *op, level_struct *l, 
 					    struct Thread *threading );
   void coarse_fabulous_solve_odd_even_PRECISION( fabulous_PRECISION_struct *fab, gmres_PRECISION_struct *p, struct Thread *threading );
   
-  void coarse_apply_schur_complement_PRECISION_new( vector_PRECISION *out, vector_PRECISION *in,
+  void coarse_apply_schur_complement_PRECISION( vector_PRECISION *out, vector_PRECISION *in,
 						    operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
-  void coarse_hopping_term_PRECISION_new( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op,
+  void coarse_hopping_term_PRECISION( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op,
                                       const int amount, level_struct *l, struct Thread *threading );
-  void coarse_n_hopping_term_PRECISION_new( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op,
+  void coarse_n_hopping_term_PRECISION( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op,
                                         const int amount, level_struct *l, struct Thread *threading );
 
-  void coarse_odd_even_PRECISION_test_new( vector_PRECISION *c4, vector_PRECISION *c1,
+  void coarse_odd_even_PRECISION_test( vector_PRECISION *c4, vector_PRECISION *c1,
                                        level_struct *l, struct Thread *threading );
 
 
-static inline void coarse_perform_fwd_bwd_subs_PRECISION_new( vector_PRECISION *x, vector_PRECISION *b, config_PRECISION A, int start, int end, level_struct *l ) {
+static inline void coarse_perform_fwd_bwd_subs_PRECISION( vector_PRECISION *x, vector_PRECISION *b, config_PRECISION A, int start, int end, level_struct *l ) {
 
   register int s, i, j, jj, jjj;
   int n2 = l->num_lattice_site_var;
@@ -83,7 +83,7 @@ static inline void coarse_perform_fwd_bwd_subs_PRECISION_new( vector_PRECISION *
 }
 
 // used only in test routines
-static inline void coarse_LU_multiply_PRECISION_new( vector_PRECISION *y, vector_PRECISION *x, config_PRECISION A, int start, int  end, level_struct *l ) {
+static inline void coarse_LU_multiply_PRECISION( vector_PRECISION *y, vector_PRECISION *x, config_PRECISION A, int start, int  end, level_struct *l ) {
   
   register int s, i, j, n2 = l->num_lattice_site_var, oo_inv_size = SQUARE(n2), jj, jjj;
   int  nvec = x->num_vect_now, nvec_x  = x->num_vect, nvec_y = y->num_vect;

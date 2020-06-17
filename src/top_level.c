@@ -53,10 +53,10 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 
   START_LOCKED_MASTER(threading)//my addition
   if(g.bc==2)
-      apply_twisted_bc_to_vector_double_new( &source, &source, g.twisted_bc, l);
+      apply_twisted_bc_to_vector_double( &source, &source, g.twisted_bc, l);
   END_LOCKED_MASTER(threading)
 
-  global_norm_double_new( norm, &source, 0, l->inner_vector_size, l, threading );
+  global_norm_double( norm, &source, 0, l->inner_vector_size, l, threading );
   START_MASTER(threading)
   for( int i=0; i<g.num_rhs_vect; i++ )
     printf0("source vector %d norm: %le\n",i,norm[i]);
@@ -78,7 +78,7 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 
 	START_LOCKED_MASTER(threading)//my addition
 	if(g.bc==2)
-	  apply_twisted_bc_to_vector_double_new( &solution, &solution, minus_twisted_bc, l);
+	  apply_twisted_bc_to_vector_double( &solution, &solution, minus_twisted_bc, l);
 	END_LOCKED_MASTER(threading)//my addition
 
 	START_LOCKED_MASTER(threading)  
@@ -97,10 +97,10 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 
   START_LOCKED_MASTER(threading)//my addition
   if(g.bc==2)
-    apply_twisted_bc_to_vector_double_new( &solution, &solution, minus_twisted_bc, l);
+    apply_twisted_bc_to_vector_double( &solution, &solution, minus_twisted_bc, l);
   END_LOCKED_MASTER(threading)//my addition
 
-  global_norm_double_new( norm, &solution, 0, l->inner_vector_size, l, threading );
+  global_norm_double( norm, &solution, 0, l->inner_vector_size, l, threading );
   START_MASTER(threading)
   for( int i=0; i<g.num_rhs_vect; i++ )
     printf0("solution vector %d norm: %le\n",i,norm[i]);
@@ -140,12 +140,12 @@ void rhs_define( vector_double *rhs, level_struct *l, struct Thread *threading )
   int end = threading->end_index[l->depth];
 
   if ( g.rhs == 0 ) {
-    vector_double_define_new( rhs, 1, start, end, l );
+    vector_double_define( rhs, 1, start, end, l );
     START_MASTER(threading)
     if ( g.print > 0 ) printf0("rhs = ones\n");
     END_MASTER(threading)
   } else if ( g.rhs == 1 )  {
-    vector_double_define_new( rhs, 0, start, end, l );
+    vector_double_define( rhs, 0, start, end, l );
     if ( g.my_rank == 0 ) {
       START_LOCKED_MASTER(threading)
       VECTOR_LOOP( j, rhs->num_vect, jj, rhs->vector_buffer[j+jj] = 1.0; )
@@ -157,13 +157,13 @@ void rhs_define( vector_double *rhs, level_struct *l, struct Thread *threading )
   } else if ( g.rhs == 2 ) {
     // this would yield different results if we threaded it, so we don't
     START_LOCKED_MASTER(threading)
-    vector_double_define_random_new( rhs, 0, l->inner_vector_size, l );
+    vector_double_define_random( rhs, 0, l->inner_vector_size, l );
     END_LOCKED_MASTER(threading)
     START_MASTER(threading)
     if ( g.print > 0 ) printf0("rhs = random\n");
     END_MASTER(threading)
   } else if ( g.rhs == 3 ) {
-    vector_double_define_new( rhs, 0, start, end, l );
+    vector_double_define( rhs, 0, start, end, l );
     if ( g.print > 0 ) printf0("rhs = 0's\n");
   } else {
     ASSERT( g.rhs >= 0 && g.rhs <= 4 );
@@ -177,7 +177,7 @@ static void solve( vector_double *solution, vector_double *source, level_struct 
     vector_double rhs = g.mixed_precision==2?g.p_MP.dp.b:g.p.b;
     // this would yield different results if we threaded it, so we don't
     START_LOCKED_MASTER(threading)
-    vector_double_define_random_new( &rhs, 0, l->inner_vector_size, l ); rhs.num_vect_now = g.num_rhs_vect;
+    vector_double_define_random( &rhs, 0, l->inner_vector_size, l ); rhs.num_vect_now = g.num_rhs_vect;
     scan_var( &(g.vt), l );
     END_LOCKED_MASTER(threading)
   } else {
@@ -201,7 +201,7 @@ static int wilson_driver( vector_double *solution, vector_double *source, level_
     double tmp_t = -MPI_Wtime();
 #endif
   for ( int i=0; i<g.num_rhs_vect; i+=num_loop ) {
-    vector_double_copy2_new( &rhs, source, i, num_loop, 1, start, end, l );
+    vector_double_copy2( &rhs, source, i, num_loop, 1, start, end, l );
     if ( g.method == -1 ) {
       cgn_double( &(g.p), l, threading );
     } else if ( g.mixed_precision == 2 ) {
@@ -209,7 +209,7 @@ static int wilson_driver( vector_double *solution, vector_double *source, level_
     } else {
       iter = solver_double( &(g.p), l, threading );
     }
-    vector_double_copy2_new( solution, &sol, i, num_loop, -1, start, end, l );
+    vector_double_copy2( solution, &sol, i, num_loop, -1, start, end, l );
   }
 
 #ifdef WILSON_BENCHMARK

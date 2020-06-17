@@ -423,12 +423,12 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
   l->dummy_p_PRECISION.op = out;
   l->dummy_p_PRECISION.v_start = 0;
   l->dummy_p_PRECISION.v_end = l->inner_vector_size;
-  l->dummy_p_PRECISION.eval_operator = apply_coarse_operator_PRECISION_new;
+  l->dummy_p_PRECISION.eval_operator = apply_coarse_operator_PRECISION;
 }
 
 // when #process decreases in going deeper, gather entries needed to do restriction from other ranks to the parent, and parent hold phi_c entries
 // otherwise, simply gath <- dist after reordering
-void vector_PRECISION_gather_new( vector_PRECISION *gath, vector_PRECISION *dist, level_struct *l ) {
+void vector_PRECISION_gather( vector_PRECISION *gath, vector_PRECISION *dist, level_struct *l ) {
   /*************************
    * Description: gather values on the sites also belongin to the child processes to the parent process
    * Input:
@@ -474,7 +474,7 @@ void vector_PRECISION_gather_new( vector_PRECISION *gath, vector_PRECISION *dist
   }
 }
 
-void vector_PRECISION_distribute_new( vector_PRECISION *dist, vector_PRECISION *gath, level_struct *l ) {
+void vector_PRECISION_distribute( vector_PRECISION *dist, vector_PRECISION *gath, level_struct *l ) {
     /*************************
      * Description: send values on the sites also belongin to the child processes from the parent process
      * Input:

@@ -358,16 +358,16 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
 
   START_LOCKED_MASTER(threading)
   
-  vector_double_define_random_new( &vd[0], 0, l->inner_vector_size, l ); 
+  vector_double_define_random( &vd[0], 0, l->inner_vector_size, l ); 
   apply_operator_double( &vd[1], &vd[0], &(g.p), l, no_threading );
 
-  trans_PRECISION_new( &vp[0], &vd[0], op->translation_table, l, no_threading );
+  trans_PRECISION( &vp[0], &vd[0], op->translation_table, l, no_threading );
   apply_operator_PRECISION( &vp[1], &vp[0], &(l->p_PRECISION), l, no_threading );
-  trans_back_PRECISION_new( &vd[2], &vp[1], op->translation_table, l, no_threading );
+  trans_back_PRECISION( &vd[2], &vp[1], op->translation_table, l, no_threading );
   
-  vector_double_minus_new( &vd[3], &vd[2], &vd[1], 0, l->inner_vector_size, l );
-  global_norm_double_new( diff1, &vd[3], 0, ivs, l, no_threading );
-  global_norm_double_new( diff2, &vd[2], 0, ivs, l, no_threading );
+  vector_double_minus( &vd[3], &vd[2], &vd[1], 0, l->inner_vector_size, l );
+  global_norm_double( diff1, &vd[3], 0, ivs, l, no_threading );
+  global_norm_double( diff2, &vd[2], 0, ivs, l, no_threading );
   
   for(int i=0; i<n_vect; i++)
     test0_PRECISION("depth: %d, correctness of schwarz PRECISION Dirac operator: %le\n", l->depth, diff1[i]/diff2[i] );
@@ -379,10 +379,10 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
     //SYNC_CORES(threading)
 
     START_LOCKED_MASTER(threading)
-    trans_back_PRECISION_new( &vd[2], &vp[1], op->translation_table, l, no_threading );
-    vector_double_minus_new( &vd[3], &vd[2], &vd[1], 0, l->inner_vector_size, l );
-    global_norm_double_new( diff1, &vd[3], 0, ivs, l, no_threading );
-    global_norm_double_new( diff2, &vd[2], 0, ivs, l, no_threading );
+    trans_back_PRECISION( &vd[2], &vp[1], op->translation_table, l, no_threading );
+    vector_double_minus( &vd[3], &vd[2], &vd[1], 0, l->inner_vector_size, l );
+    global_norm_double( diff1, &vd[3], 0, ivs, l, no_threading );
+    global_norm_double( diff2, &vd[2], 0, ivs, l, no_threading );
 
     if ( diff > EPS_PRECISION )
       printf0("\x1b[31m");
@@ -405,6 +405,6 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
 
   START_LOCKED_MASTER(threading)
   if ( g.method >= 5 && g.odd_even )
-    oddeven_PRECISION_test_new( l );
+    oddeven_PRECISION_test( l );
   END_LOCKED_MASTER(threading) 
 }

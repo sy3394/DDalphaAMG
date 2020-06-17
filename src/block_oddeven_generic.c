@@ -26,9 +26,9 @@
 
 #include "main.h"
 
-static void block_diag_ee_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
-static void block_diag_oo_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
-static void block_diag_oo_inv_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) ;
+static void block_diag_ee_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
+static void block_diag_oo_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
+static void block_diag_oo_inv_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) ;
 
 void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct *l ) {
   
@@ -153,7 +153,7 @@ void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct 
 }
 
 // eta <- block_hopping_term_PRECISION*phi
-void block_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+void block_hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 				       int start, int amount, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
   
   START_UNTHREADED_FUNCTION(threading)
@@ -326,18 +326,18 @@ void block_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *
   ind = index[T];
   for ( i=a1; i<n1; i++ ) {
     k = ind[i]; j = neighbor[4*k+T]; D_pt = D + 36*k + 9*T;
-    prp_T_PRECISION_new( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
-    mvm_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-    mvm_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-    pbp_su3_T_PRECISION_new( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
+    prp_T_PRECISION( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
+    mvm_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+    mvm_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+    pbp_su3_T_PRECISION( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
   }
   // "amount" of a block, -T coupling
   for ( i=a2; i<n2; i++ ) {
     k = ind[i]; j = neighbor[4*k+T]; D_pt = D + 36*k + 9*T;
-    prn_T_PRECISION_new( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
-    mvmh_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-    mvmh_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-    pbn_su3_T_PRECISION_new( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
+    prn_T_PRECISION( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
+    mvmh_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+    mvmh_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+    pbn_su3_T_PRECISION( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
   }
   
   // Z direction
@@ -355,18 +355,18 @@ void block_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *
   ind = index[Z];
   for ( i=a1; i<n1; i++ ) {
     k = ind[i]; j = neighbor[4*k+Z]; D_pt = D + 36*k + 9*Z;
-    prp_Z_PRECISION_new( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
-    mvm_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-    mvm_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-    pbp_su3_Z_PRECISION_new( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
+    prp_Z_PRECISION( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
+    mvm_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+    mvm_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+    pbp_su3_Z_PRECISION( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
   }
   // "amount" of a block, -Z coupling
   for ( i=a2; i<n2; i++ ) {
     k = ind[i]; j = neighbor[4*k+Z]; D_pt = D + 36*k + 9*Z;
-    prn_Z_PRECISION_new( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
-    mvmh_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-    mvmh_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-    pbn_su3_Z_PRECISION_new( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
+    prn_Z_PRECISION( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
+    mvmh_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+    mvmh_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+    pbn_su3_Z_PRECISION( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
   }
   
   // Y direction
@@ -384,18 +384,18 @@ void block_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *
   ind = index[Y];
   for ( i=a1; i<n1; i++ ) {
     k = ind[i]; j = neighbor[4*k+Y]; D_pt = D + 36*k + 9*Y;
-    prp_Y_PRECISION_new( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
-    mvm_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-    mvm_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-    pbp_su3_Y_PRECISION_new( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
+    prp_Y_PRECISION( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
+    mvm_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+    mvm_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+    pbp_su3_Y_PRECISION( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
   }
   // "amount" of a block, -Y coupling
   for ( i=a2; i<n2; i++ ) {
     k = ind[i]; j = neighbor[4*k+Y]; D_pt = D + 36*k + 9*Y;
-    prn_Y_PRECISION_new( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
-    mvmh_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-    mvmh_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-    pbn_su3_Y_PRECISION_new( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
+    prn_Y_PRECISION( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
+    mvmh_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+    mvmh_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+    pbn_su3_Y_PRECISION( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
   }
   
   // X direction
@@ -413,18 +413,18 @@ void block_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *
   ind = index[X];
   for ( i=a1; i<n1; i++ ) {
     k = ind[i]; j = neighbor[4*k+X]; D_pt = D + 36*k + 9*X;
-    prp_X_PRECISION_new( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
-    mvm_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-    mvm_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-    pbp_su3_X_PRECISION_new( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
+    prp_X_PRECISION( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
+    mvm_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+    mvm_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+    pbp_su3_X_PRECISION( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
   }
   // "amount" of a block, -X coupling
   for ( i=a2; i<n2; i++ ) {
     k = ind[i]; j = neighbor[4*k+X]; D_pt = D + 36*k + 9*X;
-    prn_X_PRECISION_new( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
-    mvmh_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-    mvmh_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-    pbn_su3_X_PRECISION_new( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
+    prn_X_PRECISION( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
+    mvmh_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+    mvmh_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+    pbn_su3_X_PRECISION( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
   }
 /*#ifdef HAVE_TM1p1
   }
@@ -433,7 +433,7 @@ void block_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *
 }
 
 // eta <- block_n_hopping_term_PRECISION*phi
-void block_n_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+void block_n_hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 					 int start, int amount, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
   
   START_UNTHREADED_FUNCTION(threading)
@@ -605,18 +605,18 @@ void block_n_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION
     ind = index[T];
     for ( i=a1; i<n1; i++ ) {
       k = ind[i]; j = neighbor[4*k+T]; D_pt = D + 36*k + 9*T;
-      prp_T_PRECISION_new( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
-      nmvm_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-      nmvm_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-      pbp_su3_T_PRECISION_new( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
+      prp_T_PRECISION( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
+      nmvm_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+      nmvm_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+      pbp_su3_T_PRECISION( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
     }
     // "amount" of a block, -T coupling
     for ( i=a2; i<n2; i++ ) {
       k = ind[i]; j = neighbor[4*k+T]; D_pt = D + 36*k + 9*T;
-      prn_T_PRECISION_new( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
-      nmvmh_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-      nmvmh_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-      pbn_su3_T_PRECISION_new( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
+      prn_T_PRECISION( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
+      nmvmh_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+      nmvmh_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+      pbn_su3_T_PRECISION( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
     }
     
     // Z direction
@@ -634,18 +634,18 @@ void block_n_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION
     ind = index[Z];
     for ( i=a1; i<n1; i++ ) {
       k = ind[i]; j = neighbor[4*k+Z]; D_pt = D + 36*k + 9*Z;
-      prp_Z_PRECISION_new( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
-      nmvm_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-      nmvm_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-      pbp_su3_Z_PRECISION_new( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
+      prp_Z_PRECISION( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
+      nmvm_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+      nmvm_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+      pbp_su3_Z_PRECISION( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
     }
     // "amount" of a block, -Z coupling
     for ( i=a2; i<n2; i++ ) {
       k = ind[i]; j = neighbor[4*k+Z]; D_pt = D + 36*k + 9*Z;
-      prn_Z_PRECISION_new( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
-      nmvmh_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-      nmvmh_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-      pbn_su3_Z_PRECISION_new( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
+      prn_Z_PRECISION( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
+      nmvmh_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+      nmvmh_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+      pbn_su3_Z_PRECISION( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
     }
     
     // Y direction
@@ -663,18 +663,18 @@ void block_n_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION
     ind = index[Y];
     for ( i=a1; i<n1; i++ ) {
       k = ind[i]; j = neighbor[4*k+Y]; D_pt = D + 36*k + 9*Y;
-      prp_Y_PRECISION_new( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
-      nmvm_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-      nmvm_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-      pbp_su3_Y_PRECISION_new( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
+      prp_Y_PRECISION( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
+      nmvm_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+      nmvm_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+      pbp_su3_Y_PRECISION( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
     }
     // "amount" of a block, -Y coupling
     for ( i=a2; i<n2; i++ ) {
       k = ind[i]; j = neighbor[4*k+Y]; D_pt = D + 36*k + 9*Y;
-      prn_Y_PRECISION_new( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
-      nmvmh_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-      nmvmh_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-      pbn_su3_Y_PRECISION_new( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
+      prn_Y_PRECISION( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
+      nmvmh_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+      nmvmh_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+      pbn_su3_Y_PRECISION( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
     }
     
     // X direction
@@ -692,18 +692,18 @@ void block_n_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION
     ind = index[X];
     for ( i=a1; i<n1; i++ ) {
       k = ind[i]; j = neighbor[4*k+X]; D_pt = D + 36*k + 9*X;
-      prp_X_PRECISION_new( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
-      nmvm_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-      nmvm_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-      pbp_su3_X_PRECISION_new( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
+      prp_X_PRECISION( buf1, lphi+12*j*nvec_phi, nvec, nvec, nvec_phi );
+      nmvm_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+      nmvm_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+      pbp_su3_X_PRECISION( buf2, leta+12*k*nvec_eta, nvec, nvec, nvec_eta );
     }
     // "amount" of a block, -X coupling
     for ( i=a2; i<n2; i++ ) {
       k = ind[i]; j = neighbor[4*k+X]; D_pt = D + 36*k + 9*X;
-      prn_X_PRECISION_new( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
-      nmvmh_PRECISION_new( buf2, D_pt, buf1, nvec, nvec, nvec );
-      nmvmh_PRECISION_new( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
-      pbn_su3_X_PRECISION_new( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
+      prn_X_PRECISION( buf1, lphi+12*k*nvec_phi, nvec, nvec, nvec_phi );
+      nmvmh_PRECISION( buf2, D_pt, buf1, nvec, nvec, nvec );
+      nmvmh_PRECISION( buf2+3*nvec, D_pt, buf1+3*nvec, nvec, nvec, nvec );
+      pbn_su3_X_PRECISION( buf2, leta+12*j*nvec_eta, nvec, nvec, nvec_eta );
     }
 /*#ifdef HAVE_TM1p1
   }
@@ -712,7 +712,7 @@ void block_n_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION
 }
 
 // out <- block_schur_complement_PRECISION*in
-void apply_block_schur_complement_PRECISION_new( vector_PRECISION *out, vector_PRECISION *in, int start,
+void apply_block_schur_complement_PRECISION( vector_PRECISION *out, vector_PRECISION *in, int start,
 						 schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
   
   vector_PRECISION *tmp = s->oe_buf;
@@ -721,28 +721,28 @@ void apply_block_schur_complement_PRECISION_new( vector_PRECISION *out, vector_P
   if ( out->num_vect < in->num_vect_now )
     error0("apply_block_schur_complement_PRECISION: assumptions are not met\n");
 
-  block_diag_ee_PRECISION_new( out, in, start, s, l, threading );
+  block_diag_ee_PRECISION( out, in, start, s, l, threading );
   START_LOCKED_MASTER(threading)
-  vector_PRECISION_define_new( &tmp[0], 0, start + l->num_lattice_site_var*s->num_block_even_sites, start + s->block_vector_size, l );
+  vector_PRECISION_define( &tmp[0], 0, start + l->num_lattice_site_var*s->num_block_even_sites, start + s->block_vector_size, l );
   END_LOCKED_MASTER(threading)
-  block_hopping_term_PRECISION_new( &tmp[0], in, start, _ODD_SITES, s, l, threading );
-  block_diag_oo_inv_PRECISION_new( &tmp[1], &tmp[0], start, s, l, threading );
-  block_n_hopping_term_PRECISION_new( out, &tmp[1], start, _EVEN_SITES, s, l, threading );
+  block_hopping_term_PRECISION( &tmp[0], in, start, _ODD_SITES, s, l, threading );
+  block_diag_oo_inv_PRECISION( &tmp[1], &tmp[0], start, s, l, threading );
+  block_n_hopping_term_PRECISION( out, &tmp[1], start, _EVEN_SITES, s, l, threading );
 }
 
-static void block_diag_ee_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+static void block_diag_ee_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 					 int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
  
   START_UNTHREADED_FUNCTION(threading)  
   int n1 = s->num_block_even_sites, nv = l->num_lattice_site_var;//+s->num_block_odd_sites
-  clover_PRECISION_new( eta, phi, &(s->op), start, start+nv*n1, l, no_threading ); //!!!! changed to no_threading
+  clover_PRECISION( eta, phi, &(s->op), start, start+nv*n1, l, no_threading ); //!!!! changed to no_threading
 
   END_UNTHREADED_FUNCTION(threading)
 }
 
 // used only in test routines
 // diagonal blocks applied to the odd sites of a block
-static void block_diag_oo_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+static void block_diag_oo_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 					 int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
 
   START_UNTHREADED_FUNCTION(threading)
@@ -768,10 +768,10 @@ static void block_diag_oo_PRECISION_new( vector_PRECISION *eta, vector_PRECISION
       int block_num = start/12/(n1+n2);
 #ifndef HAVE_TM
       config_PRECISION clover = s->op.clover_oo_inv+(start/12-block_num*n1)*42;
-      LLH_multiply_PRECISION_new( &leta, &lphi, clover, 0, n2 );
+      LLH_multiply_PRECISION( &leta, &lphi, clover, 0, n2 );
 #else
       config_PRECISION clover =  s->op.clover_oo_inv+(start/12-block_num*n1)*72;
-      LU_multiply_PRECISION_new( &leta, &lphi, clover, 0, n2 );
+      LU_multiply_PRECISION( &leta, &lphi, clover, 0, n2 );
 #endif
     } else {
       config_PRECISION clover = s->op.clover+n1*12+start;
@@ -791,7 +791,7 @@ static void block_diag_oo_PRECISION_new( vector_PRECISION *eta, vector_PRECISION
 }
 
 // inverted diagonal blocks applied to the odd sites of a block
-static void block_diag_oo_inv_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s,
+static void block_diag_oo_inv_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s,
 					     level_struct *l, struct Thread *threading ) {
 
   START_UNTHREADED_FUNCTION(threading)
@@ -818,10 +818,10 @@ static void block_diag_oo_inv_PRECISION_new( vector_PRECISION *eta, vector_PRECI
       int block_num = start/12/(n1+n2);
 #ifndef HAVE_TM
       config_PRECISION clover = s->op.clover_oo_inv+(start/12-(block_num)*n1)*42;
-      LLH_perform_fwd_bwd_subs_PRECISION_new( &leta, &lphi, clover, 0, n2 );
+      LLH_perform_fwd_bwd_subs_PRECISION( &leta, &lphi, clover, 0, n2 );
 #else
       config_PRECISION clover = s->op.clover_oo_inv+(start/12-(block_num)*n1)*72;
-      LU_perform_fwd_bwd_subs_PRECISION_new( &leta, &lphi, clover, 0, n2 );
+      LU_perform_fwd_bwd_subs_PRECISION( &leta, &lphi, clover, 0, n2 );
 #endif
     } else {
       config_PRECISION clover = s->op.clover+n1*12+start;
@@ -842,7 +842,7 @@ static void block_diag_oo_inv_PRECISION_new( vector_PRECISION *eta, vector_PRECI
 }
 
 //phi <- D_block_oddeven^-1 r????
-void block_solve_oddeven_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *r, vector_PRECISION *latest_iter,
+void block_solve_oddeven_PRECISION( vector_PRECISION *phi, vector_PRECISION *r, vector_PRECISION *latest_iter,
     int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
   
   START_UNTHREADED_FUNCTION(threading)
@@ -857,24 +857,24 @@ void block_solve_oddeven_PRECISION_new( vector_PRECISION *phi, vector_PRECISION 
     error0("block_solve_oddeven_PRECISION: assumptions are not met\n");
 
   // odd to even
-  vector_PRECISION_copy_new( &tmp[3], r, start, end, l );
-  block_diag_oo_inv_PRECISION_new( &tmp[2], &tmp[3], start, s, l, no_threading );
-  block_n_hopping_term_PRECISION_new( &tmp[3], &tmp[2], start, _EVEN_SITES, s, l, no_threading );
-  local_minres_PRECISION_new( NULL, &tmp[3], &tmp[2], start, s, l, no_threading );  
+  vector_PRECISION_copy( &tmp[3], r, start, end, l );
+  block_diag_oo_inv_PRECISION( &tmp[2], &tmp[3], start, s, l, no_threading );
+  block_n_hopping_term_PRECISION( &tmp[3], &tmp[2], start, _EVEN_SITES, s, l, no_threading );
+  local_minres_PRECISION( NULL, &tmp[3], &tmp[2], start, s, l, no_threading );  
   // even to odd
-  block_n_hopping_term_PRECISION_new( &tmp[3], &tmp[2], start, _ODD_SITES, s, l, no_threading );
-  block_diag_oo_inv_PRECISION_new( &tmp[2], &tmp[3], start, s, l, no_threading );
+  block_n_hopping_term_PRECISION( &tmp[3], &tmp[2], start, _ODD_SITES, s, l, no_threading );
+  block_diag_oo_inv_PRECISION( &tmp[2], &tmp[3], start, s, l, no_threading );
   // update phi, latest_iter
-  vector_PRECISION_copy_new( latest_iter, &tmp[2], start, end, l );
-  vector_PRECISION_plus_new( phi, phi, &tmp[2], start, end, l );
+  vector_PRECISION_copy( latest_iter, &tmp[2], start, end, l );
+  vector_PRECISION_plus( phi, phi, &tmp[2], start, end, l );
   // update r
-  vector_PRECISION_copy_new( r, &tmp[3], start, start+l->num_lattice_site_var*s->num_block_even_sites, l );
-  vector_PRECISION_define_new( r, 0, start+l->num_lattice_site_var*s->num_block_even_sites, end, l );
+  vector_PRECISION_copy( r, &tmp[3], start, start+l->num_lattice_site_var*s->num_block_even_sites, l );
+  vector_PRECISION_define( r, 0, start+l->num_lattice_site_var*s->num_block_even_sites, end, l );
   END_UNTHREADED_FUNCTION(threading)
 }
 
 // layout: even->odd => block
-void oddeven_to_block_PRECISION_new( vector_PRECISION *out, vector_PRECISION *in, level_struct *l, struct Thread *threading ) {
+void oddeven_to_block_PRECISION( vector_PRECISION *out, vector_PRECISION *in, level_struct *l, struct Thread *threading ) {
 
   int i, j, k, m, jj, jjj;
   int nvec = in->num_vect_now, nvec_in = in->num_vect, nvec_out = out->num_vect;
@@ -898,7 +898,7 @@ void oddeven_to_block_PRECISION_new( vector_PRECISION *out, vector_PRECISION *in
   SYNC_CORES(threading)  
 }
 
-void block_to_oddeven_PRECISION_new( vector_PRECISION *out, vector_PRECISION *in, level_struct *l, struct Thread *threading ) {
+void block_to_oddeven_PRECISION( vector_PRECISION *out, vector_PRECISION *in, level_struct *l, struct Thread *threading ) {
 
   int i, j, k, m, jj, jjj;
   int nsv = l->num_lattice_site_var, *tt_oe = l->oe_op_PRECISION.translation_table, *tt_b = l->s_PRECISION.op.translation_table;
@@ -924,7 +924,7 @@ void block_to_oddeven_PRECISION_new( vector_PRECISION *out, vector_PRECISION *in
 
 /*******************  TEST ROUTINES  *****************************************************/
 
-void block_oddeven_PRECISION_test_new( level_struct *l, struct Thread *threading ) {
+void block_oddeven_PRECISION_test( level_struct *l, struct Thread *threading ) {
 #if 1
   START_UNTHREADED_FUNCTION(threading)
 
@@ -962,39 +962,39 @@ void block_oddeven_PRECISION_test_new( level_struct *l, struct Thread *threading
   b5.num_vect = n_vect;
   b5.num_vect_now = n_vect;
 
-  vector_PRECISION_define_random_new( &b1, 0, vs, l );
+  vector_PRECISION_define_random( &b1, 0, vs, l );
 
   for (int i = 0; i< s->num_blocks; i++ ) {//printf("block: %d %d\n",s->block[i].start,s->num_block_even_sites);
-    block_diag_ee_PRECISION_new( &b2, &b1, s->block[i].start*l->num_lattice_site_var, s, l, no_threading );
-    block_diag_oo_PRECISION_new( &b2, &b1, s->block[i].start*l->num_lattice_site_var, s, l, no_threading );
-    block_hopping_term_PRECISION_new( &b2, &b1, s->block[i].start*l->num_lattice_site_var, _FULL_SYSTEM, s, l, no_threading );
+    block_diag_ee_PRECISION( &b2, &b1, s->block[i].start*l->num_lattice_site_var, s, l, no_threading );
+    block_diag_oo_PRECISION( &b2, &b1, s->block[i].start*l->num_lattice_site_var, s, l, no_threading );
+    block_hopping_term_PRECISION( &b2, &b1, s->block[i].start*l->num_lattice_site_var, _FULL_SYSTEM, s, l, no_threading );
     
-    block_d_plus_clover_PRECISION_new( &b3, &b1, s->block[i].start*l->num_lattice_site_var, s, l, no_threading );
+    block_d_plus_clover_PRECISION( &b3, &b1, s->block[i].start*l->num_lattice_site_var, s, l, no_threading );
   }
   //  for(int i=0;i<vs*n_vect;i++)printf0("%d %d %d %13g %g %g\n",i/n_vect/l->num_lattice_site_var,(i/n_vect)%l->num_lattice_site_var,i%n_vect,creal_PRECISION(b3.vector_buffer[i]-b2.vector_buffer[i]),creal_PRECISION(b3.vector_buffer[i]),creal_PRECISION(b2.vector_buffer[i]));   
-  vector_PRECISION_minus_new( &b3, &b3, &b2, 0, vs, l );
-  global_norm_PRECISION_new( diff1, &b3, 0, vs, l, no_threading );
-  global_norm_PRECISION_new( diff2, &b2, 0, vs, l, no_threading );
+  vector_PRECISION_minus( &b3, &b3, &b2, 0, vs, l );
+  global_norm_PRECISION( diff1, &b3, 0, vs, l, no_threading );
+  global_norm_PRECISION( diff2, &b2, 0, vs, l, no_threading );
   
   for (int i = 0; i<n_vect; i++ )
     test0_PRECISION("depth: %d, correctness of block odd even layout: %le\n", l->depth, diff1[i]/diff2[i] );
   
-  vector_PRECISION_copy_new( &b4, &b1, 0, s->block_vector_size, l );
-  vector_PRECISION_define_new( &b3, 0, l->num_lattice_site_var*s->num_block_even_sites, s->block_vector_size, l );
+  vector_PRECISION_copy( &b4, &b1, 0, s->block_vector_size, l );
+  vector_PRECISION_define( &b3, 0, l->num_lattice_site_var*s->num_block_even_sites, s->block_vector_size, l );
   
-  block_hopping_term_PRECISION_new( &b3, &b4, 0, _ODD_SITES, s, l, no_threading );
-  block_diag_oo_inv_PRECISION_new( &b5, &b3, 0, s, l, no_threading );
-  vector_PRECISION_plus_new( &b4, &b4, &b5, l->num_lattice_site_var*s->num_block_even_sites, s->block_vector_size, l );
+  block_hopping_term_PRECISION( &b3, &b4, 0, _ODD_SITES, s, l, no_threading );
+  block_diag_oo_inv_PRECISION( &b5, &b3, 0, s, l, no_threading );
+  vector_PRECISION_plus( &b4, &b4, &b5, l->num_lattice_site_var*s->num_block_even_sites, s->block_vector_size, l );
   
-  apply_block_schur_complement_PRECISION_new( &b3, &b4, 0, s, l, no_threading );
-  block_diag_oo_PRECISION_new( &b3, &b4, 0, s, l, no_threading );
+  apply_block_schur_complement_PRECISION( &b3, &b4, 0, s, l, no_threading );
+  block_diag_oo_PRECISION( &b3, &b4, 0, s, l, no_threading );
   
-  block_diag_oo_inv_PRECISION_new( &b5, &b3, 0, s, l, no_threading );
-  block_hopping_term_PRECISION_new( &b3, &b5, 0, _EVEN_SITES, s, l, no_threading );
+  block_diag_oo_inv_PRECISION( &b5, &b3, 0, s, l, no_threading );
+  block_hopping_term_PRECISION( &b3, &b5, 0, _EVEN_SITES, s, l, no_threading );
   
-  vector_PRECISION_minus_new( &b3, &b2, &b3, 0, s->block_vector_size, l );
-  global_norm_PRECISION_new( diff1, &b3, 0, s->block_vector_size, l, no_threading );
-  global_norm_PRECISION_new( diff2, &b2, 0, s->block_vector_size, l, no_threading );
+  vector_PRECISION_minus( &b3, &b2, &b3, 0, s->block_vector_size, l );
+  global_norm_PRECISION( diff1, &b3, 0, s->block_vector_size, l, no_threading );
+  global_norm_PRECISION( diff2, &b2, 0, s->block_vector_size, l, no_threading );
   
   for (int i = 0; i<n_vect; i++ )
     test0_PRECISION("depth: %d, correctness of block odd even schur complement: %le\n", l->depth, diff1[i]/diff2[i] );

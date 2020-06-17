@@ -24,20 +24,9 @@
   #define MAIN_PRE_DEF_PRECISION_HEADER
   
 
-#if 1
   typedef PRECISION complex complex_PRECISION;
   typedef PRECISION complex *config_PRECISION;
   typedef PRECISION complex *buffer_PRECISION;
-#else
-typedef struct {
-  PRECISION real;
-  PRECISION imag;
-} PRECISION_complex;
-
-typedef PRECISION_complex complex_PRECISION;
-typedef PRECISION_complex *config_PRECISION;
-typedef PRECISION_complex *buffer_PRECISION;
-#endif
 
   typedef struct {
     buffer_PRECISION vector_buffer;

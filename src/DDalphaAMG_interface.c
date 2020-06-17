@@ -329,10 +329,10 @@ void DDalphaAMG_update_parameters( DDalphaAMG_parameters *mg_params, DDalphaAMG_
   } else if ( re_projs && g.setup_flag ) { //project again the operators
     if ( g.mixed_precision )
       THREADED(threading[0]->n_core)
-        re_setup_float_new( &l, threading[omp_get_thread_num()] ); 
+        re_setup_float( &l, threading[omp_get_thread_num()] ); 
     else
       THREADED(threading[0]->n_core)
-        re_setup_double_new( &l, threading[omp_get_thread_num()] );
+        re_setup_double( &l, threading[omp_get_thread_num()] );
     
   } else if ( re_dirac && g.setup_flag ) { //update just the oddeven and vecorized operators
     THREADED(threading[0]->n_core)
@@ -577,7 +577,7 @@ static inline void vector_copy( vector_double *vector_out, vector_double *vector
   THREADED(threading[0]->n_core) {
     int start = threading[omp_get_thread_num()]->start_index[0], 
       end = threading[omp_get_thread_num()]->end_index[0];
-    vector_double_copy_new( vector_out, vector_in, start, end, &l );
+    vector_double_copy( vector_out, vector_in, start, end, &l );
   }  
 }
 
@@ -606,10 +606,10 @@ static inline void correct_guess( vector_double *guess, vector_double *solution,
       complex_double alpha[g.num_rhs_vect];
       for ( int i=0; i<g.num_rhs_vect; i++ ) alpha[i]= -I*dshift;//!!!!!!!!
       solution2->num_vect_now = g.num_rhs_vect;
-      vector_double_scale_new( guess, solution2, alpha, 1, g.p.v_start, g.p.v_end, &l );
-      vector_double_plus_new( guess, guess, solution, start, end, &l );
+      vector_double_scale( guess, solution2, alpha, 1, g.p.v_start, g.p.v_end, &l );
+      vector_double_plus( guess, guess, solution, start, end, &l );
     } else
-      vector_double_copy_new( guess, solution, start, end, &l );
+      vector_double_copy( guess, solution, start, end, &l );
   }  
 }
 
@@ -834,11 +834,11 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
       else
 #endif
         // sol = (D_d^{-1})*g5*(D_u^{-1})*g5*rhs
-        gamma5_double_new( rhs, rhs, &l, threading[omp_get_thread_num()] );
+        gamma5_double( rhs, rhs, &l, threading[omp_get_thread_num()] );
     
     // read NOTE RESIDUAL
     THREADED(threading[0]->n_core)
-      global_norm_double_new( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      global_norm_double( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
     p->tol = tol/2.;
     solver( );
       
@@ -848,7 +848,7 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
         tau1_gamma5_double(rhs, sol, &l, threading[omp_get_thread_num()] );
       else
 #endif
-        gamma5_double_new(rhs, sol, &l, threading[omp_get_thread_num()] );
+        gamma5_double(rhs, sol, &l, threading[omp_get_thread_num()] );
  
 #ifdef HAVE_TM1p1
     if(g.n_flavours==2) 
@@ -859,7 +859,7 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
 
     // read NOTE RESIDUAL
     THREADED(threading[0]->n_core)
-    global_norm_double_new( nrhs2, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+    global_norm_double( nrhs2, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
     for ( i=0, p->tol=0; i<nvec_rhs; i++ ) p->tol += (tol-g.norm_res)*nrhs[i]/nrhs2[i]/8.; //???????
     solver( );
 
@@ -880,7 +880,7 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
 
     // read NOTE RESIDUAL
     THREADED(threading[0]->n_core)
-      global_norm_double_new( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      global_norm_double( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
     p->tol = tol/2.;
     solver( );
 
@@ -901,7 +901,7 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
 
     // read NOTE RESIDUAL
     THREADED(threading[0]->n_core)
-    global_norm_double_new( nrhs2, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+    global_norm_double( nrhs2, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
     for ( i=0, p->tol=0; i<nvec_rhs; i++ ) p->tol += (tol-g.norm_res)*nrhs[i]/nrhs2[i]/8.;
     solver( );
 
@@ -922,7 +922,7 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
 
     // read NOTE RESIDUAL
     THREADED(threading[0]->n_core)
-    global_norm_double_new( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+    global_norm_double( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
     p->tol = tol/2.;
     solver( );
 
@@ -943,7 +943,7 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
 
     // read NOTE RESIDUAL
     THREADED(threading[0]->n_core)
-    global_norm_double_new( nrhs2, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+    global_norm_double( nrhs2, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
     for ( i=0, p->tol=0; i<nvec_rhs; i++ ) p->tol += (tol-g.norm_res)*nrhs[i]/nrhs2[i]/8.;//???????
     solver( );
 
@@ -953,7 +953,7 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
 
   case _PRECOND :
     THREADED(threading[0]->n_core)
-    preconditioner_new( sol, NULL, rhs, _NO_RES, &l, threading[omp_get_thread_num()] );
+    preconditioner( sol, NULL, rhs, _NO_RES, &l, threading[omp_get_thread_num()] );
     break;
 
   case _OPERATOR :
@@ -1258,7 +1258,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
           else
 #endif
             // sol = (D_d^{-1})*g5*(D_u^{-1})*g5*rhs
-            gamma5_double_new( rhs, rhs, &l, threading[omp_get_thread_num()] );
+            gamma5_double( rhs, rhs, &l, threading[omp_get_thread_num()] );
         vector_copy( &source, rhs );
       }
 
@@ -1266,7 +1266,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
         correct_guess( sol, &solution, &solution2, even_shifts[n]-even_shifts[n-1], odd_shifts[n]-odd_shifts[n-1]);
       // read NOTE RESIDUAL
       THREADED(threading[0]->n_core)
-      global_norm_double_new( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      global_norm_double( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
       p->tol = tol[n]/2.;
       solver( );
       if ( n < n_shifts-1 ) 
@@ -1278,7 +1278,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
           tau1_gamma5_double(rhs, sol, &l, threading[omp_get_thread_num()] );
         else
 #endif
-          gamma5_double_new(rhs, sol, &l, threading[omp_get_thread_num()] );
+          gamma5_double(rhs, sol, &l, threading[omp_get_thread_num()] );
 
 #ifdef HAVE_TM1p1
       if(g.n_flavours==2) 
@@ -1292,7 +1292,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 
       // read NOTE RESIDUAL
       THREADED(threading[0]->n_core)
-      global_norm_double_new( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      global_norm_double( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
       for ( p->tol = 0, i=0; i<g.num_rhs_vect;  i++ ) p->tol += (tol[n]-g.norm_res)*nrhs[i]/nrhs2[i]/8.;
       solver( );
       if ( n < n_shifts-1 ) 
@@ -1326,7 +1326,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 
       // read NOTE RESIDUAL
       THREADED(threading[0]->n_core)
-      global_norm_double_new( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      global_norm_double( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
       p->tol = tol[n]/2.;
       solver( );
       if ( n < n_shifts-1 ) 
@@ -1352,7 +1352,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 
       // read NOTE RESIDUAL
       THREADED(threading[0]->n_core)
-      global_norm_double_new( nrhs2, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      global_norm_double( nrhs2, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
       for ( i=0, p->tol=0; i<nvec_rhs; i++ ) p->tol += (tol[n]-g.norm_res)*nrhs[i]/nrhs2[i]/8.;
       solver( );
       if ( n < n_shifts-1 ) 
@@ -1386,7 +1386,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 
       // read NOTE RESIDUAL
       THREADED(threading[0]->n_core)
-      global_norm_double_new( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      global_norm_double( nrhs, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
       p->tol = tol[n]/2.;
       solver( );
       if ( n < n_shifts-1 ) 
@@ -1411,7 +1411,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
         vector_copy( sol, &solution2 );
       // read NOTE RESIDUAL
       THREADED(threading[0]->n_core)
-      global_norm_double_new( nrhs2, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
+      global_norm_double( nrhs2, rhs, p->v_start, p->v_end, &l, threading[omp_get_thread_num()] );
       for ( p->tol = 0, i=0; i<g.num_rhs_vect; i++ ) p->tol += (tol[n]-g.norm_res)*nrhs[i]/nrhs2[i]/8.;
       solver( );
       if ( n < n_shifts-1 ) 
@@ -1424,7 +1424,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
 
     case _PRECOND :
       THREADED(threading[0]->n_core)
-        preconditioner_new( sol, NULL, rhs, _NO_RES, &l, threading[omp_get_thread_num()] );
+        preconditioner( sol, NULL, rhs, _NO_RES, &l, threading[omp_get_thread_num()] );
       break;
 
       
@@ -1582,12 +1582,12 @@ static inline void DDalphaAMG_proj_driver( double *vector_out, double *vector_in
     
   case _RESTRICT :
     THREADED(threading[0]->n_core)
-      restrict_float_new( sol, rhs, from, threading[omp_get_thread_num()] );
+      restrict_float( sol, rhs, from, threading[omp_get_thread_num()] );
     break;
     
   case _PROLONGATE :
     THREADED(threading[0]->n_core)
-      interpolate3_float_new( sol, rhs, to, threading[omp_get_thread_num()] );
+      interpolate3_float( sol, rhs, to, threading[omp_get_thread_num()] );
     break;
 
   case _OPERATOR :
@@ -1857,7 +1857,7 @@ void DDalphaAMG_define_vector_const( double *vector, double re, double im ) {
     compute_core_start_end( 0, l.inner_vector_size, &start, &end, &l, threading[omp_get_thread_num()]);
     vector_double vec;
     vec.vector_buffer= (buffer_double) vector;
-    vector_double_define_new( &vec, re+I*im, start, end, &l );
+    vector_double_define( &vec, re+I*im, start, end, &l );
   }
   else {
     warning0("Vector NULL when calling DDalphaAMG_define_vector_const!");
@@ -1872,7 +1872,7 @@ void DDalphaAMG_define_vector_rand( double *vector ) {
     compute_core_start_end( 0, l.inner_vector_size, &start, &end, &l, threading[omp_get_thread_num()]);
     vector_double vec;
     vec.vector_buffer= (buffer_double) vector;
-    vector_double_define_random_new( &vec, start, end, &l );
+    vector_double_define_random( &vec, start, end, &l );
   }
   else {
     warning0("Vector NULL when calling DDalphaAMG_define_vector_const!");
@@ -1889,7 +1889,7 @@ double DDalphaAMG_vector_norm( double *vector ) {
     vec.vector_buffer = (buffer_double) vector;
     vec.num_vect = 1;
     vec.num_vect_now = 1;
-    global_norm_double_new( &norm, &vec, 0, l.inner_vector_size, &l, threading[omp_get_thread_num()] );
+    global_norm_double( &norm, &vec, 0, l.inner_vector_size, &l, threading[omp_get_thread_num()] );
    }
   else {
     warning0("Vector NULL when calling DDalphaAMG_define_vector_const!");
@@ -1908,7 +1908,7 @@ void DDalphaAMG_vector_saxpy( double *vector_out, double a, double *x, double *y
     vec_out.vector_buffer= (buffer_double) vector_out; xx.vector_buffer= (buffer_double) x; yy.vector_buffer= (buffer_double) y;
     vec_out.num_vect = 1; vec_out.num_vect_now = 1; xx.num_vect = 1; xx.num_vect_now = 1; yy.num_vect = 1; yy.num_vect_now = 1;
     complex_double alpha = a;
-    vector_double_saxpy_new( &vec_out, &xx, &yy, &alpha, 1, 1, start, end, &l );
+    vector_double_saxpy( &vec_out, &xx, &yy, &alpha, 1, 1, start, end, &l );
   }
   else {
     warning0("Vector NULL when calling DDalphaAMG_define_vector_const!");
@@ -1923,7 +1923,7 @@ void DDalphaAMG_test_routine( DDalphaAMG_status *mg_status ) {
 
   printf00("\n");
   THREADED(threading[0]->n_core)
-  test_routine_new( &l, threading[omp_get_thread_num()]);
+  test_routine( &l, threading[omp_get_thread_num()]);
 
   if (g.test < 1e-5)
     mg_status->success = 1;

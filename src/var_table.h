@@ -55,8 +55,8 @@
       v.num_vect_now = x.num_vect_now;					\
       if (g.mixed_precision==2) fgmres_MP( &(g.p_MP), l, no_threading ); \
       else fgmres_double( &(g.p), l, no_threading ); \
-      vector_double_copy_new( &v, &x, 0, l->inner_vector_size, l ); \
-      global_norm_double_new( norm_v, &v, 0, l->inner_vector_size, l, no_threading ); \
+      vector_double_copy( &v, &x, 0, l->inner_vector_size, l ); \
+      global_norm_double( norm_v, &v, 0, l->inner_vector_size, l, no_threading ); \
     } \
     \
     for ( *tmp_var = (kind)start_val; signum*(*tmp_var) <= signum*((kind)end_val) + EPS_double; \
@@ -81,29 +81,28 @@
         printf0("scanning variable \"%s\", value: %lf, run %d of %d\n", name, (double)(*tmp_var), i+1, g.vt.average_over ); \
         if ( g.vt.track_error ) {					\
           apply_operator_double( &b, &v, &(g.p), l, no_threading );	\
-          vector_double_define_new( &x, 0, 0, l->inner_vector_size, l ); \
+          vector_double_define( &x, 0, 0, l->inner_vector_size, l ); \
           if ( g.vt.track_cgn_error ) {					\
             ASSERT( g.method >=0 && g.p.restart_length >= 4 );		\
 	    double tmp[x->num_vect_now];
-            vector_double_define_new( &x, 0, 0, l->inner_vector_size, l );		\
+            vector_double_define( &x, 0, 0, l->inner_vector_size, l );		\
             cgn_double( &(g.p), l, no_threading );					\
-            vector_double_minus_new( &x, &x, &v, 0, l->inner_vector_size, l ); \
-	    global_norm_double_new(tmp, &x, 0, l->inner_vector_size, l, no_threading ); \
+            vector_double_minus( &x, &x, &v, 0, l->inner_vector_size, l ); \
+	    global_norm_double(tmp, &x, 0, l->inner_vector_size, l, no_threading ); \
             for (int i = 0; i < x->num_vect_now; i++ ) g.vt.p_end->values[_CGNR_ERR] += tmp[i] / norm_v[i] /((double)g.vt.average_over);\
-	    //+= ( global_norm_double( &x, 0, l->inner_vector_size, l, no_threading ) / norm_v ) / ((double)g.vt.average_over); \
             printf0("CGN: error norm: %le\n", g.vt.p_end->values[_CGNR_ERR] ); \
-            vector_double_define_new( &x, 0, 0, l->inner_vector_size, l ); \
+            vector_double_define( &x, 0, 0, l->inner_vector_size, l ); \
             } \
         } else {\
           rhs_define( &b, l, no_threading );\
         } \
-        vector_double_define_new( &x, 0, 0, l->inner_vector_size, l ); \
+        vector_double_define( &x, 0, 0, l->inner_vector_size, l ); \
         if (g.mixed_precision==2) fgmres_MP( &(g.p_MP), l, no_threading ); \
         else fgmres_double( &(g.p), l, no_threading ); \
         if ( i == g.vt.average_over-1 ) prof_print( l ); \
         if ( g.vt.track_error ) { \
-          vector_double_minus_new( &x, &x, &v, 0, l->inner_vector_size, l ); \
-	  global_norm_double_new(tmp, &x, 0, l->inner_vector_size, l, no_threading ); \
+          vector_double_minus( &x, &x, &v, 0, l->inner_vector_size, l ); \
+	  global_norm_double(tmp, &x, 0, l->inner_vector_size, l, no_threading ); \
           for (int i = 0; i < x->num_vect_now; i++ ) g.vt.p_end->values[_SLV_ERR] += ( tmp[i] / norm_v ) / ((double)g.vt.average_over); \
         } \
       } \

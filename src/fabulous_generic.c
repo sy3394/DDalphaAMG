@@ -15,9 +15,6 @@
  * 
  * 
  * You should have received a copy of the GNU General Public License
- * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * checked:11/30/2019
- * changed from sbacchio
  */
 
 #include "main.h"
@@ -76,7 +73,7 @@ void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_stru
     error0("fabulous handle has not been created!\n");
 
   // Set callbacks:
-  fabulous_set_mvp(&mvp_PRECISION, fab->handle);
+  fabulous_set_mvp(&mvpf_PRECISION, fab->handle);
   fabulous_set_dot_product(&dot_product_PRECISION, fab->handle);
   if ( g.solver[l->depth] && l->level > 0 )
     fabulous_set_rightprecond(&fabulous_rightprecond_PRECISION, fab->handle);
@@ -110,10 +107,10 @@ void fabulous_PRECISION_free( fabulous_PRECISION_struct *fab, level_struct *l, s
 }
 
 // B <- beta*B+ alpha*A*X: Matrix x BlockOfVector product CALLBACK: vectors need to be in _NVEC_INNER
-int64_t mvp_PRECISION(  void *user_env, int N,
-			const void *p_alpha, const void *XX, int ldx,
-			const void *p_beta, void *BB, int ldb) {
-
+int64_t mvpf_PRECISION(  void *user_env, int N,
+			 const void *p_alpha, const void *XX, int ldx,
+			 const void *p_beta, void *BB, int ldb) {
+  
   
   //END_LOCKED_MASTER(((gmres_PRECISION_struct *)user_env)->fab.threading)
     
@@ -156,9 +153,9 @@ int64_t mvp_PRECISION(  void *user_env, int N,
   vector_PRECISION_change_layout( &X0, &X0, _NVEC_INNER, no_threading );
   vector_PRECISION_change_layout( &B0, &B0, _NVEC_INNER, no_threading );
   END_LOCKED_MASTER(threading)
-  vector_PRECISION_scale_new( &B0, &B0, betas, 0, start, end, fab->l );
+  vector_PRECISION_scale( &B0, &B0, betas, 0, start, end, fab->l );
   p->eval_operator( &C0, &X0, p->op, l, no_threading );
-  vector_PRECISION_saxpy_new( &B0, &B0, &C0, alphas, 0, 1, 0, fab->dim, l );
+  vector_PRECISION_saxpy( &B0, &B0, &C0, alphas, 0, 1, 0, fab->dim, l );
   START_LOCKED_MASTER(threading)
   X0.layout = _NVEC_OUTER;
   vector_PRECISION_change_layout( &B0, &B0, _NVEC_OUTER, no_threading );
@@ -267,9 +264,9 @@ int64_t fabulous_rightprecond_PRECISION(void *user_env, int N,
     vector_PRECISION_change_layout( &X0, &X0, _NVEC_INNER, no_threading );
     B0.layout = _NVEC_INNER;
     END_LOCKED_MASTER(threading)
-    if ( l->depth == 0 ) preconditioner_new( (vector_double *)(&B0), NULL, (vector_double *) (&X0), res, l, threading ); // can also use !g.in_setup as this is used only at top
-    else vcycle_PRECISION_new( &B0, NULL, &X0, res, l, threading );//printf0("fab prec2: %d\n",l->depth);fflush(stdout);
-    //vcycle_PRECISION_new( &B0, NULL, &X0, _NO_RES, l, threading );
+    if ( l->depth == 0 ) preconditioner( (vector_double *)(&B0), NULL, (vector_double *) (&X0), res, l, threading ); // can also use !g.in_setup as this is used only at top
+    else vcycle_PRECISION( &B0, NULL, &X0, res, l, threading );//printf0("fab prec2: %d\n",l->depth);fflush(stdout);
+    //vcycle_PRECISION( &B0, NULL, &X0, _NO_RES, l, threading );
     START_LOCKED_MASTER(threading)
     X0.layout = _NVEC_OUTER;
     vector_PRECISION_change_layout( &B0, &B0, _NVEC_OUTER, no_threading );//printfv_PRECISION(&B0);
@@ -315,7 +312,7 @@ void fabulous_print_PRECISION(void *user_env,
     START_LOCKED_MASTER(threading)
     vector_PRECISION_change_layout( &C0, &C0, _NVEC_INNER, no_threading );
     END_LOCKED_MASTER(threading)
-    global_norm_PRECISION_new(res, &C0, start, end, l, threading );
+    global_norm_PRECISION(res, &C0, start, end, l, threading );
     
     vector_PRECISION_copy_fab( &C0, &X, 0, NRHS, 1, start, end, l );
     START_LOCKED_MASTER(threading)
@@ -323,7 +320,7 @@ void fabulous_print_PRECISION(void *user_env,
     vector_PRECISION_change_layout( &C0, &C0, _NVEC_INNER, no_threading );
     C0.layout = _NVEC_OUTER;
     END_LOCKED_MASTER(threading)
-    global_norm_PRECISION_new(norm, &C0, start, end, l, threading );
+    global_norm_PRECISION(norm, &C0, start, end, l, threading );
     
     for( i=0; i<NRHS; i++ )
       printf0("| vector %d, depth: %d, approx. rel. res. after  %-6d iterations: %e |\n", i, l->depth, iter, res[i]/norm[i]);

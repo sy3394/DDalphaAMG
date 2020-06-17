@@ -36,7 +36,7 @@
   #include "solver_analysis.h"
 
 
-  void vcycle_PRECISION_new( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRECISION *eta,
+  void vcycle_PRECISION( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRECISION *eta,
 			     int res, level_struct *l, struct Thread *threading );
 
   void vcycle_timing_PRECISION( int n, level_struct *l, struct Thread *threading );

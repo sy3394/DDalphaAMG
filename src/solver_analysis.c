@@ -24,7 +24,7 @@
 
 #include "main.h"
 static void mul_test( level_struct *l, struct Thread *threading );
-void test_routine_new( level_struct *l, struct Thread *threading ) {
+void test_routine( level_struct *l, struct Thread *threading ) {
 #if 1
   if ( g.method >= 0 ) {
     START_MASTER(threading)
@@ -48,21 +48,21 @@ void test_routine_new( level_struct *l, struct Thread *threading ) {
 
     if ( g.mixed_precision ) {
       operator_float_test_routine( &(l->s_float.op), l, threading );
-      if ( g.method > 0 && g.method < 5 ) schwarz_float_mvm_testfun_new( &(l->s_float), l, threading );
-      if ( g.method > 0 && g.method < 5 && g.odd_even ) block_oddeven_float_test_new( l, threading );
+      if ( g.method > 0 && g.method < 5 ) schwarz_float_mvm_testfun( &(l->s_float), l, threading );
+      if ( g.method > 0 && g.method < 5 && g.odd_even ) block_oddeven_float_test( l, threading );
     } else {
       operator_double_test_routine( &(l->s_double.op), l, threading );
-      if ( g.method > 0 && g.method < 5 ) schwarz_double_mvm_testfun_new( &(l->s_double), l, threading );
-      if ( g.method > 0 && g.method < 5 && g.odd_even ) block_oddeven_double_test_new( l, threading );
+      if ( g.method > 0 && g.method < 5 ) schwarz_double_mvm_testfun( &(l->s_double), l, threading );
+      if ( g.method > 0 && g.method < 5 && g.odd_even ) block_oddeven_double_test( l, threading );
     }
 
 #if 1
     //    START_LOCKED_MASTER(threading)
     if ( g.interpolation && g.method > 0 ) {
       if ( g.mixed_precision )
-        coarse_operator_float_test_routine_new( l, threading );
+        coarse_operator_float_test_routine( l, threading );
       else
-        coarse_operator_double_test_routine_new( l, threading );
+        coarse_operator_double_test_routine( l, threading );
     }
     //    END_LOCKED_MASTER(threading)
 #endif

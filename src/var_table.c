@@ -50,7 +50,7 @@ void var_table_free( var_table *t ) {
 
 
 void var_table_insert( var_table *t, var_table_entry e ) {
-  
+  //  printf("var\n");  
   if ( t->entry == NULL ) {
     MALLOC( t->entry, var_table_entry, 1 );
     *(t->entry) = e;

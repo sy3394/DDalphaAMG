@@ -473,8 +473,6 @@ static void read_solver_parameters( FILE *in ) {
 
   save_pt = &(g.use_only_fgrmes_at_setup); g.use_only_fgrmes_at_setup = 0;
   read_parameter( &save_pt, "use only FGMRES at setup:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.max_mvp); g.max_mvp = 1000;
-  read_parameter( &save_pt, "fabulous max mat vec prod:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.logger_user_data_size); g.logger_user_data_size = 0;
   read_parameter( &save_pt, "fabulous user data size for log:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.quiet); g.quiet = 1;
@@ -544,12 +542,18 @@ static void validate_parameters( int ls, level_struct *l ) {
   int i;
   int mu;
 
-  if ( g.method == 6 ) {
+  if ( g.method == 5 ) {
     if( g.interpolation != 0 ) {
       warning0("Multigrid with BiCGstab smoothing is not supported.\n         Switching to FGMRES preconditioned with BiCGstab (g.interpolation=0).\n");
       g.interpolation = 0;
     }
-    if ( g.odd_even ) {//!!!!!!
+  }
+  if ( g.method == 4 || g.method ==5 ) {
+    if ( g.mixed_precision == 2 ) {
+      warning0("FGMRES+GMRES or BiCGstab with MP is not currently supported.\n         Switching to double precision\n");
+      g.mixed_precision = 0;
+    }
+    if ( g.odd_even ) {//to be removed
     warning0("BiCGstab w/t evenodd prec. is not currently supported.\n         Switching to even odd prec..\n");
     g.odd_even = 1;
     }

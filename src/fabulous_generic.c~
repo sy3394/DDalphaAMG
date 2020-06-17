@@ -128,9 +128,9 @@ int64_t mvp_PRECISION(  void *user_env, int N,
   // may need to write a new dirac op function for column major order!!!!
   vector_PRECISION_change_layout( &X0, &X0, _NVEC_INNER, no_threading );
   vector_PRECISION_change_layout( &B0, &B0, _NVEC_INNER, no_threading );
-  vector_PRECISION_scale_new( &B0, &B0, betas, 0, 0, fab->dim, fab->l );
+  vector_PRECISION_scale( &B0, &B0, betas, 0, 0, fab->dim, fab->l );
   fab->apply_op_PRECISION( &C0, &X0, fab->op, fab->l, no_threading );
-  vector_PRECISION_saxpy_new( &B0, &B0, &C0, alphas, 0, 1, 0, fab->dim, fab->l );
+  vector_PRECISION_saxpy( &B0, &B0, &C0, alphas, 0, 1, 0, fab->dim, fab->l );
   X.layout = _NVEC_OUTER;
   vector_PRECISION_change_layout( &B0, &B0, _NVEC_OUTER, no_threading );
 

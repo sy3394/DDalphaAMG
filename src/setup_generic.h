@@ -27,13 +27,13 @@
 
   struct Thread;
 
-  void interpolation_PRECISION_define_new( vector_double *V, level_struct *l, struct Thread *threading );
+  void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct Thread *threading );
   
-  void coarse_grid_correction_PRECISION_setup_new( level_struct *l, struct Thread *threading );
+  void coarse_grid_correction_PRECISION_setup( level_struct *l, struct Thread *threading );
   void coarse_grid_correction_PRECISION_free( level_struct *l );
 
-  void iterative_PRECISION_setup_new( int setup_iter, level_struct *l, struct Thread *threading );
-  void re_setup_PRECISION_new( level_struct *l, struct Thread *threading );
+  void iterative_PRECISION_setup( int setup_iter, level_struct *l, struct Thread *threading );
+  void re_setup_PRECISION( level_struct *l, struct Thread *threading );
   
 #endif
 

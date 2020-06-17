@@ -38,19 +38,19 @@
   void selfcoupling_LU_doublet_decomposition_PRECISION( const config_PRECISION output, config_double input );
 #endif
 
-  void hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op,
+  void hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op,
                                const int amount, level_struct *l, struct Thread *threading );
-  void apply_schur_complement_PRECISION_new( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
+  void apply_schur_complement_PRECISION( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
 
-  void solve_oddeven_PRECISION_new( gmres_PRECISION_struct *p, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
+  void solve_oddeven_PRECISION( gmres_PRECISION_struct *p, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
   
-  void oddeven_to_serial_PRECISION_new( vector_double *out, vector_PRECISION *in, level_struct *l, struct Thread *threading );
-  void serial_to_oddeven_PRECISION_new( vector_PRECISION *out, vector_double *in, level_struct *l, struct Thread *threading );
+  void oddeven_to_serial_PRECISION( vector_double *out, vector_PRECISION *in, level_struct *l, struct Thread *threading );
+  void serial_to_oddeven_PRECISION( vector_PRECISION *out, vector_double *in, level_struct *l, struct Thread *threading );
   
-  void oddeven_PRECISION_test_new( level_struct *l );
+  void oddeven_PRECISION_test( level_struct *l );
 
 
-static inline void LLH_perform_fwd_bwd_subs_PRECISION_new( vector_PRECISION *x, vector_PRECISION *b, config_PRECISION L,
+static inline void LLH_perform_fwd_bwd_subs_PRECISION( vector_PRECISION *x, vector_PRECISION *b, config_PRECISION L,
 							   int start, int end ) {
 
 /*********************************************************************************
@@ -94,7 +94,7 @@ static inline void LLH_perform_fwd_bwd_subs_PRECISION_new( vector_PRECISION *x, 
   }
 }
 
-static inline void LU_perform_fwd_bwd_subs_PRECISION_new( vector_PRECISION *x, vector_PRECISION *b, config_PRECISION LU,
+static inline void LU_perform_fwd_bwd_subs_PRECISION( vector_PRECISION *x, vector_PRECISION *b, config_PRECISION LU,
 							  int start, int end ) {
 
 /*********************************************************************************
@@ -165,7 +165,7 @@ static inline void LU_perform_fwd_bwd_subs_PRECISION_new( vector_PRECISION *x, v
     }
 }
 
-static inline void LLH_multiply_PRECISION_new( vector_PRECISION *y, vector_PRECISION *x, config_PRECISION L,
+static inline void LLH_multiply_PRECISION( vector_PRECISION *y, vector_PRECISION *x, config_PRECISION L,
 					   int start, int end ) {
 
 /*********************************************************************************
@@ -211,7 +211,7 @@ static inline void LLH_multiply_PRECISION_new( vector_PRECISION *y, vector_PRECI
   }
 }
 
-static inline void LU_multiply_PRECISION_new( vector_PRECISION *y, vector_PRECISION *x, config_PRECISION LU,
+static inline void LU_multiply_PRECISION( vector_PRECISION *y, vector_PRECISION *x, config_PRECISION LU,
 					      int start, int end ) {
 
 /*********************************************************************************

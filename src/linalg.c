@@ -27,7 +27,7 @@
 
 // results <- (phi's, psi) processwise 
 // assume resutls have phi->num_vect_now fields 
-void process_multi_inner_product_MP_new( int count, complex_double *results, vector_float *phi,
+void process_multi_inner_product_MP( int count, complex_double *results, vector_float *phi,
 					 vector_float *psi, int start, int end, level_struct *l, struct Thread *threading ) {
   /*****************************************
    * Assume: each vector set in phi contains the same #used vectors as in psi
@@ -74,7 +74,7 @@ void process_multi_inner_product_MP_new( int count, complex_double *results, vec
     PROF_float_STOP( _PIP, (double)(core_end-core_start)/(double)l->inner_vector_size, threading );
 }
 
-void global_norm_MP_new( double *res, vector_float *x, int start, int end, level_struct *l, struct Thread *threading ) {
+void global_norm_MP( double *res, vector_float *x, int start, int end, level_struct *l, struct Thread *threading ) {
   /*********************
    * res <- norms of vectors in x: contains x->num_vect_now elements
    ********************/

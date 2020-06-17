@@ -30,19 +30,19 @@
   void ghost_sendrecv_init_PRECISION( const int type, comm_PRECISION_struct *c, level_struct *l );
 //  void ghost_sendrecv_PRECISION( buffer_PRECISION phi, const int mu, const int dir,
 //                                 comm_PRECISION_struct *c, const int amount, level_struct *l );
-  void ghost_sendrecv_PRECISION_new( buffer_PRECISION phi, const int mu, const int dir,
+  void ghost_sendrecv_PRECISION( buffer_PRECISION phi, const int mu, const int dir,
                                  comm_PRECISION_struct *c, const int amount, level_struct *l );
 //  void ghost_wait_PRECISION( buffer_PRECISION phi, const int mu, const int dir,
 //                             comm_PRECISION_struct *c, const int amount, level_struct *l );
-  void ghost_wait_PRECISION_new( buffer_PRECISION phi, const int mu, const int dir,
+  void ghost_wait_PRECISION( buffer_PRECISION phi, const int mu, const int dir,
                              comm_PRECISION_struct *c, const int amount, level_struct *l );
 
 //  void ghost_update_PRECISION( vector_PRECISION *phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l );
-  void ghost_update_PRECISION_new( vector_PRECISION *phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l );
+  void ghost_update_PRECISION( vector_PRECISION *phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l );
   void ghost_update_wait_PRECISION( vector_PRECISION *phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l );
 
 //  void negative_sendrecv_PRECISION( vector_PRECISION *phi, const int mu, comm_PRECISION_struct *c, level_struct *l );
-  void negative_sendrecv_PRECISION_new( vector_PRECISION *phi, const int mu, comm_PRECISION_struct *c, level_struct *l );
+  void negative_sendrecv_PRECISION( vector_PRECISION *phi, const int mu, comm_PRECISION_struct *c, level_struct *l );
   void negative_wait_PRECISION( const int mu, comm_PRECISION_struct *c, level_struct *l );
 
 #endif

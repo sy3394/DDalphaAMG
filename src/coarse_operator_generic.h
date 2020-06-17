@@ -29,30 +29,30 @@
   
   void coarse_operator_PRECISION_alloc( level_struct *l );
   void coarse_operator_PRECISION_free( level_struct *l );
-  void coarse_operator_PRECISION_setup_new( vector_PRECISION *V, level_struct *l );
+  void coarse_operator_PRECISION_setup( vector_PRECISION *V, level_struct *l );
   void coarse_operator_PRECISION_setup_finalize( level_struct *l, struct Thread *threading );
 
-  void coarse_self_couplings_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, int start, int end, level_struct *l );
-  void coarse_block_operator_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int start,
+  void coarse_self_couplings_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, int start, int end, level_struct *l );
+  void coarse_block_operator_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start,
                                         schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
 
-  void coarse_aggregate_self_couplings_PRECISION_new( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, 
+  void coarse_aggregate_self_couplings_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, 
                                                   schwarz_PRECISION_struct *s, level_struct *l );
 
-  void coarse_aggregate_neighbor_couplings_PRECISION_new( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, const int mu, schwarz_PRECISION_struct *s, level_struct *l );
-  void coarse_aggregate_block_diagonal_PRECISION_new( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, config_PRECISION block, level_struct *l );
+  void coarse_aggregate_neighbor_couplings_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, const int mu, schwarz_PRECISION_struct *s, level_struct *l );
+  void coarse_aggregate_block_diagonal_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, config_PRECISION block, level_struct *l );
 
-  void coarse_gamma5_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, int start, int end, level_struct *l );
+  void coarse_gamma5_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, int end, level_struct *l );
   void coarse_tau1_gamma5_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, int end, level_struct *l );
-  void apply_coarse_operator_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+  void apply_coarse_operator_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 					    operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
   void apply_coarse_operator_dagger_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,// not used anywhere
                                                operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
 
-  void coarse_operator_PRECISION_test_routine_new( level_struct *l, struct Thread *threading );
+  void coarse_operator_PRECISION_test_routine( level_struct *l, struct Thread *threading );
   
   // eta += D*phi, D stored columnwise
-  static inline void mv_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D,
+  static inline void mv_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
 				       const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     register int i, j, k=0, jj, jjj;
 
@@ -62,7 +62,7 @@
   }
 
   // eta -= D*phi, D stored columnwise
-  static inline void nmv_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D,
+  static inline void nmv_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
 					const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     register int i, j, k=0, jj, jjj;
     
@@ -72,7 +72,7 @@
   }
 
   // eta += D^Dagger*phi, D stored columnwise
-  static inline void mvh_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D,
+  static inline void mvh_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
 					const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     register int i, j, k=0, jj, jjj;
 
@@ -82,7 +82,7 @@
   }
 
   // eta -= D^Dagger*phi, D stored columnwise
-  static inline void nmvh_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D,
+  static inline void nmvh_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
 					 const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     register int i, j, k=0, jj, jjj; 
 
@@ -92,7 +92,7 @@
   }
 
   // eta = D*phi, D hermitian and stored columnwise packed
-  static inline void mvp_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D,
+  static inline void mvp_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
 					const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     register int i, j, k, jj, jjj;
 
@@ -114,7 +114,7 @@
   }
 
   // eta += D*phi, D hermitian and stored columnwise packed
-  static inline void pmvp_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D,
+  static inline void pmvp_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
 					 const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     register int i, j, k, jj, jjj;
 
@@ -133,7 +133,7 @@
   }
 
   // eta += D*phi, D hermitian and stored columnwise packed
-  static inline void mmvp_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D,
+  static inline void mmvp_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
 					 const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     register int i, j, k, jj, jjj;
 
@@ -152,7 +152,7 @@
   }
 
   // eta += D*phi, D anti-hermitian and stored columnwise packed
-  static inline void pamvp_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D,
+  static inline void pamvp_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
 					  const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     register int i, j, k, jj, jjj;
 
@@ -171,7 +171,7 @@
   }
 
   // eta -= D*phi, D anti-hermitian and stored columnwise packed
-  static inline void mamvp_PRECISION_new( const buffer_PRECISION eta, const complex_PRECISION *D,
+  static inline void mamvp_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
 					  const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     register int i, j, k, jj, jjj;
 
@@ -191,7 +191,7 @@
 
 // clover stores clover term of D_W
 // eta = clover*phi
-  static inline void coarse_self_couplings_clover_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+  static inline void coarse_self_couplings_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 								 config_PRECISION clover, int length, level_struct *l ) {
 
     int num_eig_vect = l->num_parent_eig_vect, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;    
@@ -244,21 +244,21 @@
 #endif*/
       while ( phi_pt < phi_end_pt ) {
         // A
-        mvp_PRECISION_new( eta_pt, clover_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+        mvp_PRECISION( eta_pt, clover_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
         clover_pt += clover_step_size1; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
         // D
-        mvp_PRECISION_new( eta_pt, clover_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+        mvp_PRECISION( eta_pt, clover_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
         clover_pt += clover_step_size1; phi_pt -= num_eig_vect*nvec_phi;
         // C = -B*
-        nmvh_PRECISION_new( eta_pt, clover_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+        nmvh_PRECISION( eta_pt, clover_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
         phi_pt += num_eig_vect*nvec_phi; eta_pt -= num_eig_vect*nvec_eta;
         // B
-        mv_PRECISION_new( eta_pt, clover_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+        mv_PRECISION( eta_pt, clover_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
         clover_pt += clover_step_size2; phi_pt += num_eig_vect*nvec_phi; eta_pt += site_var*nvec_eta;
       }
   }
 
-  static inline void coarse_add_block_diagonal_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+  static inline void coarse_add_block_diagonal_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 							      config_PRECISION block, int length, level_struct *l ) {
     
     int num_eig_vect = l->num_parent_eig_vect, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
@@ -287,15 +287,15 @@
 #endif*/
       while ( phi_pt < phi_end_pt ) {
         // A
-        pmvp_PRECISION_new( eta_pt, block_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+        pmvp_PRECISION( eta_pt, block_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
         block_pt += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
         // D
-        pmvp_PRECISION_new( eta_pt, block_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+        pmvp_PRECISION( eta_pt, block_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
         block_pt += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
       }
   }
 
-  static inline void coarse_add_anti_block_diagonal_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+  static inline void coarse_add_anti_block_diagonal_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 								   config_PRECISION block, int length, level_struct *l ) {
 
     int num_eig_vect = l->num_parent_eig_vect, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
@@ -325,10 +325,10 @@
 #endif*/
       while ( phi_pt < phi_end_pt ) {
         // A
-        pamvp_PRECISION_new( eta_pt, block_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+        pamvp_PRECISION( eta_pt, block_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
         block_pt += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
         // D
-        pamvp_PRECISION_new( eta_pt, block_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+        pamvp_PRECISION( eta_pt, block_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
         block_pt += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
       }
   }
@@ -362,7 +362,7 @@
 #endif
 }
 
-  static inline void coarse_hopp_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+  static inline void coarse_hopp_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 						config_PRECISION D, level_struct *l ) {
   
     int num_eig_vect  = l->num_parent_eig_vect;
@@ -410,26 +410,26 @@
     } else {
 #endif*/
     // A  
-    nmv_PRECISION_new( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    nmv_PRECISION( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
     // C
     eta_pt += num_eig_vect*nvec_eta;
     D_pt += num_eig_vect2;
-    nmv_PRECISION_new( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    nmv_PRECISION( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
     // B
     phi_pt += num_eig_vect*nvec_phi;
     eta_pt -= num_eig_vect*nvec_eta;
     D_pt += num_eig_vect2;
-    nmv_PRECISION_new( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    nmv_PRECISION( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
     // D
     eta_pt += num_eig_vect*nvec_eta;
     D_pt += num_eig_vect2;
-    nmv_PRECISION_new( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    nmv_PRECISION( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
 /*#ifdef HAVE_TM1p1
     }
     #endif*/
 }
 
-  static inline void coarse_daggered_hopp_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+  static inline void coarse_daggered_hopp_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 							 config_PRECISION D, level_struct *l ) {
     
     int num_eig_vect  = l->num_parent_eig_vect;
@@ -477,26 +477,26 @@
     } else {
 #endif*/
     // A* 
-    nmvh_PRECISION_new( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    nmvh_PRECISION( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
     // -C*
     phi_pt += num_eig_vect*nvec_phi;
     D_pt += num_eig_vect2;
-    mvh_PRECISION_new( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    mvh_PRECISION( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
     // -B*
     eta_pt += num_eig_vect*nvec_eta;
     phi_pt -= num_eig_vect*nvec_phi;
     D_pt += num_eig_vect2;
-    mvh_PRECISION_new( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    mvh_PRECISION( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
     // D*
     phi_pt += num_eig_vect*nvec_phi;
     D_pt += num_eig_vect2;
-    nmvh_PRECISION_new( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    nmvh_PRECISION( eta_pt, D_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
 /*#ifdef HAVE_TM1p1
     }
 #endif*/
   }
  
-  static inline void coarse_n_hopp_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+  static inline void coarse_n_hopp_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 						  config_PRECISION D, level_struct *l ) {
   
     int num_eig_vect  = l->num_parent_eig_vect;
@@ -543,26 +543,26 @@
     } else {
 #endif*/
     // A  
-    mv_PRECISION_new( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
     // C
     eta_pt += num_eig_vect*nvec_eta;
     D += num_eig_vect2;
-    mv_PRECISION_new( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
     // B
     phi_pt += num_eig_vect*nvec_phi;
     eta_pt -= num_eig_vect*nvec_eta;
     D += num_eig_vect2;
-    mv_PRECISION_new( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
     // D
     eta_pt += num_eig_vect*nvec_eta;
     D += num_eig_vect2;
-    mv_PRECISION_new( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    mv_PRECISION( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
     /*#ifdef HAVE_TM1p1
     }
 #endif*/
 }
 
-  static inline void coarse_n_daggered_hopp_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+  static inline void coarse_n_daggered_hopp_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 							   config_PRECISION D, level_struct *l ) {
     
     int num_eig_vect  = l->num_parent_eig_vect;
@@ -609,26 +609,26 @@
     } else {
 #endif*/
     // A* 
-    mvh_PRECISION_new( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
     // -C*
     phi_pt += num_eig_vect*nvec_phi;
     D += num_eig_vect2;
-    nmvh_PRECISION_new( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
     // -B*
     eta_pt += num_eig_vect*nvec_eta;
     phi_pt -= num_eig_vect*nvec_phi;
     D += num_eig_vect2;
-    nmvh_PRECISION_new( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
     // D*
     phi_pt += num_eig_vect*nvec_phi;
     D += num_eig_vect2;
-    mvh_PRECISION_new( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+    mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
 /*#ifdef HAVE_TM1p1
     }
 #endif*/
   }
 
-  static inline void coarse_spinwise_hopp_PRECISION_new( vector_PRECISION *eta1, vector_PRECISION *eta2, 
+  static inline void coarse_spinwise_hopp_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, 
 							 vector_PRECISION *phi, config_PRECISION D, level_struct *l ) {
     
     int num_eig_vect  = l->num_parent_eig_vect;
@@ -642,19 +642,19 @@
     // note: minus sign of D = self_coupling - hopping_term is added here
 
     // A  
-    mv_PRECISION_new( eta1_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta1, nvec_phi );
+    mv_PRECISION( eta1_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta1, nvec_phi );
     // C
     eta1_pt += num_eig_vect*nvec_eta1;
     D += num_eig_vect2;
-    mv_PRECISION_new( eta1_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta1, nvec_phi );
+    mv_PRECISION( eta1_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta1, nvec_phi );
     // B
     phi_pt += num_eig_vect*nvec_phi;
     D += num_eig_vect2;
-    mv_PRECISION_new( eta2_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta2, nvec_phi );
+    mv_PRECISION( eta2_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta2, nvec_phi );
     // D
     eta2_pt += num_eig_vect*nvec_eta2;
     D += num_eig_vect2;
-    mv_PRECISION_new( eta2_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta2, nvec_phi );
+    mv_PRECISION( eta2_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta2, nvec_phi );
   }
 
 /* // not used anywhere
@@ -688,7 +688,7 @@
   }
 */
 
-  static inline void coarse_spinwise_n_hopp_PRECISION_new( vector_PRECISION *eta1, vector_PRECISION *eta2,
+  static inline void coarse_spinwise_n_hopp_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2,
 							   vector_PRECISION *phi, config_PRECISION D, level_struct *l ) {
     
     int num_eig_vect  = l->num_parent_eig_vect;
@@ -702,22 +702,22 @@
     // note: minus sign of D = self_coupling - hopping_term is added here
 
     // A  
-    nmv_PRECISION_new( eta1_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta1, nvec_phi );
+    nmv_PRECISION( eta1_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta1, nvec_phi );
     // C
     eta1_pt += num_eig_vect*nvec_eta1;
     D += num_eig_vect2;
-    nmv_PRECISION_new( eta1_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta1, nvec_phi );
+    nmv_PRECISION( eta1_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta1, nvec_phi );
     // B
     phi_pt += num_eig_vect*nvec_phi;
     D += num_eig_vect2;
-    nmv_PRECISION_new( eta2_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta2, nvec_phi );
+    nmv_PRECISION( eta2_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta2, nvec_phi );
     // D
     eta2_pt += num_eig_vect*nvec_eta2;
     D += num_eig_vect2;
-    nmv_PRECISION_new( eta2_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta2, nvec_phi );
+    nmv_PRECISION( eta2_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta2, nvec_phi );
   }
 
-  static inline void coarse_spinwise_n_daggered_hopp_PRECISION_new( vector_PRECISION *eta1, vector_PRECISION *eta2,
+  static inline void coarse_spinwise_n_daggered_hopp_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2,
 								    vector_PRECISION *phi, config_PRECISION D, level_struct *l ) {
     
     int num_eig_vect  = l->num_parent_eig_vect;
@@ -731,21 +731,21 @@
     // note: minus sign of D = self_coupling - hopping_term is added here
 
     // A* 
-    nmvh_PRECISION_new( eta1_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta1, nvec_phi );
+    nmvh_PRECISION( eta1_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta1, nvec_phi );
     // -C*
     phi_pt += num_eig_vect*nvec_phi;
     D += num_eig_vect2;
-    mvh_PRECISION_new( eta2_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta2, nvec_phi );
+    mvh_PRECISION( eta2_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta2, nvec_phi );
     // -B*
     eta1_pt += num_eig_vect*nvec_eta1;
     phi_pt -= num_eig_vect*nvec_phi;
     D += num_eig_vect2;
-    mvh_PRECISION_new( eta1_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta1, nvec_phi );
+    mvh_PRECISION( eta1_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta1, nvec_phi );
     // D*
     eta2_pt += num_eig_vect*nvec_eta2;
     phi_pt  += num_eig_vect*nvec_phi;
     D += num_eig_vect2;
-    nmvh_PRECISION_new( eta2_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta2, nvec_phi );
+    nmvh_PRECISION( eta2_pt, D, phi_pt, num_eig_vect, nvec, nvec_eta2, nvec_phi );
   }
 
 #endif

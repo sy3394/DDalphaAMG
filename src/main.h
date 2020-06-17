@@ -102,13 +102,13 @@
   #define pow_float powf
   #define abs_double fabs
   #define abs_float fabsf
-  //  printf("malloc of %s (%s:%d) kind: %s length: %d\n",#variable, __FILE__, (int)__LINE__, #kind, (int) length); \
-  //printf("free of %s (%s:%d) kind: %s length: %d\n",#variable, __FILE__, (int)__LINE__, #kind, (int) length); \
+  //printf("%d malloc of %s (%s:%d) kind: %s length: %d\n",g.my_rank,#variable, __FILE__, (int)__LINE__, #kind, (int) length);}
+  //printf("%d free of %s (%s:%d) kind: %s length: %d\n",g.my_rank,#variable, __FILE__, (int)__LINE__, #kind, (int) length);
 
   // I temporaly replaced malloc by _mm_malloc; I might need to use this function only in some selected MALLOC statement!!!!
   #define MALLOC( variable, kind, length ) do{ if ( variable != NULL ) { \
   printf0("malloc of \"%s\" failed: pointer is not NULL (%s:%d).\n", #variable, __FILE__, __LINE__ ); } \
-  if ( (length) > 0 ) { variable = (kind*) malloc( sizeof(kind) * (length) ); } \
+  if ( (length) > 0 ) { variable = (kind*) malloc( sizeof(kind) * (length) ); }	\
   if ( variable == NULL && (length) > 0 ) { \
   error0("malloc of \"%s\" failed: no memory allocated (%s:%d), current memory used: %lf GB.\n", \
   #variable, __FILE__, __LINE__, g.cur_storage/1024.0 ); } \
@@ -116,7 +116,8 @@
   if ( g.cur_storage > g.max_storage ) g.max_storage = g.cur_storage; }while(0)
 
   #define FREE( variable, kind, length ) do{ if ( variable != NULL ) { \
-  free( variable ); variable = NULL; g.cur_storage -= (sizeof(kind) * (length))/(1024.0*1024.0); } else { \
+  free( variable ); variable = NULL; g.cur_storage -= (sizeof(kind) * (length))/(1024.0*1024.0); \
+  } else {								\
   printf0("multiple free of \"%s\"? pointer is already NULL (%s:%d).\n", #variable, __FILE__, __LINE__ ); } }while(0)
 
   // if -std=c11 has been chosen, can use aligned_alloc; the following is Intel compiler specific
@@ -355,8 +356,8 @@
     int clover_size;
     int block_size;
     // buffer vectors: vbuf has num_eig_vect many vectors
-    vector_float vbuf_float[10], sbuf_float[2];
-    vector_double vbuf_double[10], sbuf_double[2];
+    vector_float vbuf_float[5], sbuf_float[2];
+    vector_double vbuf_double[5], sbuf_double[2];
     // storage + daggered-operator bufferes
     vector_double x; // used in io.c
     // local solver parameters
@@ -373,7 +374,7 @@
     
     FILE *logfile;
     
-    gmres_double_struct p;// why only double???????
+    gmres_double_struct p;
     gmres_MP_struct p_MP;
     operator_double_struct op_double;
     operator_float_struct op_float;
@@ -381,7 +382,6 @@
     int *solver;
     fabulous_orthoscheme *f_orthoscheme;
     fabulous_orthotype *f_orthotype;
-    int max_mvp;               // Maximum number of Matrix X Vector product: not used!!!!
     int *ortho_iter;           // #iteration for Iterated Schemas (IMGS and ICGS); Must be positive integer >= 2
     int *max_kept_direction;   // max #kept direction per iteration
     int *real_residual;         // if 1, compute X and R at each iteration such that the user can access them in fabulous CallBack funciton

@@ -724,7 +724,7 @@ void vector_io( double *phi, char *filename, const int mode, level_struct *l ) {
   phi_vec.vector_buffer = (buffer_double) phi; 
   phi_vec.num_vect = l->num_eig_vect;//by assumption
   phi_vec.num_vect_now = l->num_eig_vect;//by assumption
-  global_norm_double_new( norm, &phi_vec, 0, l->inner_vector_size, l, no_threading );
+  global_norm_double( norm, &phi_vec, 0, l->inner_vector_size, l, no_threading );
   for (int j=0; j<l->num_eig_vect; j++ ) printf0("norm[%d]: %e\n", j, norm[j] );
   printf0("...done (%lf seconds)\n\n", t1-t0 ); 
 }
@@ -915,15 +915,15 @@ void vector_io_single_file( double *psi, double *lambda, char *filename, const i
             }
       if ( psi == NULL ) {
         if ( g.mixed_precision )
-          trans_float_new(&(l->is_float.test_vector_vec), &(l->x), l->s_float.op.translation_table, l, no_threading);
+          trans_float(&(l->is_float.test_vector_vec), &(l->x), l->s_float.op.translation_table, l, no_threading);
         else
-          trans_double_new(&(l->is_double.test_vector_vec), &(l->x), l->s_double.op.translation_table, l, no_threading);
+          trans_double(&(l->is_double.test_vector_vec), &(l->x), l->s_double.op.translation_table, l, no_threading);
       } else {
 	vector_double psi_vec;
 	psi_vec.vector_buffer = ((buffer_double) psi);
 	psi_vec.num_vect = n;//by assumption
 	psi_vec.num_vect_now = n;//by assumption
-        vector_double_copy_new( &psi_vec, &(l->x), 0, l->inner_vector_size, l );
+        vector_double_copy( &psi_vec, &(l->x), 0, l->inner_vector_size, l );
       }
       //	}//END:for ( j=0; j<n; j++ ) {
   } else if ( mode == _WRITE ) {
@@ -938,15 +938,15 @@ void vector_io_single_file( double *psi, double *lambda, char *filename, const i
     //    for ( j=0; j<n; j++ ){
       if ( psi == NULL ) {
         if ( g.mixed_precision )
-          trans_back_float_new( &(l->x), &(l->is_float.test_vector_vec), l->s_float.op.translation_table, l, no_threading );
+          trans_back_float( &(l->x), &(l->is_float.test_vector_vec), l->s_float.op.translation_table, l, no_threading );
         else
-          trans_back_double_new( &(l->x), &(l->is_double.test_vector_vec), l->s_double.op.translation_table, l, no_threading );
+          trans_back_double( &(l->x), &(l->is_double.test_vector_vec), l->s_double.op.translation_table, l, no_threading );
       } else {
 	vector_double psi_vec;
 	psi_vec.vector_buffer = ((complex_double*)psi);
 	psi_vec.num_vect = n;//by assumption!!!
 	psi_vec.num_vect_now = n;//by assumption!!!
-        vector_double_copy_new( &(l->x), &psi_vec, 0, l->inner_vector_size, l );
+        vector_double_copy( &(l->x), &psi_vec, 0, l->inner_vector_size, l );
       }
       phi=(double *)(&(l->x.vector_buffer));
       phi_pt=phi;

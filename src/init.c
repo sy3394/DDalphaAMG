@@ -32,8 +32,6 @@
 #include "main.h"
 #include "DDalphaAMG.h"
 
-//struct Thread *no_threading;//my proposal
-
 complex_double _COMPLEX_double_ONE       = (complex_double) 1.0;
 complex_double _COMPLEX_double_MINUS_ONE = (complex_double) (-1.0);
 complex_double _COMPLEX_double_ZERO      = (complex_double) 0.0;
@@ -148,11 +146,9 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     prof_init( l );
   
   //-------------- Setup g.p(_MP) for the solver part (gmres_PRECISION_struct in global_struct: used only in the solver part)
-  //                  The top level solver is MP(g.mixed_precision==2)/PRECISION(g.mixed_precision=0:double,1:single)
+  //                  The top level solver is MP/double/float (MP:g.mixed_precision==2;double:0;single:1)
+  //                  MP precision solver uses float except when double is necessary to keep the precision of the resid.
   //                  The lower level solvers are of double precision if g.mixed_precision=0 and of float otherwise
-  // g.method==5,6 2-level method???
-  // g.method==5,6 works as expexted only with odd_even, double and not inc????
-  //   if the changeds suggested in the comments are implementd, if g.even_odd, it will behave diff'ly; FGMRES+noAMG+prec.(_COARSE_GMRES)
 #ifdef HAVE_TM1p1
   nvec *= 2;
 #endif
@@ -161,9 +157,9 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     if ( g.mixed_precision == 2 ) {// INIT_ONE_PREC is defiend in main.h
 #endif
       fgmres_MP_struct_alloc( g.restart, g.max_restart, _INNER,
-                              g.tol, _RIGHT, vcycle_float_new, &(g.p_MP), l );//why vcycle????
+                              g.tol, _RIGHT, vcycle_float, &(g.p_MP), l );
       g.p.op            = &(g.op_double);
-      g.p.eval_operator = d_plus_clover_double_new;
+      g.p.eval_operator = d_plus_clover_double;
 #if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
       vector_double_alloc( &(g.p.b), _INNER, nvec, l, no_threading );
       vector_double_alloc( &(g.p.x), _INNER, nvec, l, no_threading );
@@ -172,8 +168,8 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     } else {
 #endif
       fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
-				  _GLOBAL_FSOLVER, _RIGHT, preconditioner_new,
-				  d_plus_clover_double_new, &(g.p), l );
+				  _GLOBAL_FSOLVER, _RIGHT, preconditioner,
+				  d_plus_clover_double, &(g.p), l );
     }
 #ifdef INIT_ONE_PREC
   }
@@ -185,7 +181,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
       fgmres_MP_struct_alloc( g.restart, g.max_restart, _INNER,
                               g.tol, _NOTHING, NULL, &(g.p_MP), l );
       g.p.op = &(g.op_double);
-      g.p.eval_operator = d_plus_clover_double_new;
+      g.p.eval_operator = d_plus_clover_double;
 #if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
       vector_double_alloc( &(g.p.b), _INNER, nvec, l, no_threading );
       vector_double_alloc( &(g.p.x), _INNER, nvec, l, no_threading );
@@ -194,7 +190,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     } else {
 #endif
       fgmres_double_struct_alloc( g.restart, g.max_restart, _INNER, g.tol,
-                                  _GLOBAL_FSOLVER, _NOTHING, NULL, d_plus_clover_double_new,
+                                  _GLOBAL_FSOLVER, _NOTHING, NULL, d_plus_clover_double,
                                   &(g.p), l );
 #ifdef INIT_ONE_PREC
     }
@@ -202,12 +198,13 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   } 
   else if ( g.method == -1 ) {//----- pure CGN (no AMG) 
     fgmres_double_struct_alloc( 4, g.restart*g.max_restart, _INNER, g.tol,
-                                _GLOBAL_FSOLVER, _NOTHING, NULL, d_plus_clover_double_new, &(g.p), l );
+                                _GLOBAL_FSOLVER, _NOTHING, NULL, d_plus_clover_double, &(g.p), l );
     fine_level_double_alloc( l );
   }
   END_LOCKED_MASTER(threading)
 
   //------------------ Set the level structure for AMG recursively
+  // g.method ==4,5 does not use AMG; so no related struc is necessary???? uses sp_PRECISION 
   // l->s_PRECISION is not necessary if g.method==0, defined in smoother_PRECISION_def????? op in s_* is used; see linsolve_*
   // l->p_PRECISION is not necessary if g.method==0, defined in smoother_PRECISION_def?????
   if ( g.method >= 0 ) {
@@ -215,11 +212,11 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     t0 = MPI_Wtime();
     if ( g.mixed_precision ) {
       smoother_float_def( l ); // define s_PRECISION
-      if ( g.method >= 5 && g.odd_even )
+      if ( g.method >= 4 && g.odd_even )
 	oddeven_setup_float( &(g.op_double), l );
     } else {
       smoother_double_def( l );
-      if ( g.method >= 5 && g.odd_even )
+      if ( g.method >= 4 && g.odd_even )
         oddeven_setup_double( &(g.op_double), l );
     }
     END_LOCKED_MASTER(threading)
@@ -232,16 +229,16 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 	  // The initial step of setting up the interpolation operator out of test vectors using only smoothing 
 	  interpolation_float_alloc( l );
 	  END_LOCKED_MASTER(threading)
-	  interpolation_float_define_new( V, l, threading );
+	  interpolation_float_define( V, l, threading );
 	} else {
 	  START_LOCKED_MASTER(threading)
 	  fine_level_double_alloc( l ); //p_PRECISION.b/x are allocated here.
 	  // The initial step of setting up the interpolation operator out of test vectors using only smoothing
 	  interpolation_double_alloc( l );
 	  END_LOCKED_MASTER(threading)
-	  interpolation_double_define_new( V, l, threading );
+	  interpolation_double_define( V, l, threading );
 	}
-        next_level_setup_new( V, l, threading );//recursive function: dictated by the chice of g.num_vect_now!!!!!!
+        next_level_setup( V, l, threading );//recursive function: dictated by the chice of g.num_vect_now!!!!!!
       }
     START_LOCKED_MASTER(threading)
     t1 = MPI_Wtime();
@@ -309,7 +306,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
       if ( g.method > 0 ) {
         printf0("|           block lattice: %-3d %-3d %-3d %-3d                 |\n", bl[0], bl[1], bl[2], bl[3] );
 	if ( g.method == 2 )
-	  printf0("|             solver type: %-2d                             |\n", g.solver[i] );
+	  printf0("|             solver type: %-2d                              |\n", g.solver[i] );
         if ( i+1 < g.num_levels ) {
           printf0("|        post smooth iter: %-3d                             |\n", g.post_smooth_iter[i] );
           printf0("|     smoother inner iter: %-3d                             |\n", g.block_iter[i] );
@@ -356,7 +353,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   END_LOCKED_MASTER(threading)
   
 #ifdef DEBUG
-  test_routine_new( l, threading );
+  test_routine( l, threading );
 #endif
 }
 
@@ -368,7 +365,7 @@ void method_re_setup( level_struct *l, struct Thread *threading ) {
 }
 
 // initialize top-level if depth = 0 and next_level in level_struct *l
-void next_level_setup_new( vector_double *V, level_struct *l, struct Thread *threading ) {
+void next_level_setup( vector_double *V, level_struct *l, struct Thread *threading ) {
 
   if ( l->level > 0 ) {//if not at the bottom: safety net
     int mu;
@@ -418,21 +415,21 @@ void next_level_setup_new( vector_double *V, level_struct *l, struct Thread *thr
     // update threading struct with size info of the next level 
     update_threading(threading, l); // each thread has its own threading struc
 
-    //------ entrance to recursion: coarse_grid_correction_PRECISION_setup = recursive function (next_level_setup_new is called inside of this)
+    //------ entrance to recursion: coarse_grid_correction_PRECISION_setup = recursive function (next_level_setup is called inside of this)
     if ( g.mixed_precision ) {
       START_LOCKED_MASTER(threading)
       level_double_init( l->next_level );
       next_level_float_setup( l );// gmres_float_struct p_float (k-cycle) is defined here.
       END_LOCKED_MASTER(threading)
       if ( l->depth == 0 )
-        coarse_grid_correction_float_setup_new( l, threading );//recursive function
+        coarse_grid_correction_float_setup( l, threading );//recursive function
     } else {
       START_LOCKED_MASTER(threading)
       level_double_init( l->next_level );
       next_level_double_setup( l );// gmres_double_struct p_double (k-cycle) is defined here. 
       END_LOCKED_MASTER(threading)
       if ( l->depth == 0 )
-        coarse_grid_correction_double_setup_new( l, threading );//recursive function
+        coarse_grid_correction_double_setup( l, threading );//recursive function
     }
   }
   
@@ -468,9 +465,9 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
     }
     
     if ( g.mixed_precision )
-      iterative_float_setup_new( setup_iter, l, threading );
+      iterative_float_setup( setup_iter, l, threading );
     else
-      iterative_double_setup_new( setup_iter, l, threading );
+      iterative_double_setup( setup_iter, l, threading );
 
     
     if ( g.setup_m0 != g.m0 ) {
@@ -499,12 +496,12 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
     END_LOCKED_MASTER(threading)
       
 #ifdef DEBUG
-    test_routine_new( l, threading );
+    test_routine( l, threading );
 #endif
   }
 }
 
-// next_level_free -> next_level_PRECISION_free -> coarse_grid_correction_PRECISION_free -> next_level_free
+// next_level_free -> next_level_PRECISION_free -> coarse_grid_correction_PRECISION_free -> next_level_free (->if not at the bottom) next_level_PRECISION_free ... & start cleanup)
 void next_level_free( level_struct *l ) {
 
   if ( l->level > 0 ) { 
@@ -520,11 +517,11 @@ void method_free( level_struct *l ) {
   
   if ( g.method>=0 ) {
     if ( g.mixed_precision ) {
-      if ( g.method >= 5 && g.odd_even )
+      if ( g.method >= 4 && g.odd_even )
         oddeven_free_float( l );
       smoother_float_free( l );
     } else {
-      if ( g.method >= 5 && g.odd_even )
+      if ( g.method >= 4 && g.odd_even )
         oddeven_free_double( l );
       smoother_double_free( l );
     }
@@ -540,22 +537,25 @@ void method_free( level_struct *l ) {
     fine_level_double_free( l );
   }
 
+  if ( g.method >= 0 ) {
 #ifdef INIT_ONE_PREC
-  if ( g.mixed_precision == 2 && g.method >= 0 ) {
+    if ( g.mixed_precision == 2 ) {
 #endif
-    fgmres_MP_struct_free( &(g.p_MP), l );
+      fgmres_MP_struct_free( &(g.p_MP), l );
 #if defined (INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
-    vector_double_free( &(g.p.b), l, no_threading );
-    vector_double_free( &(g.p.x), l, no_threading );
+      vector_double_free( &(g.p.b), l, no_threading );
+      vector_double_free( &(g.p.x), l, no_threading );
 #endif
 #ifdef INIT_ONE_PREC
-  } else {printf0("init free else\n");
+    } else {
 #endif
-    fgmres_double_struct_free( &(g.p), l );
+      fgmres_double_struct_free( &(g.p), l );
 #ifdef INIT_ONE_PREC
+    }
+#endif
+  } else {
+      fgmres_double_struct_free( &(g.p), l );
   }
-#endif
-
 }
 
 void method_finalize( level_struct *l ) {
@@ -586,6 +586,7 @@ void method_finalize( level_struct *l ) {
   FREE( g.f_orthoscheme, fabulous_orthoscheme, ls );
   FREE( g.f_orthotype, fabulous_orthotype, ls );
   FREE( g.ortho_iter, int, ls );
+  FREE( g.max_kept_direction, int, ls );
   FREE( g.k, int, ls );
   FREE( g.real_residual, int, ls) ;
   cart_free( l );

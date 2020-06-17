@@ -72,15 +72,15 @@ void ghost_alloc_PRECISION( int buffer_size, comm_PRECISION_struct *c, level_str
     }
   }
 
-  //--- allocate l->vbuf_PRECISION[9]
- if ( l->vbuf_PRECISION[9].vector_buffer == NULL ) {
+  //--- allocate l->vbuf_PRECISION[4]
+ if ( l->vbuf_PRECISION[4].vector_buffer == NULL ) {
    // no_threading is not allocated yet
-    //vector_PRECISION_alloc( &(l->vbuf_PRECISION[8]), _ORDINARY, n_vect, l, no_threading);
-    MALLOC( l->vbuf_PRECISION[9].vector_buffer, complex_PRECISION, l->vector_size*n_vect );
-    l->vbuf_PRECISION[9].type = _ORDINARY;
-    l->vbuf_PRECISION[9].size = l->vector_size;
-    l->vbuf_PRECISION[9].num_vect = n_vect; 
-    l->vbuf_PRECISION[9].l = l;
+    //vector_PRECISION_alloc( &(l->vbuf_PRECISION[4]), _ORDINARY, n_vect, l, no_threading);
+    MALLOC( l->vbuf_PRECISION[4].vector_buffer, complex_PRECISION, l->vector_size*n_vect );
+    l->vbuf_PRECISION[4].type = _ORDINARY;
+    l->vbuf_PRECISION[4].size = l->vector_size;
+    l->vbuf_PRECISION[4].num_vect = n_vect; 
+    l->vbuf_PRECISION[4].l = l;
   }
   c->num_vect = n_vect;
 }
@@ -93,14 +93,14 @@ void ghost_free_PRECISION( comm_PRECISION_struct *c, level_struct *l ) {
     FREE( c->buffer[2*mu],   complex_PRECISION, c->max_length[mu]*n_vect );
     FREE( c->buffer[2*mu+1], complex_PRECISION, c->max_length[mu]*n_vect );
   }
-  if ( l->vbuf_PRECISION[9].vector_buffer != NULL ){
-    //vector_PRECISION_free( &(l->vbuf_PRECISION[9]), l, no_threading);
-    FREE(l->vbuf_PRECISION[9].vector_buffer, complex_PRECISION, l->vector_size*n_vect);
+  if ( l->vbuf_PRECISION[4].vector_buffer != NULL ){
+    //vector_PRECISION_free( &(l->vbuf_PRECISION[4]), l, no_threading);
+    FREE(l->vbuf_PRECISION[4].vector_buffer, complex_PRECISION, l->vector_size*n_vect);
     /*
 #ifdef HAVE_TM1p1		
-     FREE( l->vbuf_PRECISION[8].vector_buffer, complex_PRECISION, 2*l->vector_size );		
+     FREE( l->vbuf_PRECISION[4].vector_buffer, complex_PRECISION, 2*l->vector_size );		
  #else		
-     FREE( l->vbuf_PRECISION[8].vector_buffer, complex_PRECISION, l->vector_size );		
+     FREE( l->vbuf_PRECISION[4].vector_buffer, complex_PRECISION, l->vector_size );		
  #endif
     */
    }
@@ -119,7 +119,7 @@ void ghost_sendrecv_init_PRECISION( const int type, comm_PRECISION_struct *c, le
   }
 }
 
-void ghost_sendrecv_PRECISION_new( buffer_PRECISION phi, const int mu, const int dir,
+void ghost_sendrecv_PRECISION( buffer_PRECISION phi, const int mu, const int dir,
 				   comm_PRECISION_struct *c, const int amount, level_struct *l ) {
   /**************************
    * buffer_PRECISION phi: vectors to be sent
@@ -234,7 +234,7 @@ void ghost_sendrecv_PRECISION_new( buffer_PRECISION phi, const int mu, const int
 
 // if dir is positive, wait (make sure to recieve the data) and update the ghost cells
 // if dir is negative, just wait
-void ghost_wait_PRECISION_new( buffer_PRECISION phi, const int mu, const int dir,
+void ghost_wait_PRECISION( buffer_PRECISION phi, const int mu, const int dir,
                            comm_PRECISION_struct *c, const int amount, level_struct *l ) {
   
   /*
@@ -254,7 +254,7 @@ void ghost_wait_PRECISION_new( buffer_PRECISION phi, const int mu, const int dir
 #endif*/
       
     if ( nvec_com < nvec )
-      error0("ghost_wait_PRECISION_: potential memory overflow\n");
+      error0("ghost_wait_PRECISION_: potential memory overflow (%d %d)\n", nvec_com,nvec);
 
     if ( amount == _FULL_SYSTEM ) {
       length[0] = (c->num_boundary_sites[2*mu])*offset;
@@ -330,7 +330,7 @@ void ghost_wait_PRECISION_new( buffer_PRECISION phi, const int mu, const int dir
 
 // used only in Schwarz method: update the full ghost shell
 // assume: phi is of size _SCHWARZ
-void ghost_update_PRECISION_new( vector_PRECISION *phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l ) {
+void ghost_update_PRECISION( vector_PRECISION *phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l ) {
 
   if( l->global_splitting[mu] > 1 ) {
     int i, j, jj, jjj, mu_dir = 2*mu-MIN(dir,0), nu, inv_mu_dir = 2*mu+1+MIN(dir,0), length, *table=NULL,
@@ -403,7 +403,7 @@ void ghost_update_wait_PRECISION( vector_PRECISION *phi, const int mu, const int
 
 // send inner boundary sites on the negative mu boundary in the negative mu dir and
 // recieve inner boundary sites from rank in the positive mu dir and store the associated ghost cells
-void negative_sendrecv_PRECISION_new( vector_PRECISION *phi, const int mu, comm_PRECISION_struct *c, level_struct *l ) {
+void negative_sendrecv_PRECISION( vector_PRECISION *phi, const int mu, comm_PRECISION_struct *c, level_struct *l ) {
   /**************************
    * dir = -1
    *   send neg mu inner boundary sites of this rank to the rank in the neg mu dir
@@ -417,7 +417,7 @@ void negative_sendrecv_PRECISION_new( vector_PRECISION *phi, const int mu, comm_
     int n                  = l->num_lattice_site_var;
     int nvec = phi->num_vect;
 
-    if ( l->vbuf_PRECISION[9].num_vect < nvec )
+    if ( l->vbuf_PRECISION[4].num_vect < nvec )
       error0("negative_sendrecv_PRECISION: potential memory overflow\n");
     
     buffer_PRECISION buffer, tmp_pt, buffer_pt;
@@ -426,8 +426,8 @@ void negative_sendrecv_PRECISION_new( vector_PRECISION *phi, const int mu, comm_
     for ( i=0; i<mu; i++ )
       boundary_start += c->num_boundary_sites[2*i]; // starting index of ghost cells of the negative mu boundary
 
-    //printf("negative_sendrecv_PRECISION_new %d %d %d %d %d\n",nvec, l->vbuf_PRECISION[8].num_vect, l->vbuf_PRECISION[8].size,n*(boundary_start-l->num_inner_lattice_sites),n*num_boundary_sites);fflush(stdout);
-    buffer    = l->vbuf_PRECISION[9].vector_buffer+n*(boundary_start-l->num_inner_lattice_sites)*nvec;
+    //printf("negative_sendrecv_PRECISION %d %d %d %d %d\n",nvec, l->vbuf_PRECISION[8].num_vect, l->vbuf_PRECISION[8].size,n*(boundary_start-l->num_inner_lattice_sites),n*num_boundary_sites);fflush(stdout);
+    buffer    = l->vbuf_PRECISION[4].vector_buffer+n*(boundary_start-l->num_inner_lattice_sites)*nvec;
     buffer_pt = buffer;
     
     // for each site on the negative mu inner boundary, set buffer_pt, i.e., buffer, to the value of phi at the site 

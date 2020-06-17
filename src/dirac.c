@@ -817,7 +817,7 @@ void finalize_operator_update( level_struct *l, struct Thread *threading ) {
          
 #ifdef DEBUG
   if (l->depth == 0) 
-    test_routine_new( l, threading );
+    test_routine( l, threading );
 #endif
 
 }

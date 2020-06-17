@@ -1,21 +1,21 @@
 //  void block_hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 //                                     int start, int amount, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
-  void block_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+  void block_hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
                                      int start, int amount, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
 //  void block_n_hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, 
 //                                       int start, int amount, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
-  void block_n_hopping_term_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi, 
+  void block_n_hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, 
                                        int start, int amount, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
 
 //  void block_diag_oo_inv_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 //                                    int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
-  void block_diag_oo_inv_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+  void block_diag_oo_inv_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
                                     int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
 //  void block_diag_oo_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 //                                int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
-  void block_diag_oo_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+  void block_diag_oo_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
                                 int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
 //  void block_diag_ee_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 //                                int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
-  void block_diag_ee_PRECISION_new( vector_PRECISION *eta, vector_PRECISION *phi,
+  void block_diag_ee_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
                                 int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
