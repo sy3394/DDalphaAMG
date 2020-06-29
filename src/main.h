@@ -257,7 +257,7 @@
     
   } plot_table_line;
   
-  typedef struct var_table_entry {
+  typedef struct var_table_entry { 
     
     void *pt;
     char name[STRINGLENGTH];
@@ -266,13 +266,13 @@
     
   } var_table_entry;
   
-  typedef struct var_table {
+  typedef struct var_table {// top level struct
     
     int evaluation, multiplicative, shift_update, re_setup,
         track_error, track_cgn_error, average_over;
     char scan_var[STRINGLENGTH];
     double start_val, end_val, step_size, *output_table[6];
-    var_table_entry *entry, *iterator;
+    var_table_entry *entry, *iterator; // iterator is temp field to iterate over chain of var_table_entry's; entry pts to the actual var_table_entry w/ data
     plot_table_line *p, *p_end;
     
   } var_table;
@@ -444,7 +444,7 @@
 
   extern global_struct g;
   
-  // inline functiona
+  // inline functions
   static inline void printf0( char* format, ... ) {
     START_MASTER(no_threading)
     if ( g.my_rank == 0 && g.print >= 0 ) {
@@ -457,6 +457,7 @@
 #endif
       va_end(argpt);
       fflush(0);
+      //fflush(1)//my suggestion
     }
     END_MASTER(no_threading)
   }

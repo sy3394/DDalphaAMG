@@ -511,6 +511,8 @@ void selfcoupling_LU_doublet_decomposition_PRECISION( const config_PRECISION out
 }
 #endif
 
+// out_o/e += D_oe/eo*in_e/o if amount==_ODD_SITES/_EVEN_SITES; works on both parts if amount==_FULL_SYSTEM
+// in and out needs to be at least of size _ORDINARY 
 void hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op,
                              const int amount, level_struct *l, struct Thread *threading ) {
 
@@ -927,50 +929,56 @@ static void diag_oo_inv_PRECISION( vector_PRECISION *y, vector_PRECISION *x, ope
 #endif*/
 }
 
+// used only in void preconditioner() when g.method==4, 5
 void solve_oddeven_PRECISION( gmres_PRECISION_struct *p, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
+  /****************************************************************************************  
+   * Descripton: Solve D*x = b in the even-odd preconditioning using Schur complement D_sc
+   *   D_sc = D_ee - D_eo D_oo ^{-1} D_oe
+   *   x_e = D_sc^{-1} (b_e - D_eo*D_oo^{-1}*b_o)
+   *   x_o = D_oo^{-1} (b_o - D_oe*x_e)  
+   ****************************************************************************************/
 
-  // start and end indices for vector functions depending on thread
   int start;
   int end;
-  //compute_core_start_end(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start, &end, l, threading);
   compute_core_start_end_custom(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );
 
-  int j, jj, nvec = num_loop;//g.num_vect_now;//!!!!!!!!
+  int j, jj, nvec = num_loop;
   complex_PRECISION factor[nvec];
   VECTOR_LOOP(j, nvec, jj, factor[j+jj] = -1;)
 
-  vector_PRECISION tmp = op->buffer[0];
-  tmp.num_vect_now = nvec; p->x.num_vect_now = nvec; p->b.num_vect_now = nvec;//latter two necessary????
+  vector_PRECISION tmp = op->buffer[0]; // op->buffer[0] is of size _ORDINARY
+  tmp.num_vect_now = nvec; p->x.num_vect_now = nvec; p->b.num_vect_now = nvec;
   
-  // odd to even
+  // solve for x_e
   PROF_PRECISION_START( _SC, threading );
-  diag_oo_inv_PRECISION( &tmp, &(p->b), op, l, start, end );
+  diag_oo_inv_PRECISION( &tmp, &(p->b), op, l, start, end ); // tmp_o = D_oo^{-1}*b_o
   PROF_PRECISION_STOP( _SC, 0, threading );
   SYNC_CORES(threading)
-  vector_PRECISION_scale( &tmp, &tmp, factor, 0, start, end, l );
+  vector_PRECISION_scale( &tmp, &tmp, factor, 0, start, end, l ); // tmp_o = -D_oo^{-1}*b_o
   SYNC_CORES(threading)
   PROF_PRECISION_START( _NC, threading );
-  hopping_term_PRECISION( &(p->b), &tmp, op, _EVEN_SITES, l, threading );
+  hopping_term_PRECISION( &(p->b), &tmp, op, _EVEN_SITES, l, threading ); // b_e = b_e - D_eo*D_oo^{-1}*b_o
   PROF_PRECISION_STOP( _NC, 0, threading );
-  
-  if ( g.method == 5 )//this func. is called only from preconditioner and if g.method==4, this func. is not called!!!!!??????
+
+  // x_e = D_sc^{-1} (b_e - D_eo*D_oo^{-1}*b_o); op in p is set to apply_schur_complement_PRECISION
+  if ( g.method == 4 )
     fgmres_PRECISION( p, l, threading );
-  else if ( g.method == 6 )
+  else if ( g.method == 5 )
     bicgstab_PRECISION( p, l, threading );
-  diag_oo_inv_PRECISION( &(p->x), &(p->b), op, l, start, end );
   
-  // even to odd
+  // construct x_o from x_e 
+  diag_oo_inv_PRECISION( &(p->x), &(p->b), op, l, start, end ); // x_o = D_oo^{-1}*b_o 
   SYNC_CORES(threading)
-  vector_PRECISION_define( &tmp, 0, start, end, l );
+  vector_PRECISION_define( &tmp, 0, start, end, l ); // tmp_o = 0
   SYNC_CORES(threading)
   PROF_PRECISION_START( _NC, threading );
-  hopping_term_PRECISION( &tmp, &(p->x), op, _ODD_SITES, l, threading );
+  hopping_term_PRECISION( &tmp, &(p->x), op, _ODD_SITES, l, threading ); // tmp_o = D_oe*x_e
   PROF_PRECISION_STOP( _NC, 1, threading );
   PROF_PRECISION_START( _SC, threading );
-  diag_oo_inv_PRECISION( &(p->b), &tmp, op, l, start, end );
+  diag_oo_inv_PRECISION( &(p->b), &tmp, op, l, start, end ); // b_o = D_oo^{-1}*D_oe*x_e
   PROF_PRECISION_STOP( _SC, 1, threading );
   SYNC_CORES(threading)
-  vector_PRECISION_minus( &(p->x), &(p->x), &(p->b), start, end, l );
+  vector_PRECISION_minus( &(p->x), &(p->x), &(p->b), start, end, l ); // x_o = D_oo^{-1}*(b_o - D_oe*x_e)
   SYNC_CORES(threading)
 }
 

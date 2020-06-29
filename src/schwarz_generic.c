@@ -40,6 +40,7 @@ void smoother_PRECISION_def( level_struct *l ) { // used only at the top level
   l->p_PRECISION.eval_operator = (l->depth > 0)?apply_coarse_operator_PRECISION:d_plus_clover_PRECISION;
 
   // when g.method == 4,5, we use GMRES or biCGstab as a preconditioner, i.e., as a sort of smoother
+  // Currently, g.method==4,5 is used only at the top when even-odd preconditioned.  So all conditionals are not necessary...?
   if ( g.method == 4 ) {//FGMRES + GMRES
     fgmres_PRECISION_struct_alloc( l->block_iter, 1, (l->depth==0)?_INNER:_ORDINARY,
                                    EPS_PRECISION, _COARSE_SOLVER, _NOTHING, NULL,

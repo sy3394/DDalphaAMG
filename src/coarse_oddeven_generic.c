@@ -451,7 +451,7 @@ static void coarse_selfcoupling_LU_doublet_decomposition_PRECISION( config_PRECI
 }
 #endif
 
-// out_o/e += D_eo/oe*in_e/o
+// out_o/e += D_oe/eo*in_e/o if amount==_ODD_SITES/_EVEN_SITES; works on both parts if amount==_FULL_SYSTEM 
 // in and out needs to be at least of size _ORDINARY
 void coarse_hopping_term_PRECISION( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op,
                                     const int amount, level_struct *l, struct Thread *threading ) {
@@ -603,7 +603,7 @@ void coarse_hopping_term_PRECISION( vector_PRECISION *out, vector_PRECISION *in,
   END_NO_HYPERTHREADS(threading)
 }
 
-// out_o/e -= D_eo/oe*in_e/o
+// out_o/e -= D_oe/eo*in_e/o if amount==_ODD_SITES/_EVEN_SITES; works on both parts if amount==_FULL_SYSTEM
 void coarse_n_hopping_term_PRECISION( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op,
                                       const int amount, level_struct *l, struct Thread *threading ) {
 
@@ -754,6 +754,7 @@ void coarse_n_hopping_term_PRECISION( vector_PRECISION *out, vector_PRECISION *i
   END_NO_HYPERTHREADS(threading)
 }
 
+// D_sc = D_ee - D_eo D_oo ^{-1} D_oe 
 void coarse_apply_schur_complement_PRECISION( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
 
   // start and end indices for vector functions depending on thread
@@ -761,7 +762,7 @@ void coarse_apply_schur_complement_PRECISION( vector_PRECISION *out, vector_PREC
   int end;
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-  compute_core_start_end_custom(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );//1 );
+  compute_core_start_end_custom(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );
 
   vector_PRECISION *tmp = op->buffer;
   for ( int i=0; i<2; i++ ) tmp[i].num_vect_now = in->num_vect_now;

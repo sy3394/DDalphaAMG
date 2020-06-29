@@ -60,7 +60,7 @@ void vcycle_PRECISION( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRE
 	    vcycle_PRECISION( &(l->next_level->p_PRECISION.x), NULL, &(l->next_level->p_PRECISION.b), _NO_RES, l->next_level, threading );
 	  }
 	} else { 
-	  // if the next level is the bottom
+	  // if the next level is the bottom (coarse_apply_schur_complement_PRECISION is used only at the bottom if g.odd_even),
 	    if ( g.odd_even ) {
 	      coarse_solve_odd_even_PRECISION( &(l->next_level->p_PRECISION), &(l->next_level->oe_op_PRECISION), l->next_level, threading );
 	    } else {

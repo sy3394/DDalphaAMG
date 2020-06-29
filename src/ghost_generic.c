@@ -120,7 +120,7 @@ void ghost_sendrecv_init_PRECISION( const int type, comm_PRECISION_struct *c, le
 }
 
 void ghost_sendrecv_PRECISION( buffer_PRECISION phi, const int mu, const int dir,
-				   comm_PRECISION_struct *c, const int amount, level_struct *l ) {
+			       comm_PRECISION_struct *c, const int amount, level_struct *l ) {
   /**************************
    * buffer_PRECISION phi: vectors to be sent
    * mu: specify boundary

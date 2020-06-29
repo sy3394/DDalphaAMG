@@ -452,7 +452,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
     } // end of a single restart
     // Compute the minimizer y of the residual on the Krylov subspace and update the iterate: reach this pt. if converged or go beyond restart length
     compute_solution_PRECISION( &(p->x), (p->preconditioner&&p->kind==_RIGHT)?(p->Z):(p->V),
-				    p->y, p->gamma, p->H, j, (res==_NO_RES)?ol:1, p, l, threading );
+				p->y, p->gamma, p->H, j, (res==_NO_RES)?ol:1, p, l, threading );
   } // end of fgmres:for( ol=0; ol<p->num_restart && finish==0; ol++ ) 
   
   //-----------  Report the result
@@ -511,7 +511,7 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   PRECISION t0, t1;
   //printf0("begin PRECISION fab: solver %d depth %d: %d=%d? %d, sizes %d %d %d even sts %d\n", g.solver, l->depth, fab->nrhs,fab->B.num_vect,p->b.num_vect_now, p->b.size, fab->B.size, fab->dim, even_size);fflush(stdout);
     
-  p->b.num_vect_now = num_loop; p->x.num_vect_now = num_loop;//!!!!!!
+  p->b.num_vect_now = num_loop; p->x.num_vect_now = num_loop;
 
   START_LOCKED_MASTER(threading)
   if ( l->depth == 0 ) t0 = MPI_Wtime();
@@ -550,7 +550,6 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   fab->B.layout = _NVEC_INNER;
   vector_PRECISION_change_layout( &(fab->X), &(fab->X), _NVEC_INNER, no_threading );
   END_LOCKED_MASTER(threading)
-  //vector_PRECISION_copy( &(p->x), &(fab->X), 0, (g.odd_even&&l->depth!=0)?even_size:fab->dim, l );
   vector_PRECISION_copy( &(p->x), &(fab->X), 0, fab->dim, l );
 
   START_LOCKED_MASTER(threading)

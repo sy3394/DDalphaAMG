@@ -32,7 +32,26 @@ void var_table_init( var_table *t ) {
   t->p_end = NULL;
 }
 
+// append an entry to the end of the chain of the entries in t
+void var_table_insert( var_table *t, var_table_entry e ) {
 
+  if ( t->entry == NULL ) { // if e is the first one in the chain
+    MALLOC( t->entry, var_table_entry, 1 );
+    *(t->entry) = e;
+    t->entry->next = NULL;
+    
+  } else { // if not, go down the chain using iterator for temp storage to find the last one.
+    t->iterator = t->entry;
+    while ( t->iterator->next != NULL )
+      t->iterator = t->iterator->next;
+    
+    MALLOC( t->iterator->next, var_table_entry, 1 );
+    *(t->iterator->next) = e;
+    t->iterator->next->next = NULL;
+  }
+}
+
+// free each entry from the head to the tail along the chain of entries
 void var_table_free( var_table *t ) {
   
   if ( t->entry != NULL ) {
@@ -45,25 +64,6 @@ void var_table_free( var_table *t ) {
     }
     FREE( t->entry, var_table_entry, 1 );
     t->iterator = NULL;
-  }
-}
-
-
-void var_table_insert( var_table *t, var_table_entry e ) {
-  //  printf("var\n");  
-  if ( t->entry == NULL ) {
-    MALLOC( t->entry, var_table_entry, 1 );
-    *(t->entry) = e;
-    t->entry->next = NULL;
-    
-  } else {
-    t->iterator = t->entry;
-    while ( t->iterator->next != NULL )
-      t->iterator = t->iterator->next;
-    
-    MALLOC( t->iterator->next, var_table_entry, 1 );
-    *(t->iterator->next) = e;
-    t->iterator->next->next = NULL;
   }
 }
 
