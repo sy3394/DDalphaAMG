@@ -47,8 +47,9 @@ void vcycle_PRECISION( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRE
       //--- recursive inversion part: base case = solve
       if ( !l->next_level->idle ) {
         START_MASTER(threading)
+	g.iter_times[l->depth+1] -= MPI_Wtime();
 	if ( l->depth == 0 )
-	  g.coarse_time -= MPI_Wtime();
+	  g.coarse_time -= MPI_Wtime();// time spent at all the coaser levels not including smoothing time at the top level
         END_MASTER(threading) 
 	if ( l->level > 1 ) {
 	  // If the next level is not at the bottom
@@ -68,6 +69,7 @@ void vcycle_PRECISION( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRE
 	    }
 	}
         START_MASTER(threading)
+	g.iter_times[l->depth+1] += MPI_Wtime();
 	if ( l->depth == 0 )
 	  g.coarse_time += MPI_Wtime();
         END_MASTER(threading)

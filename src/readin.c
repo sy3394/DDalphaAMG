@@ -407,6 +407,10 @@ static void read_geometry_data( FILE *in, int ls ) {
     save_pt = &(g.k[i]); g.k[i] = 0;
     read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
 
+    sprintf( inputstr, "d%d max number of mat-vec product for fabulous:", i );
+    save_pt = &(g.max_mvp[i]); g.max_mvp[i] = 0;
+    read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
+    
     sprintf( inputstr, "d%d fabulous compute real residual:", i );
     save_pt = &(g.real_residual[i]); g.real_residual[i] = 0;
     read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
@@ -679,6 +683,8 @@ static void allocate_for_global_struct_after_read_global_info( int ls ) {
 #ifdef HAVE_TM1p1
   MALLOC( g.epsbar_factor, double, ls );
 #endif
+  MALLOC( g.iter_times, double, ls );
+  MALLOC( g.iter_counts, int, ls );
   MALLOC( g.block_iter, int, ls );
   MALLOC( g.setup_iter, int, ls );
   MALLOC( g.num_eig_vect, int, ls );
@@ -688,6 +694,7 @@ static void allocate_for_global_struct_after_read_global_info( int ls ) {
   MALLOC( g.ortho_iter, int, ls );
   MALLOC( g.max_kept_direction, int, ls );
   MALLOC( g.k, int, ls );
+  MALLOC( g.max_mvp, int, ls );
   MALLOC( g.real_residual, int, ls );
   for ( i=1; i<ls; i++ ) {
     g.global_lattice[i] = g.global_lattice[0] + i*4;

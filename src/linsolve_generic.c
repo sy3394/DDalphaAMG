@@ -259,7 +259,7 @@ void fgmres_PRECISION_struct_free( gmres_PRECISION_struct *p, level_struct *l ) 
 // so far integrated interface to fgmres and fabulous
 int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading ) {
 
-  int iter = 0;
+  int i, iter = 0, n_vect = num_loop;
 
   START_LOCKED_MASTER(threading)
   if ( l->depth==0 && ( p->timing || p->print ) ) prof_init( l );
@@ -273,12 +273,38 @@ int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
     iter = fgmres_PRECISION( p, l, threading );
   }
 
+  START_LOCKED_MASTER(threading)
+  g.iter_counts[l->depth] += iter;
+  END_LOCKED_MASTER(threading)
   if ( l->level == 0 ) {
     START_LOCKED_MASTER(threading)
     g.coarse_iter_count += iter;
     END_LOCKED_MASTER(threading)
   }
-    
+
+  // Report the statistics
+  if ( p->print ) {
+    START_LOCKED_MASTER(threading)
+    printf0("+----------------------------------------------------------+\n");
+    printf0("|              Final Relative Residuals                    |\n");
+    for( i=0; i<n_vect; i++ )
+      printf0("| exact relative residual, %d: ||r||/||b|| = %e   |\n",i, g.resids[i] );
+    printf0("+----------------------------------------------------------+\n");
+    printf0("|                   Solver Statistics                      |\n");
+    printf0("|     %8s iterations: %-6d coarse average: %-6.2lf   |\n",
+	    (g.solver[0]==0)?"FGMRES":"FABULOUS",
+	    iter, ((double)g.iter_counts[g.num_levels-1])/((double)iter) ); //((double) iter)/((double) fab->nrhs)
+    //printf0("|     elapsed wall clock time: %-8.4lf seconds                |\n", g.iter_times[0] );
+    if ( l->depth == 0) for( i=0; i<g.num_levels; i++ ) {
+        printf0("|  (depth %d) solver: %d, iterations: %-6d, time below this level: %-8.4lf sec (%04.1lf%%) |\n", i, g.solver[i], g.iter_counts[i],
+		g.iter_times[i], 100*(g.iter_times[i]/g.iter_times[0]) );
+    }
+    printf0("|  consumed core minutes*: %-8.2le (solve only)           |\n", (g.iter_times[0]*g.num_processes*MAX(1,threading->n_core))/60.0 );
+    printf0("|    max used mem/MPIproc: %-8.2le GB                     |\n", g.max_storage/1024.0 );
+    printf0("+----------------------------------------------------------+\n");
+    printf0("*: only correct if #MPIprocs*#threads == #CPUs\n\n");
+    END_MASTER(threading)
+  }
   if ( l->depth == 0 && g.vt.p_end != NULL  ) {
     if ( g.vt.p_end != NULL ) {
       START_LOCKED_MASTER(threading)
@@ -288,9 +314,10 @@ int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
       g.vt.p_end->values[_SLV_ITER] += iter/((double)g.vt.average_over);
       g.vt.p_end->values[_CRS_ITER] += (((double)g.coarse_iter_count)/((double)iter))/((double)g.vt.average_over);
       g.vt.p_end->values[_CRS_TIME] += g.coarse_time/((double)g.vt.average_over);
-    END_LOCKED_MASTER(threading)
+      END_LOCKED_MASTER(threading)
     }
   }
+  // Report profiling
   if ( l->depth == 0 && ( p->timing || p->print ) && !(g.vt.p_end != NULL )  ) {
     START_MASTER(threading)
     prof_print( l );
@@ -382,7 +409,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
     }
     vector_PRECISION_real_scale( &(p->V[0]), &(p->r), p->gamma, 0, 1, start, end, l ); // v_0 = r / gamma_0
 
-    //----- main loop
+    //----- main body: Expand the Krylov space possibly with preconditioner until one of the stop conditions is met
 #if defined(SINGLE_ALLREDUCE_ARNOLDI) && defined(PIPELINED_ARNOLDI)
     if ( l->level == 0 && l->depth > 0 ) {
       arnoldi_step_PRECISION( p->V, p->Z, &(p->w), p->H, p->y, 0, p->preconditioner, p, l, threading );
@@ -427,9 +454,8 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
 #if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
         if ( iter%10 == 0 || p->preconditioner != NULL || l->depth > 0 ) {
           START_MASTER(threading)
-	    if ( p->print && g.print > 0 )//printed only at the top
+	  if ( p->print && g.print > 0 )//printed only at the top
             for( i=0; i<n_vect; i++ )
-              //printf0("| vector %d, approx. rel. res. after  %-6d iterations: %e |\n", i, iter, gamma_jp1[i]/norm_r0[i] );
 	      printf0("| vector %d, depth: %d, approx. rel. res. after  %-6d iterations: %e |\n", i, l->depth, iter, gamma_jp1[i]/norm_r0[i]);
           END_MASTER(threading)
         }
@@ -455,9 +481,9 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
 				p->y, p->gamma, p->H, j, (res==_NO_RES)?ol:1, p, l, threading );
   } // end of fgmres:for( ol=0; ol<p->num_restart && finish==0; ol++ ) 
   
-  //-----------  Report the result
+  //-----------  Compute the statistics
   START_LOCKED_MASTER(threading)
-  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.total_time = t1-t0; g.iter_count = iter; g.norm_res = gamma_max ; }
+  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0; g.iter_counts[0] = iter; g.norm_res = gamma_max ; }
   END_LOCKED_MASTER(threading)
   if ( p->print ) {
 #ifdef FGMRES_RESTEST
@@ -470,25 +496,13 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
     START_MASTER(threading)
     g.norm_res = 0;
     VECTOR_LOOP(i, n_vect, jj, g.norm_res += beta[i+jj]/norm_r0[i+jj];)
+    VECTOR_LOOP(i, n_vect, jj, g.resids[i+jj] = beta[i]/norm_r0[i] );
 #if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
     if ( g.print > 0 ) printf0("+----------------------------------------------------------+\n\n");
 #endif
-    printf0("+----------------------------------------------------------+\n");
-    printf0("|       FGMRES iterations: %-6d coarse average: %-6.2lf   |\n", iter,
-            ((double)g.coarse_iter_count)/((double)iter) );
-    for( i=0; i<n_vect; i++ )
-      printf0("| exact relative residual, %d: ||r||/||b|| = %e   |\n",i, beta[i]/norm_r0[i] );
-    printf0("| elapsed wall clock time: %-8.4lf seconds                |\n", t1-t0 );
-    if ( g.coarse_time > 0 ) 
-      printf0("|        coarse grid time: %-8.4lf seconds (%04.1lf%%)        |\n",
-              g.coarse_time, 100*(g.coarse_time/(t1-t0)) );
-    printf0("|  consumed core minutes*: %-8.2le (solve only)           |\n", ((t1-t0)*g.num_processes*MAX(1,threading->n_core))/60.0 );
-    printf0("|    max used mem/MPIproc: %-8.2le GB                     |\n", g.max_storage/1024.0 );
-    printf0("+----------------------------------------------------------+\n");
-    printf0("*: only correct if #MPIprocs*#threads == #CPUs\n\n");
     END_MASTER(threading)
   }
-  
+  // This is FGMRES specific
 #ifdef COARSE_RES
   if ( l->depth > 0 ) {
     START_MASTER(threading)
@@ -552,22 +566,20 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   END_LOCKED_MASTER(threading)
   vector_PRECISION_copy( &(p->x), &(fab->X), 0, fab->dim, l );
 
+  // Compute the statitics
   START_LOCKED_MASTER(threading)
-  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.total_time = t1-t0; g.iter_count = iter; }
-  if ( p->print > 0 ) {
-    printf0("+----------------------------------------------------------+\n");
-    printf0("|      Fabulous iterations: %-6.2lf coarse average: %-6.2lf  |\n", ((double) iter)/((double) fab->nrhs),
-	    ((double)g.coarse_iter_count)/((double)iter) );
-    printf0("| elapsed wall clock time: %-8.4lf seconds                |\n", t1-t0 );
-    if ( g.coarse_time > 0 )
-      printf0("|        coarse grid time: %-8.4lf seconds (%04.1lf%%)        |\n",
-              g.coarse_time, 100*(g.coarse_time/(t1-t0)) );
-    printf0("|  consumed core minutes*: %-8.2le (solve only)           |\n", ((t1-t0)*g.num_processes*MAX(1,threading->n_core))/60.0 );
-    printf0("|    max used mem/MPIproc: %-8.2le GB                     |\n", g.max_storage/1024.0 );
-    printf0("+----------------------------------------------------------+\n");
-    printf0("*: only correct if #MPIprocs*#threads == #CPUs\n\n");
-  }
+  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0; g.iter_counts[0] = iter; }
   END_LOCKED_MASTER(threading)
+  if ( p->print > 0 ) {
+    int start, end, j, jj;
+    PRECISION norm[num_loop], norm2[num_loop];
+    compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading,l->num_lattice_site_var);
+    apply_operator_PRECISION( &(fab->B0), &(p->x), p, l, threading ); // compute w = D*x
+    vector_PRECISION_minus( &(fab->B0), &(p->b), &(fab->B0), 0, p->v_end, l ); // compute r = b - w = b - D*x
+    global_norm_PRECISION( norm, &(fab->B0), p->v_start, p->v_end, l, threading ); // gamma_0 = norm(r)
+    global_norm_PRECISION( norm2, &(p->b), p->v_start, p->v_end, l, threading );
+    VECTOR_LOOP(j, num_loop, jj, g.resids[j+jj] = norm[j+jj]/norm2[j+jj];)
+  }
       
   return iter;
 }

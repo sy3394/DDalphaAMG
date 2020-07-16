@@ -881,6 +881,10 @@ int coarse_solve_odd_even_PRECISION( gmres_PRECISION_struct *p, operator_PRECISI
   coarse_diag_oo_inv_PRECISION( &p->x, &p->b, op, l, threading ); // x_o = D_oo^{-1} (b_o - D_oe*x_e)
   PROF_PRECISION_STOP( _SC, 1, threading );
   SYNC_CORES(threading)
+
+  START_LOCKED_MASTER(threading)
+  g.iter_counts[l->depth] += iter;
+  END_LOCKED_MASTER(threading)
     
   return iter;
 }

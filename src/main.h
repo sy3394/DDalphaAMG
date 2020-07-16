@@ -379,15 +379,17 @@
     operator_double_struct op_double;
     operator_float_struct op_float;
 
+    // parameters related the "fabulous" library
     int *solver;
     fabulous_orthoscheme *f_orthoscheme;
     fabulous_orthotype *f_orthotype;
     int *ortho_iter;           // #iteration for Iterated Schemas (IMGS and ICGS); Must be positive integer >= 2
     int *max_kept_direction;   // max #kept direction per iteration
-    int *real_residual;         // if 1, compute X and R at each iteration such that the user can access them in fabulous CallBack funciton
+    int *real_residual;        // if 1, compute X and R at each iteration such that the user can access them in fabulous CallBack funciton
     int logger_user_data_size; // #slots for user data when calling fabulous_set_iteration_user_data()
     int quiet;                 // if 1, no output to stdout when running
     int *k;                    // #deflating eigevecs at each level
+    int *max_mvp;              
     int use_only_fgrmes_at_setup;
     
     // communication
@@ -397,6 +399,7 @@
     int num_processes, my_rank, my_coords[4], tv_io_single_file, num_openmp_processes;
     // string buffers
     char in[STRINGLENGTH], in_clov[STRINGLENGTH], source_list[STRINGLENGTH], tv_io_file_name[STRINGLENGTH];
+    
     // geometry, method parameters
     int num_levels, num_desired_levels, process_grid[4], in_format,
         **global_lattice, **local_lattice, **block_lattice, 
@@ -407,8 +410,8 @@
     double tol, coarse_tol, kcycle_tol, csw, rho, *relax_fac;
 
     // profiling, analysis, output
-    int coarse_iter_count, iter_count, iterator, print, conf_flag, setup_flag, in_setup;
-    double coarse_time, prec_time, *output_table[8], cur_storage, max_storage, total_time,
+    int coarse_iter_count, *iter_counts, iter_count, iterator, print, conf_flag, setup_flag, in_setup;
+    double coarse_time, *iter_times, prec_time, resids[num_loop], *output_table[8], cur_storage, max_storage, total_time,
       plaq_hopp, plaq_clov, norm_res, plaq, bicgstab_tol, twisted_bc[4], test;
 
     double m0, setup_m0;

@@ -324,7 +324,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   } // end of fgmres
   
   START_LOCKED_MASTER(threading)
-  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.total_time = t1-t0; g.iter_count = iter; g.norm_res = gamma_max; }
+  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0; g.iter_counts[0] = iter; g.norm_res = gamma_max; }
   END_LOCKED_MASTER(threading)
   
   if ( p->dp.print ) {
@@ -340,14 +340,18 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
     if ( g.print > 0 ) printf0("+----------------------------------------------------------+\n\n");
 #endif
     printf0("+----------------------------------------------------------+\n");
-    printf0("|    FGMRES MP iterations: %-6d coarse average: %-6.2lf   |\n", iter,
-            ((double)g.coarse_iter_count)/((double)iter) );
+    printf0("|              Final Relative Residuals                    |\n");
     for( i=0; i<n_vect; i++ )
-      printf0("| exact relative residual %d: ||r||/||b|| = %e    |\n",i, beta[i]/norm_r0[i] );
-    printf0("| elapsed wall clock time: %-8.4lf seconds                |\n", t1-t0 );
-    if ( g.coarse_time > 0 ) 
-      printf0("|        coarse grid time: %-8.4lf seconds (%04.1lf%%)        |\n",
-              g.coarse_time, 100*(g.coarse_time/(t1-t0)) );
+      printf0("| exact relative residual, %d: ||r||/||b|| = %e   |\n",i, beta[i]/norm_r0[i] );
+    printf0("+----------------------------------------------------------+\n");
+    printf0("|                   Solver Statistics                      |\n");
+    printf0("|    FGMRES MP iterations: %-6d coarse average: %-6.2lf   |\n", iter,
+            ((double)g.iter_counts[g.num_levels-1])/((double)iter) );
+    //printf0("|    elapsed wall clock time: %-8.4lf seconds                |\n", t1-t0 );
+    if ( l->depth == 0) for( i=0; i<g.num_levels; i++ ) {
+        printf0("|  (depth %d) solver: %d, iterations: %-6d, time below this level: %-8.4lf sec (%04.1lf%%) |\n",
+		i, g.solver[i], g.iter_counts[i], g.iter_times[i], 100*(g.iter_times[i]/(t1-t0)) );
+    }
     printf0("|  consumed core minutes*: %-8.2le (solve only)           |\n", ((t1-t0)*g.num_processes*MAX(1,threading->n_core))/60.0 );
     printf0("|    max used mem/MPIproc: %-8.2le GB                     |\n", g.max_storage/1024.0 );
     printf0("+----------------------------------------------------------+\n");

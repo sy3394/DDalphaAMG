@@ -48,7 +48,7 @@ void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_stru
   int dim = (g.odd_even&&l->level==0)?(l->num_inner_lattice_sites/2)*l->num_lattice_site_var:p->v_end, nrhs = fab->nrhs;//!!!!!!
   fab->dim = dim; fab->ldb = dim; fab->ldx = dim;
   fab->l = l;
-  fab->threading = threading;//needed?????
+  fab->threading = threading;
   //     printf0("fab PRECISION set: nrhs%d %d at %d, %g %d %d\n",nrhs,dim,l->depth, p->tol, FABULOUS_COMPLEX_PRECISION, FABULOUS_COMPLEX_double);
   vector_PRECISION *X = &(fab->X) , *B = &(fab->B), *B0 = &(fab->B0), *X0 = &(fab->X0), *C0 = &(fab->C0);
   // The following fields are fed to fabulous solver; perhaps will be unnecessary if fabulous can handle _ORINARY properly!!!!
@@ -84,9 +84,10 @@ void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_stru
   }
   
   // Setup parameters:
+  int mvp = (fab->nrhs*p->restart_length*p->num_restart < g.max_mvp[l->depth])? g.max_mvp[l->depth]:fab->nrhs*p->restart_length*p->num_restart;
   fabulous_set_ortho_process(g.f_orthoscheme[l->depth], g.f_orthotype[l->depth], g.ortho_iter[l->depth], fab->handle);
   PRECISION tolerance[1] = { p->tol };
-  fabulous_set_parameters( fab->nrhs*p->restart_length*p->num_restart, fab->nrhs*p->restart_length, tolerance, 1, fab->handle );//g.max_mvp
+  fabulous_set_parameters( mvp, fab->nrhs*p->restart_length, tolerance, 1, fab->handle );
   fabulous_set_advanced_parameters( g.max_kept_direction[l->depth], g.real_residual[l->depth], g.logger_user_data_size, g.quiet, fab->handle );
   //printf0("fab param %d: %d %d %d %g %d %d %d %d %d\n",l->depth,g.f_orthoscheme[l->depth], g.f_orthotype[l->depth], g.ortho_iter[l->depth],tolerance[0],g.max_mvp, p->restart_length,g.max_kept_direction[l->depth], g.real_residual, g.logger_user_data_size);
 

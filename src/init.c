@@ -121,6 +121,9 @@ void method_init( int *argc, char ***argv, level_struct *l ) {
   g.Cart_coords = MPI_Cart_coords;
   cart_define( MPI_COMM_WORLD, l );
 
+  for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
+  for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
+
   // The following fields are used in dirac_setup
   operator_double_alloc( &(g.op_double), _ORDINARY, l ); 
   operator_double_define( &(g.op_double), l );
@@ -135,7 +138,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   double t0=0, t1=0;
 
   ASSERT(l->depth == 0);
-  
+
   START_LOCKED_MASTER(threading)
   g.in_setup = 1;
   if ( g.vt.evaluation ) {//?????
@@ -242,7 +245,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
       }
     START_LOCKED_MASTER(threading)
     t1 = MPI_Wtime();
-    g.total_time = t1-t0;
+    g.iter_times[0] = t1-t0;
     printf0("elapsed time: %lf seconds\n", t1-t0 );
     END_LOCKED_MASTER(threading)
   }
@@ -484,9 +487,9 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
 
     MASTER(threading) {
       t1 = MPI_Wtime();
-      g.total_time = t1-t0;
+      g.iter_times[0] = t1-t0;
       printf0("\nperformed %d iterative setup steps\n", setup_iter );
-      printf0("elapsed time: %lf seconds (%lf seconds on coarse grid)\n\n", t1-t0, g.coarse_time );
+      printf0("elapsed time: %lf seconds (%lf:%lf seconds on coarse grid)\n\n", t1-t0, g.coarse_time, g.iter_times[1] );
     }
     
     START_LOCKED_MASTER(threading)
@@ -579,6 +582,8 @@ void method_finalize( level_struct *l ) {
 #ifdef HAVE_TM1p1
   FREE( g.epsbar_factor, double, ls );
 #endif
+  FREE( g.iter_times, double, ls );
+  FREE( g.iter_counts, int, ls );
   FREE( g.block_iter, int, ls );
   FREE( g.setup_iter, int, ls );
   FREE( g.num_eig_vect, int, ls );
@@ -588,6 +593,7 @@ void method_finalize( level_struct *l ) {
   FREE( g.ortho_iter, int, ls );
   FREE( g.max_kept_direction, int, ls );
   FREE( g.k, int, ls );
+  FREE( g.max_mvp, int, ls );
   FREE( g.real_residual, int, ls) ;
   cart_free( l );
   var_table_free( &(g.vt) );
