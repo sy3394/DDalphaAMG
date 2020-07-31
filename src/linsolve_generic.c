@@ -274,7 +274,7 @@ int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   }
 
   START_LOCKED_MASTER(threading)
-  g.iter_counts[l->depth] += iter;
+  if( l->depth == 0 )g.iter_counts[l->depth] += iter;
   END_LOCKED_MASTER(threading)
   if ( l->level == 0 ) {
     START_LOCKED_MASTER(threading)
@@ -483,7 +483,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   
   //-----------  Compute the statistics
   START_LOCKED_MASTER(threading)
-  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0; g.iter_counts[0] = iter; g.norm_res = gamma_max ; }
+  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0; g.norm_res = gamma_max ; }//g.iter_counts[0] = iter; g.norm_res = gamma_max ; }
   END_LOCKED_MASTER(threading)
   if ( p->print ) {
 #ifdef FGMRES_RESTEST

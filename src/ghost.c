@@ -43,7 +43,7 @@ void cart_define( MPI_Comm comm, level_struct *l ) {
   
   MPI_Comm_size( comm, &num_processes ); 
   if (num_processes != g.num_processes) {
-    error0("Error: Number of processes has to be %d\n", g.num_processes);
+    error0("Error: Number of processes (%d) has to be %d\n", num_processes, g.num_processes);
   }
   MPI_Cart_create( comm, 4, l->global_splitting, l->periodic_bc, 1, &(g.comm_cart) );
   MPI_Comm_rank( g.comm_cart, &(g.my_rank) );

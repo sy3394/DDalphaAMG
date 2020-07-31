@@ -61,8 +61,9 @@ void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_stru
   if ( X->size != dim )
     error0("set_fabulous_struct_PRECISION: assumptions are not met\n");
 
+  int sol = g.solver[l->depth];
   fab->k = g.k[l->depth];
-  if ( fab->k > 0 ) {
+  if ( fab->k > 0 && ( sol==_DR || sol==_IBDR || sol==_QRDR || sol==_QRIBDR ) ) {
     MALLOC( fab->eigvals, complex_PRECISION, fab->k );
     for ( int i=0; i<fab->k; i++ ) ((complex_PRECISION *) fab->eigvals)[i] = 0;
   }

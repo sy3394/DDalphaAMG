@@ -319,7 +319,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
           printf0("|      coarge grid solver: %-30s  |\n", g.odd_even?"odd even GMRES":"GMRES" );
           printf0("|              iterations: %-6d                          |\n", g.coarse_iter );
           printf0("|                  cycles: %-6d                          |\n", g.coarse_restart );
-          printf0("|               tolerance: %-5.0le                           |\n", g.coarse_tol );
+          printf0("|               tolerance: %-5.2le                           |\n", g.coarse_tol );
         }
 #ifdef HAVE_TM
         if( g.mu!=0. && g.mu_factor[i]!=1 )
@@ -489,7 +489,7 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
       t1 = MPI_Wtime();
       g.iter_times[0] = t1-t0;
       printf0("\nperformed %d iterative setup steps\n", setup_iter );
-      printf0("elapsed time: %lf seconds (%lf:%lf seconds on coarse grid)\n\n", t1-t0, g.coarse_time, g.iter_times[1] );
+      printf0("elapsed time: %lf seconds (%lf seconds on coarse grid)\n\n", t1-t0, g.iter_times[1] );
     }
     
     START_LOCKED_MASTER(threading)
