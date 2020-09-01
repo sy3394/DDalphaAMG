@@ -87,9 +87,8 @@
 #endif*/
        while ( eta_pt < eta_end )
          for ( i=0; i<12; i++ ) {
-           VECTOR_LOOP(j, n_vect_eta, jj, *eta_pt += (*phi_pt)*(*diag_pt); eta_pt++; phi_pt++;)//printf("%g ",creal_PRECISION(*eta_pt ));)
+           VECTOR_LOOP(j, n_vect_eta, jj, *eta_pt += (*phi_pt)*(*diag_pt); eta_pt++; phi_pt++;)
 	   eta_pt += eta->num_vect-n_vect_eta; phi_pt += phi->num_vect -n_vect_eta;
-	   //	   	   printf("%g ",creal_PRECISION((*diag_pt)));
            diag_pt++;
          }
   }
@@ -127,7 +126,6 @@
   // eta = D**H*phi
   static inline void mvmh_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D, const buffer_PRECISION phi, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     int j, jj;
-    //  printf("d_plus_clover_aggrmvmv_PRECISION: %d %d %d %d\n",n_vect, n_vect_eta, n_vect_phi );
     VECTOR_LOOP(j, n_vect, jj, eta[0*n_vect_eta+j+jj]  = conj_PRECISION(D[0])*phi[0*n_vect_phi+j+jj];
                                eta[1*n_vect_eta+j+jj]  = conj_PRECISION(D[1])*phi[0*n_vect_phi+j+jj];
                                eta[2*n_vect_eta+j+jj]  = conj_PRECISION(D[2])*phi[0*n_vect_phi+j+jj];

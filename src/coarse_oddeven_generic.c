@@ -754,7 +754,8 @@ void coarse_n_hopping_term_PRECISION( vector_PRECISION *out, vector_PRECISION *i
   END_NO_HYPERTHREADS(threading)
 }
 
-// D_sc = D_ee - D_eo D_oo ^{-1} D_oe 
+// D_sc = D_ee - D_eo D_oo ^{-1} D_oe
+// used at the bottom; also used in preconditioner if g.method==4,5
 void coarse_apply_schur_complement_PRECISION( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
 
   // start and end indices for vector functions depending on thread
@@ -785,6 +786,7 @@ void coarse_apply_schur_complement_PRECISION( vector_PRECISION *out, vector_PREC
   PROF_PRECISION_STOP( _NC, 1, threading );
 }
 
+// simply apply even part of self-couling terms w/t making use of LU decomposition
 void coarse_diag_ee_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
 
   int start, end;

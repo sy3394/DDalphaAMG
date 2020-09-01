@@ -346,11 +346,11 @@
     int num_lattice_site_var;    // # d.o.f. on a given site
     int level;                   // counts level of coarsening from the bottom, i.e., coarsest (=0) to the top (finest)
     int depth;                   // counts level of coarsening from the top, i.e., finest (=0) to the bottom (coarsest)
-    int num_lattice_sites;       // number of sites in local volume + ghost shell (either fw or bw: one-sided boundry sites)
     int num_inner_lattice_sites; // number of sites in local volume
+    int num_lattice_sites;       // number of sites in local volume + ghost shell (either fw or bw: one-sided boundry sites)
     int num_boundary_sites[4];
-    long int vector_size;        // complex d.o.f. in local volume + ghost shell (either fw or bw) = num_lattice_sites * num_lattice_site_var
     long int inner_vector_size;  // complex d.o.f. in local volume = num_inner_lattice_sites * num_lattice_site_var
+    long int vector_size;        // complex d.o.f. in local volume + ghost shell (either fw or bw) = num_lattice_sites * num_lattice_site_var
     long int schwarz_vector_size;// 2*vector_size - inner_vector_size = #local lattice sites + full ghost shell
     int D_size;
     int clover_size;

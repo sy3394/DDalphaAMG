@@ -448,7 +448,8 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
     double t0=0, t1=0;
     START_LOCKED_MASTER(threading)
     g.in_setup = 1;
-    if ( l->depth==0 ) // reset profiler
+    // reset profiler
+    if ( l->depth==0 ) 
       prof_init( l );
     END_LOCKED_MASTER(threading)
 
@@ -577,7 +578,7 @@ void method_finalize( level_struct *l ) {
   FREE( g.ncycle, int, ls );
   FREE( g.relax_fac, double, ls );
 #ifdef HAVE_TM
-  FREE( g.mu_factor, double, ls );
+  FREE( g.mu_factor, double, ls*g.num_rhs_vect );
 #endif
 #ifdef HAVE_TM1p1
   FREE( g.epsbar_factor, double, ls );

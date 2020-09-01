@@ -30,17 +30,10 @@
   void coarse_operator_PRECISION_alloc( level_struct *l );
   void coarse_operator_PRECISION_free( level_struct *l );
   void coarse_operator_PRECISION_setup( vector_PRECISION *V, level_struct *l );
-  void coarse_operator_PRECISION_setup_finalize( level_struct *l, struct Thread *threading );
 
   void coarse_self_couplings_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, int start, int end, level_struct *l );
   void coarse_block_operator_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start,
                                         schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
-
-  void coarse_aggregate_self_couplings_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, 
-                                                  schwarz_PRECISION_struct *s, level_struct *l );
-
-  void coarse_aggregate_neighbor_couplings_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, const int mu, schwarz_PRECISION_struct *s, level_struct *l );
-  void coarse_aggregate_block_diagonal_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, config_PRECISION block, level_struct *l );
 
   void coarse_gamma5_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, int end, level_struct *l );
   void coarse_tau1_gamma5_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, int end, level_struct *l );
@@ -50,10 +43,12 @@
                                                operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
 
   void coarse_operator_PRECISION_test_routine( level_struct *l, struct Thread *threading );
-  
-  // eta += D*phi, D stored columnwise
+
+
+  // eta += D*phi, D stored columnwise and is of size nxn
   static inline void mv_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
-				       const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+				   const buffer_PRECISION phi, const register int n,
+				   const register int n_vect, const register int n_vect_eta, const register int n_vect_phi ) {
     register int i, j, k=0, jj, jjj;
 
     for ( i=0; i<n; i++ )
@@ -61,9 +56,10 @@
         VECTOR_LOOP( jj, n_vect, jjj, eta[j*n_vect_eta+jj+jjj] += D[k]*phi[i*n_vect_phi+jj+jjj];)
   }
 
-  // eta -= D*phi, D stored columnwise
+  // eta -= D*phi, D stored columnwise and is of size nxn
   static inline void nmv_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
-					const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+				    const buffer_PRECISION phi, const register int n,
+				    const register int n_vect, const register int n_vect_eta, const register int n_vect_phi ) {
     register int i, j, k=0, jj, jjj;
     
     for ( i=0; i<n; i++ )
@@ -71,9 +67,10 @@
         VECTOR_LOOP( jj, n_vect, jjj, eta[j*n_vect_eta+jj+jjj] -= D[k]*phi[i*n_vect_phi+jj+jjj];)
   }
 
-  // eta += D^Dagger*phi, D stored columnwise
+  // eta += D^Dagger*phi, D stored columnwise and is of size nxn  
   static inline void mvh_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
-					const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+				    const buffer_PRECISION phi, const register int n,
+				    const register int n_vect, const register int n_vect_eta, const register int n_vect_phi ) {
     register int i, j, k=0, jj, jjj;
 
     for ( i=0; i<n; i++ )
@@ -81,9 +78,10 @@
         VECTOR_LOOP( jj, n_vect, jjj, eta[i*n_vect_eta+jj+jjj] += conj_PRECISION(D[k])*phi[j*n_vect_phi+jj+jjj];)
   }
 
-  // eta -= D^Dagger*phi, D stored columnwise
+  // eta -= D^Dagger*phi, D stored columnwise and is of size nxn  
   static inline void nmvh_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
-					 const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+				     const buffer_PRECISION phi, const register int n,
+				     const register int n_vect, const register int n_vect_eta, const register int n_vect_phi ) {
     register int i, j, k=0, jj, jjj; 
 
     for ( i=0; i<n; i++ )
@@ -91,16 +89,15 @@
         VECTOR_LOOP( jj, n_vect, jjj, eta[i*n_vect_eta+jj+jjj] -= conj_PRECISION(D[k])*phi[j*n_vect_phi+jj+jjj];)
   }
 
-  // eta = D*phi, D hermitian and stored columnwise packed
+  // eta = D*phi, D hermitian in upper triangular form and stored columnwise packed
   static inline void mvp_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
-					const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+				    const buffer_PRECISION phi, const register int n,
+				    const register int n_vect, const register int n_vect_eta, const register int n_vect_phi ) {
     register int i, j, k, jj, jjj;
 
-    //    VECTOR_LOOP( jj, n_vect, jjj, printf("%g ",creal_PRECISION(eta[jj+jjj]));)
-    //VECTOR_LOOP( jj, n_vect, jjj, printf("%g ",creal_PRECISION(D[0]));)
-    // VECTOR_LOOP( jj, n_vect, jjj, printf("%g ",creal_PRECISION(phi[jj+jjj]));)
+    // do mvp using Hermiticity by taking products of entries involving upper column and lower row meeting at each diagonal entry
     VECTOR_LOOP( jj, n_vect, jjj, eta[jj+jjj] = D[0]*phi[jj+jjj];)
-    for ( i=1, k=1; i<n; i++ ) {//printf("mvp %d ",i);
+    for ( i=1, k=1; i<n; i++ ) {
       VECTOR_LOOP( jj, n_vect, jjj, eta[i*n_vect_eta+jj+jjj] = conj_PRECISION(D[k])*phi[jj+jjj];)
       VECTOR_LOOP( jj, n_vect, jjj, eta[jj+jjj] += D[k]*phi[i*n_vect_phi+jj+jjj];)
       k++;
@@ -113,11 +110,13 @@
     }
   }
 
-  // eta += D*phi, D hermitian and stored columnwise packed
+  // eta += D*phi, D hermitian in upper triangular form and stored columnwise packed
   static inline void pmvp_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
-					 const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+				     const buffer_PRECISION phi, const register int n,
+				     const register int n_vect, const register int n_vect_eta, const register int n_vect_phi ) {
     register int i, j, k, jj, jjj;
 
+    // do mvp using Hermiticity by taking products of entries involving upper column and lower row meeting at each diagonal entry
     VECTOR_LOOP( jj, n_vect, jjj, eta[jj+jjj] += D[0]*phi[jj+jjj];)
     for ( i=1, k=1; i<n; i++ ) {
       VECTOR_LOOP( jj, n_vect, jjj, eta[i*n_vect_eta+jj+jjj] += conj_PRECISION(D[k])*phi[jj+jjj];)
@@ -132,11 +131,13 @@
     }
   }
 
-  // eta += D*phi, D hermitian and stored columnwise packed
+  // eta -= D*phi, D hermitian in upper triangular form and stored columnwise packed
   static inline void mmvp_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
-					 const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+				     const buffer_PRECISION phi, const register int n,
+				     const register int n_vect, const register int n_vect_eta, const register int n_vect_phi ) {
     register int i, j, k, jj, jjj;
 
+    // do mvp using Hermiticity by taking products of entries involving upper column and lower row meeting at each diagonal entry
     VECTOR_LOOP( jj, n_vect, jjj, eta[jj+jjj] -= D[0]*phi[jj+jjj];)
     for ( i=1, k=1; i<n; i++ ) {
       VECTOR_LOOP( jj, n_vect, jjj, eta[i*n_vect_eta+jj+jjj] -= conj_PRECISION(D[k])*phi[jj+jjj];)
@@ -151,11 +152,13 @@
     }
   }
 
-  // eta += D*phi, D anti-hermitian and stored columnwise packed
+  // eta += D*phi, D anti-hermitian in upper triangular form and stored columnwise packed
   static inline void pamvp_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
-					  const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+				      const buffer_PRECISION phi, const register int n,
+				      const register int n_vect, const register int n_vect_eta, const register int n_vect_phi ) {
     register int i, j, k, jj, jjj;
 
+    // do mvp using Hermiticity by taking products of entries involving upper column and lower row meeting at each diagonal entry
     VECTOR_LOOP( jj, n_vect, jjj, eta[jj+jjj] += D[0]*phi[jj+jjj];)
     for ( i=1, k=1; i<n; i++ ) {
       VECTOR_LOOP( jj, n_vect, jjj, eta[i*n_vect_eta+jj+jjj] -= conj_PRECISION(D[k])*phi[jj+jjj];)
@@ -170,11 +173,13 @@
     }
   }
 
-  // eta -= D*phi, D anti-hermitian and stored columnwise packed
+  // eta -= D*phi, D anti-hermitian in upper triangular form and stored columnwise packed
   static inline void mamvp_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
-					  const buffer_PRECISION phi, const register int n, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
+				      const buffer_PRECISION phi, const register int n,
+				      const register int n_vect, const register int n_vect_eta, const register int n_vect_phi ) {
     register int i, j, k, jj, jjj;
 
+    // do mvp using Hermiticity by taking products of entries involving upper column and lower row meeting at each diagonal entry 
     VECTOR_LOOP( jj, n_vect, jjj, eta[jj+jjj] -= D[0]*phi[jj+jjj];)
     for ( i=1, k=1; i<n; i++ ) {
       VECTOR_LOOP( jj, n_vect, jjj, eta[i*n_vect_eta+jj+jjj] += conj_PRECISION(D[k])*phi[jj+jjj];)
@@ -189,22 +194,27 @@
     }
   }
 
-// clover stores clover term of D_W
-// eta = clover*phi
+  // eta = clover*phi
   static inline void coarse_self_couplings_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
-								 config_PRECISION clover, int length, level_struct *l ) {
+							     config_PRECISION clover, int length, level_struct *l ) {
 
-    int num_eig_vect = l->num_parent_eig_vect, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;    
-    int site_var          = l->num_lattice_site_var;
-    int clover_step_size1 = (num_eig_vect * (num_eig_vect+1))/2;//# upper triangle elements of A and D
-    int clover_step_size2 = SQUARE(num_eig_vect);//#elements of B
+    // clover stores coarse clover term of D_W, diagonal in the aggregate index, x,
+    // which is like a site index on the fine lattice
 
-    config_PRECISION clover_pt = clover;
-    buffer_PRECISION phi_pt = phi->vector_buffer, eta_pt = eta->vector_buffer, phi_end_pt = phi->vector_buffer+length*nvec_phi;
+    // U(x): 2Nx2N where N=l->num_parent_eig_vect matrix at the aggregate x
     // U(x) = [ A B      , A=A*, D=D*, C = -B*
     //          C D ]
     // storage order: upper triangle of A, upper triangle of D, B, columnwise
     // diagonal coupling
+    
+    int num_eig_vect = l->num_parent_eig_vect, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;    
+    int site_var          = l->num_lattice_site_var;
+    int clover_step_size1 = (num_eig_vect * (num_eig_vect+1))/2; // #upper triangle elements of A and D
+    int clover_step_size2 = SQUARE(num_eig_vect);                // #elements of B and C
+
+    config_PRECISION clover_pt = clover;
+    buffer_PRECISION phi_pt = phi->vector_buffer, eta_pt = eta->vector_buffer, phi_end_pt = phi->vector_buffer+length*nvec_phi;
+  
 /*#ifdef HAVE_TM1p1
     if( g.n_flavours == 2 ) {
       while ( phi_pt < phi_end_pt ) {
@@ -259,16 +269,18 @@
   }
 
   static inline void coarse_add_block_diagonal_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
-							      config_PRECISION block, int length, level_struct *l ) {
+							  config_PRECISION block, int length, level_struct *l ) {
+    
+    // U(x) = [ A 0      , A=A*, D=D* diag. excluded
+    //          0 D ]
+    // storage order: upper triangle of A, upper triangle of D, columnwise
+    // diagonal coupling
     
     int num_eig_vect = l->num_parent_eig_vect, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
     int block_step_size = (num_eig_vect * (num_eig_vect+1))/2;
     config_PRECISION block_pt = block;
     buffer_PRECISION phi_pt = phi->vector_buffer, eta_pt = eta->vector_buffer, phi_end_pt = phi->vector_buffer+length*nvec_phi;
-    // U(x) = [ A 0      , A=A*, D=D* diag. excluded
-    //          0 D ]
-    // storage order: upper triangle of A, upper triangle of D, columnwise
-    // diagonal coupling
+
 /*#ifdef HAVE_TM1p1
     if( g.n_flavours == 2 ) {
       while ( phi_pt < phi_end_pt ) {
@@ -286,7 +298,7 @@
     } else
 #endif*/
       while ( phi_pt < phi_end_pt ) {
-        // A
+        // A:eta += D*phi, D hermitian and stored columnwise packed 
         pmvp_PRECISION( eta_pt, block_pt, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
         block_pt += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
         // D
@@ -368,7 +380,6 @@
     int num_eig_vect  = l->num_parent_eig_vect;
     int num_eig_vect2 = SQUARE(l->num_parent_eig_vect);
     int nvec = phi->num_vect_now, nvec_eta = eta->num_vect, nvec_phi = phi->num_vect;
-    //    printf("coarse_hopp_PRECISION: %d %d %d %d\n",nvec,nvec_eta,nvec_phi, num_eig_vect );
     buffer_PRECISION phi_pt=phi->vector_buffer, eta_pt=eta->vector_buffer; 
     config_PRECISION D_pt = D;
     // U_mu(x) = [ A B      , U_-mu(x+muhat) = [ A* -C*

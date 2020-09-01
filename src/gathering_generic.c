@@ -33,10 +33,17 @@ void gathering_PRECISION_next_level_init( gathering_PRECISION_struct *gs, level_
   vector_PRECISION_init(&(gs->buffer));
   vector_PRECISION_init(&(gs->transfer_buffer));
   
-  /* (#processes at the given level) = (#process at the top level)/(product of comm_offset[i]) = (product of num_process_dir[i])
-     If comm_offset[i] != 1, #active processes is reduced.
-     Then, one process (parent process) take care of calculation on sites of gs->gather_list_length many processes,
-     all of which except the parent process areidle at the next_level.
+  /* 
+   * Some processes can be turned off when going one-level down.
+   * comm_offset[mu] specifies which process is idle in the mu dir in the Cartesian grid of processes.
+   * In particular, it says: every comm_offset[mu]^th process in the mu dir is idle.
+       (#processes at the given level) = (#process at the top level)/(product of comm_offset[i]) = (product of num_process_dir[i])
+   * That is, if comm_offset[i] != 1, #active processes is reduced.
+   * When this happens, when going one step down, an active process needs to handle more coarse sites than the ones
+     obtained from the given process.
+   * l->next_level->local_lattice[mu] is #sites in the mu dir that the active process needs to take care of.
+   * So, one process (parent process) take care of calculation on sites of gs->gather_list_length many processes,
+     all of which except the parent process will be idle at the next_level.
      So l->next_level->local_lattice[mu] > gs->dist_local_lattice[mu] b/c a process now take care of more sites */
   gs->dist_inner_lattice_sites = 1;
   gs->gather_list_length = 1;

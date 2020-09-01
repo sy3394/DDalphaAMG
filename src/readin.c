@@ -142,6 +142,8 @@ static void read_global_info( FILE *in ) {
   // right hand side
   save_pt = &(g.rhs);  g.rhs = 1;
   read_parameter( &save_pt, "right hand side:", "%d", 1, in, _DEFAULT_SET );
+  save_pt = &(g.num_rhs_vect); g.num_rhs_vect=1;
+  read_parameter( &save_pt, "number of rhs vectors:", "%d", 1, in, _DEFAULT_SET );
   if ( g.rhs == 4 ) {//no corresponding option in the input file????????????
     save_pt = &(g.source_list);
     read_parameter( &save_pt, "source list:", "%s", 1, in, _NO_DEFAULT_SET );
@@ -367,8 +369,8 @@ static void read_geometry_data( FILE *in, int ls ) {
     
 #ifdef HAVE_TM
     sprintf( inputstr, "d%d mu factor:", i );
-    save_pt = &(g.mu_factor[i]); g.mu_factor[i] = 1;
-    read_parameter( &save_pt, inputstr, "%lf", 1, in, _DEFAULT_SET );
+    save_pt = &(g.mu_factor[i*g.num_rhs_vect]); for ( int j=0; j<g.num_rhs_vect; j++ ) g.mu_factor[i*g.num_rhs_vect+j] = 1;
+    read_parameter( &save_pt, inputstr, "%lf", g.num_rhs_vect, in, _DEFAULT_SET );
 #endif
 
 #ifdef HAVE_TM1p1
@@ -472,8 +474,6 @@ static void read_solver_parameters( FILE *in ) {
   save_pt = &(g.downprop); g.downprop=1;
   read_parameter( &save_pt, "addDownPropagator:", "%d", 1, in, _DEFAULT_SET );
 #endif
-  save_pt = &(g.num_rhs_vect); g.num_rhs_vect=1;
-  read_parameter( &save_pt, "number of rhs vectors:", "%d", 1, in, _DEFAULT_SET );
 
   save_pt = &(g.use_only_fgrmes_at_setup); g.use_only_fgrmes_at_setup = 0;
   read_parameter( &save_pt, "use only FGMRES at setup:", "%d", 1, in, _DEFAULT_SET );
@@ -656,6 +656,15 @@ static void validate_parameters( int ls, level_struct *l ) {
   if ( g.num_levels>2 && g.interpolation )
     ASSERT( g.mixed_precision );
 
+#ifdef HAVE_TM
+  //TODO: multi-mass shifts on odd-sites in even-odd prec. are not implemented
+  int flag = 0;
+  for ( i=0; i<g.num_levels-1; i++ )
+    for ( int j=0; j<g.num_rhs_vect-1; j++ )
+      flag += (g.mu_factor[g.num_rhs_vect*i+j]==g.mu_factor[g.num_rhs_vect*i+j+1])?0:1;
+  if ( flag && g.odd_even )
+    ASSERT( g.mu_odd_shift == 0 );
+#endif
 #ifdef HAVE_TM1p1
   //TODO: method = 6 not supported with HAVE_TM1p1. To fix all the g5D functions
   ASSERT( g.method !=6 );
@@ -678,7 +687,7 @@ static void allocate_for_global_struct_after_read_global_info( int ls ) {
   MALLOC( g.ncycle, int, ls );
   MALLOC( g.relax_fac, double, ls );
 #ifdef HAVE_TM
-  MALLOC( g.mu_factor, double, ls );
+  MALLOC( g.mu_factor, double, ls*g.num_rhs_vect );
 #endif
 #ifdef HAVE_TM1p1
   MALLOC( g.epsbar_factor, double, ls );

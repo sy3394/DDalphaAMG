@@ -37,6 +37,7 @@ static void diag_ee_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operato
 static void diag_oo_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
 static void diag_oo_inv_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_PRECISION_struct *op,	level_struct *l, int start, int end );
 
+// called only when g.method==4,5 at the top in init.c to setup g.op_PRECISION
 void oddeven_setup_PRECISION( operator_double_struct *in, level_struct *l ) {
 
 /*********************************************************************************
@@ -760,48 +761,6 @@ void hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, opera
   SYNC_CORES(threading)
 }
 
-void apply_schur_complement_PRECISION( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op,
-    level_struct *l, struct Thread *threading ) {
-
-  /*********************************************************************************
-   * Applies the Schur complement to a vector.
-   *********************************************************************************/
-
-  // start and end indices for vector functions depending on thread
-  int start_even, end_even, start_odd, end_odd;
-
-  compute_core_start_end_custom(0, op->num_even_sites*l->num_lattice_site_var, &start_even, &end_even, l, threading, l->num_lattice_site_var );
-  compute_core_start_end_custom(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start_odd, &end_odd, l, threading, l->num_lattice_site_var );
-  
-  if ( out->num_vect < in->num_vect_now )
-    error0("apply_schur_complement_PRECISION: assumptions are not met\n");
-
-  vector_PRECISION *tmp = op->buffer;
-  tmp[0].num_vect_now = in->num_vect_now; tmp[1].num_vect_now = in->num_vect_now;
-
-  SYNC_CORES(threading)
-  vector_PRECISION_define( &tmp[0], 0, start_odd, end_odd, l );
-  vector_PRECISION_define( &tmp[0], 0, start_even, end_even, l );
-  
-  SYNC_CORES(threading)
-  PROF_PRECISION_START( _NC, threading );
-  PROF_PRECISION_START( _SC, threading );
-  diag_ee_PRECISION( out, in, op, l, start_even, end_even );
-  SYNC_CORES(threading)
-  PROF_PRECISION_STOP( _SC, 1, threading );
-  
-  hopping_term_PRECISION( &tmp[0], in, op, _ODD_SITES, l, threading );
-  PROF_PRECISION_STOP( _NC, 0, threading );
-  PROF_PRECISION_START( _SC, threading );
-  diag_oo_inv_PRECISION( &tmp[1], &tmp[0], op, l, start_odd, end_odd );
-  SYNC_CORES(threading)
-  PROF_PRECISION_STOP( _SC, 0, threading );
-  PROF_PRECISION_START( _NC, threading );
-  hopping_term_PRECISION( &tmp[0], &tmp[1], op, _EVEN_SITES, l, threading );
-  PROF_PRECISION_STOP( _NC, 1, threading );
-  vector_PRECISION_minus( out, out, &tmp[0], start_even, end_even, l );
-}
-
 static void diag_ee_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_PRECISION_struct *op, 
 				   level_struct *l, int start, int end ) {
 
@@ -927,6 +886,49 @@ static void diag_oo_inv_PRECISION( vector_PRECISION *y, vector_PRECISION *x, ope
 /*#ifdef HAVE_TM1p1
   }
 #endif*/
+}
+
+// used only when g.method==4, 5  
+void apply_schur_complement_PRECISION( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op,
+    level_struct *l, struct Thread *threading ) {
+
+  /*********************************************************************************
+   * Applies the Schur complement to a vector.
+   *********************************************************************************/
+
+  // start and end indices for vector functions depending on thread
+  int start_even, end_even, start_odd, end_odd;
+
+  compute_core_start_end_custom(0, op->num_even_sites*l->num_lattice_site_var, &start_even, &end_even, l, threading, l->num_lattice_site_var );
+  compute_core_start_end_custom(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start_odd, &end_odd, l, threading, l->num_lattice_site_var );
+  
+  if ( out->num_vect < in->num_vect_now )
+    error0("apply_schur_complement_PRECISION: assumptions are not met\n");
+
+  vector_PRECISION *tmp = op->buffer;
+  tmp[0].num_vect_now = in->num_vect_now; tmp[1].num_vect_now = in->num_vect_now;
+
+  SYNC_CORES(threading)
+  vector_PRECISION_define( &tmp[0], 0, start_odd, end_odd, l );
+  vector_PRECISION_define( &tmp[0], 0, start_even, end_even, l );
+  
+  SYNC_CORES(threading)
+  PROF_PRECISION_START( _NC, threading );
+  PROF_PRECISION_START( _SC, threading );
+  diag_ee_PRECISION( out, in, op, l, start_even, end_even );
+  SYNC_CORES(threading)
+  PROF_PRECISION_STOP( _SC, 1, threading );
+  
+  hopping_term_PRECISION( &tmp[0], in, op, _ODD_SITES, l, threading );
+  PROF_PRECISION_STOP( _NC, 0, threading );
+  PROF_PRECISION_START( _SC, threading );
+  diag_oo_inv_PRECISION( &tmp[1], &tmp[0], op, l, start_odd, end_odd );
+  SYNC_CORES(threading)
+  PROF_PRECISION_STOP( _SC, 0, threading );
+  PROF_PRECISION_START( _NC, threading );
+  hopping_term_PRECISION( &tmp[0], &tmp[1], op, _EVEN_SITES, l, threading );
+  PROF_PRECISION_STOP( _NC, 1, threading );
+  vector_PRECISION_minus( out, out, &tmp[0], start_even, end_even, l );
 }
 
 // used only in void preconditioner() when g.method==4, 5

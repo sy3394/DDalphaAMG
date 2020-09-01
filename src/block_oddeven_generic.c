@@ -30,40 +30,43 @@ static void block_diag_ee_PRECISION( vector_PRECISION *eta, vector_PRECISION *ph
 static void block_diag_oo_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading );
 static void block_diag_oo_inv_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) ;
 
-void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct *l ) {
+
+void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct *l ) { // called only at the top; blcokwise opeartion is related to SAP, hence the name
   
   int mu, i, d0, c0, b0, a0, d1, c1, b1, a1, t, z, y, x, agg_split[4], block_split[4], block_size[4];
   operator_PRECISION_struct *op = &(s->op);
-  int n1 = s->num_block_even_sites;
+  int ne = s->num_block_even_sites;
 #ifdef HAVE_TM
   config_PRECISION tm_term_pt = op->tm_term;
 #endif
 
   for ( mu=0; mu<4; mu++ ) {
-    agg_split[mu] = l->local_lattice[mu]/l->coarsening[mu];
-    block_split[mu] = l->coarsening[mu]/l->block_lattice[mu];
-    block_size[mu] = l->block_lattice[mu];
+    agg_split[mu]   = l->local_lattice[mu]/l->coarsening[mu]; // # aggregates in mu dir
+    block_split[mu] = l->coarsening[mu]/l->block_lattice[mu]; // # blocks within each aggregate in mu dir
+    block_size[mu]  = l->block_lattice[mu];                   // dims of a block on a local lattice
   }
   
   if ( g.csw ) {
     config_PRECISION clover_pt = op->clover, clover_oo_inv_pt = op->clover_oo_inv;
     complex_double buffer[42];
-    int cs = 42;
+    int cs = 42; // clover term is Hermitian and Gamma_5 symmetric => (d.o.f.)=21*2
+    // for each aggregate 
     for ( d0=0; d0<agg_split[T]; d0++ )
       for ( c0=0; c0<agg_split[Z]; c0++ )
         for ( b0=0; b0<agg_split[Y]; b0++ )
           for ( a0=0; a0<agg_split[X]; a0++ )
-            
+            // for each block in the aggregate 
             for ( d1=d0*block_split[T]; d1<(d0+1)*block_split[T]; d1++ )
               for ( c1=c0*block_split[Z]; c1<(c0+1)*block_split[Z]; c1++ )
                 for ( b1=b0*block_split[Y]; b1<(b0+1)*block_split[Y]; b1++ )
                   for ( a1=a0*block_split[X]; a1<(a0+1)*block_split[X]; a1++ ) {
 
                     // skipping even sites
-                    clover_pt += n1*cs;
+                    clover_pt += ne*cs;
 #ifdef HAVE_TM
-                    tm_term_pt += n1*12;
+                    tm_term_pt += ne*12;
 #endif
+		    // for each site within a block
                     for ( t=d1*block_size[T]; t<(d1+1)*block_size[T]; t++ )
                       for ( z=c1*block_size[Z]; z<(c1+1)*block_size[Z]; z++ )
                         for ( y=b1*block_size[Y]; y<(b1+1)*block_size[Y]; y++ )
@@ -78,7 +81,7 @@ void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct 
                                   buffer[i] += (complex_double)tm_term_pt[i];
                               tm_term_pt += 12;
                               selfcoupling_LU_decomposition_PRECISION( clover_oo_inv_pt, buffer );
-                              clover_oo_inv_pt += 72;
+                              clover_oo_inv_pt += 72; // 15*2+21*2 = [(non-1 entries of L) + (entries of U)]*(2 blocks)
 #else  
                               selfcoupling_cholesky_decomposition_PRECISION( clover_oo_inv_pt, buffer );
                               clover_oo_inv_pt += 42;
@@ -110,10 +113,10 @@ void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct 
                 for ( a1=a0*block_split[X]; a1<(a0+1)*block_split[X]; a1++ ) {
 
                   // skipping even sites
-                  clover_pt += n1*cs;
-                  eps_term_pt += n1*12;
+                  clover_pt += ne*cs;
+                  eps_term_pt += ne*12;
 #ifdef HAVE_TM
-                  tm_term_pt += n1*12;
+                  tm_term_pt += ne*12;
 #endif
                   for ( t=d1*block_size[T]; t<(d1+1)*block_size[T]; t++ )
                     for ( z=c1*block_size[Z]; z<(c1+1)*block_size[Z]; z++ )
@@ -152,7 +155,7 @@ void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct 
 #endif  
 }
 
-// eta <- block_hopping_term_PRECISION*phi
+// out_o/e += D_oe/eo*in_e/o if amount==_ODD_SITES/_EVEN_SITES; works on both parts if amount==_FULL_SYSTEM 
 void block_hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 				       int start, int amount, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
   
@@ -432,7 +435,7 @@ void block_hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
   END_UNTHREADED_FUNCTION(threading)
 }
 
-// eta <- block_n_hopping_term_PRECISION*phi
+// out_o/e -= D_oe/eo*in_e/o if amount==_ODD_SITES/_EVEN_SITES; works on both parts if amount==_FULL_SYSTEM 
 void block_n_hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 					 int start, int amount, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
   
@@ -711,25 +714,7 @@ void block_n_hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *ph
   END_UNTHREADED_FUNCTION(threading)
 }
 
-// out <- block_schur_complement_PRECISION*in
-void apply_block_schur_complement_PRECISION( vector_PRECISION *out, vector_PRECISION *in, int start,
-						 schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
-  
-  vector_PRECISION *tmp = s->oe_buf;
-  for (int i=0; i<2; i++ ) s->oe_buf[i].num_vect_now = in->num_vect_now;
-
-  if ( out->num_vect < in->num_vect_now )
-    error0("apply_block_schur_complement_PRECISION: assumptions are not met\n");
-
-  block_diag_ee_PRECISION( out, in, start, s, l, threading );
-  START_LOCKED_MASTER(threading)
-  vector_PRECISION_define( &tmp[0], 0, start + l->num_lattice_site_var*s->num_block_even_sites, start + s->block_vector_size, l );
-  END_LOCKED_MASTER(threading)
-  block_hopping_term_PRECISION( &tmp[0], in, start, _ODD_SITES, s, l, threading );
-  block_diag_oo_inv_PRECISION( &tmp[1], &tmp[0], start, s, l, threading );
-  block_n_hopping_term_PRECISION( out, &tmp[1], start, _EVEN_SITES, s, l, threading );
-}
-
+// apply even part of self-coupling term in Schwartz layout
 static void block_diag_ee_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 					 int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
  
@@ -741,7 +726,7 @@ static void block_diag_ee_PRECISION( vector_PRECISION *eta, vector_PRECISION *ph
 }
 
 // used only in test routines
-// diagonal blocks applied to the odd sites of a block
+// apply odd part of self-coupling term in Schwartz layout
 static void block_diag_oo_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 					 int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
 
@@ -790,7 +775,7 @@ static void block_diag_oo_PRECISION( vector_PRECISION *eta, vector_PRECISION *ph
   END_UNTHREADED_FUNCTION(threading)
 }
 
-// inverted diagonal blocks applied to the odd sites of a block
+// eta <- D_oo^{-1}*phi in Schwartz layout
 static void block_diag_oo_inv_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s,
 					     level_struct *l, struct Thread *threading ) {
 
@@ -841,11 +826,44 @@ static void block_diag_oo_inv_PRECISION( vector_PRECISION *eta, vector_PRECISION
   END_UNTHREADED_FUNCTION(threading)
 }
 
-//phi <- D_block_oddeven^-1 r????
+// D_sc = D_ee - D_eo D_oo ^{-1} D_oe in Schwartz layout
+void apply_block_schur_complement_PRECISION( vector_PRECISION *out, vector_PRECISION *in, int start,
+						 schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
+  
+  vector_PRECISION *tmp = s->oe_buf;
+  for (int i=0; i<2; i++ ) s->oe_buf[i].num_vect_now = in->num_vect_now;
+
+  if ( out->num_vect < in->num_vect_now )
+    error0("apply_block_schur_complement_PRECISION: assumptions are not met\n");
+
+  block_diag_ee_PRECISION( out, in, start, s, l, threading );
+  START_LOCKED_MASTER(threading)
+  vector_PRECISION_define( &tmp[0], 0, start + l->num_lattice_site_var*s->num_block_even_sites, start + s->block_vector_size, l );
+  END_LOCKED_MASTER(threading)
+  block_hopping_term_PRECISION( &tmp[0], in, start, _ODD_SITES, s, l, threading );
+  block_diag_oo_inv_PRECISION( &tmp[1], &tmp[0], start, s, l, threading );//needs decomposition!!!!
+  block_n_hopping_term_PRECISION( out, &tmp[1], start, _EVEN_SITES, s, l, threading );
+}
+
 void block_solve_oddeven_PRECISION( vector_PRECISION *phi, vector_PRECISION *r, vector_PRECISION *latest_iter,
-    int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
+				    int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
+  /****************************************************************************************
+   * SAP update: phi <- phi + latest_iter
+   * Let x = latest_iter.  Then, D_b*x = r where D_b is a block matrix
+   * Descripton: Solve D*x = r in the even-odd preconditioning using Schur complement D_sc
+   *   D_sc = D_ee - D_eo D_oo ^{-1} D_oe
+   *   x_e = D_sc^{-1} (r_e - D_eo*D_oo^{-1}*r_o)
+   *   x_o = D_oo^{-1} (r_o - D_oe*x_e)  
+   * Note: D_oo^{-1} is taken explicitly; D_sc is inverted iteratively; r_o = 0
+   * phi: estimate of the solution to D*phi = eta
+   * r: eta - D*phi; (in) initial residual (out) residual of the updated estimate
+   * latest_iter: D_b^{-1}*r
+   ****************************************************************************************/
   
   START_UNTHREADED_FUNCTION(threading)
+
+  if ( phi->num_vect < r->num_vect_now )
+    error0("block_solve_oddeven_PRECISION: assumptions are not met\n");
 
   vector_PRECISION *tmp = s->oe_buf;
   int end = start+s->block_vector_size;
@@ -853,23 +871,20 @@ void block_solve_oddeven_PRECISION( vector_PRECISION *phi, vector_PRECISION *r, 
   for ( int i=2; i<4; i++ )
     s->oe_buf[i].num_vect_now = r->num_vect_now;
 
-  if ( phi->num_vect < r->num_vect_now )
-    error0("block_solve_oddeven_PRECISION: assumptions are not met\n");
-
-  // odd to even
-  vector_PRECISION_copy( &tmp[3], r, start, end, l );
-  block_diag_oo_inv_PRECISION( &tmp[2], &tmp[3], start, s, l, no_threading );
-  block_n_hopping_term_PRECISION( &tmp[3], &tmp[2], start, _EVEN_SITES, s, l, no_threading );
-  local_minres_PRECISION( NULL, &tmp[3], &tmp[2], start, s, l, no_threading );  
-  // even to odd
-  block_n_hopping_term_PRECISION( &tmp[3], &tmp[2], start, _ODD_SITES, s, l, no_threading );
-  block_diag_oo_inv_PRECISION( &tmp[2], &tmp[3], start, s, l, no_threading );
+  // solve for x_e
+  vector_PRECISION_copy( &tmp[3], r, start, end, l ); // tmp3 = r
+  block_diag_oo_inv_PRECISION( &tmp[2], &tmp[3], start, s, l, no_threading ); // tmp3_o = D_oo^{-1}*r_o
+  block_n_hopping_term_PRECISION( &tmp[3], &tmp[2], start, _EVEN_SITES, s, l, no_threading ); // tmp3_e = r_e - D_eo*D_oo^{-1}*r_o 
+  local_minres_PRECISION( NULL, &tmp[3], &tmp[2], start, s, l, no_threading );  // tmp2_e = x_e = D_sc^{-1} (r_e - D_eo*D_oo^{-1}*r_o); tmp3_e = (updated r_e)
+  // solve for x_o
+  block_n_hopping_term_PRECISION( &tmp[3], &tmp[2], start, _ODD_SITES, s, l, no_threading ); // tmp3_o = r_o- D_oe*x_e
+  block_diag_oo_inv_PRECISION( &tmp[2], &tmp[3], start, s, l, no_threading ); // tmp2_o = x_o = D_oo^{-1} (r_o - D_oe*x_e) 
   // update phi, latest_iter
-  vector_PRECISION_copy( latest_iter, &tmp[2], start, end, l );
-  vector_PRECISION_plus( phi, phi, &tmp[2], start, end, l );
+  vector_PRECISION_copy( latest_iter, &tmp[2], start, end, l ); // latest_iter = x
+  vector_PRECISION_plus( phi, phi, &tmp[2], start, end, l );    // phi <- phi + latest_iter
   // update r
-  vector_PRECISION_copy( r, &tmp[3], start, start+l->num_lattice_site_var*s->num_block_even_sites, l );
-  vector_PRECISION_define( r, 0, start+l->num_lattice_site_var*s->num_block_even_sites, end, l );
+  vector_PRECISION_copy( r, &tmp[3], start, start+l->num_lattice_site_var*s->num_block_even_sites, l ); // r_e = tmp3_e
+  vector_PRECISION_define( r, 0, start+l->num_lattice_site_var*s->num_block_even_sites, end, l );       // r_o = 0
   END_UNTHREADED_FUNCTION(threading)
 }
 
@@ -885,7 +900,6 @@ void oddeven_to_block_PRECISION( vector_PRECISION *out, vector_PRECISION *in, le
   if ( nvec_out < nvec)
     error0("oddeven_to_serial_PRECISION: assumptions are not met\n");
 
-  // this function seems to do some data reordering, barriers ensure that everything is in sync
   SYNC_CORES(threading)
   START_NO_HYPERTHREADS(threading)  
   for ( i=start; i<end; i++ ) {
@@ -909,7 +923,6 @@ void block_to_oddeven_PRECISION( vector_PRECISION *out, vector_PRECISION *in, le
   if ( nvec_out < nvec )
     error0("oddeven_to_serial_PRECISION: assumptions are not met\n");
 
-  // this function seems to do some data reordering, barriers ensure that everything is in sync
   SYNC_CORES(threading)
   START_NO_HYPERTHREADS(threading)  
   for ( i=start; i<end; i++ ) {

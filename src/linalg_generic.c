@@ -305,7 +305,7 @@ void gram_schmidt_on_aggregates_PRECISION( vector_PRECISION *phi, const int num_
   /************************************************
    * vector_PRECISION *phi: a set of vectors to be orthogonalized 
    * num_vect: should be equal to phi->num_vect_now
-   * note: aggregate lives in the process so that no communication is necessary??????
+   * note: aggregate lives in the process so that no communication is necessary
    ***********************************************/
 
   PROF_PRECISION_START( _GRAM_SCHMIDT_ON_AGGREGATES, threading );

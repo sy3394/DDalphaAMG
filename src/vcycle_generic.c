@@ -22,14 +22,15 @@
 #include "vcycle_PRECISION.h"
 
 
-// phi <- V/K-cycle(eta); compute corse-grid correction
+// phi <- V/K-cycle(eta); compute corse-grid correction and apply post-smoothing
+// Order of preconditioner: (smoother)*(coarse-grid)*phi
 void vcycle_PRECISION( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRECISION *eta,
 		       int res, level_struct *l, struct Thread *threading ) {
 
   if ( g.interpolation && l->level>0 ) {
     int nvec = num_loop;//eta->num_vect_now;
     for ( int i=0; i<l->n_cy; i++ ) {
-      //--- compute the residual //presmoohting????
+      //--- compute the residual
       if ( i==0 && res == _NO_RES ) {
 	// if the initial guess is 0, the resid on the next level is restircted rhs
 	l->next_level->p_PRECISION.b.num_vect_now = nvec;

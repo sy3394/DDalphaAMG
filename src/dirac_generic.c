@@ -24,7 +24,6 @@
 
 #include "main.h"
 
-// at depth = 0
 // eta <- op->clover(+op->tm)*phi
 void clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, int start, int end,
                        level_struct *l, struct Thread *threading ) {
@@ -46,10 +45,8 @@ void clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PR
 #ifdef HAVE_TM
   config_PRECISION tm_term = op->tm_term+(start/nv)*12;
 #endif
-  //  printf("cl %g\n", creal_PRECISION(*op->tm_term));
-  if ( g.csw == 0.0 ) {
-
-    config_PRECISION clover = op->clover+(start/nv)*12;// why csw==0 => no clover????????
+  if ( g.csw == 0.0 ) { // clover contains only the mass term
+    config_PRECISION clover = op->clover+(start/nv)*12;
 /*#ifdef HAVE_TM1p1
     if( g.n_flavours == 2 ) {
 #ifdef HAVE_TM
@@ -174,64 +171,6 @@ void clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PR
     
 }
 
-// eta <-spin0and1_clover*phi
-static void spin0and1_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, config_PRECISION clover, level_struct *l ) {
-  
-  if ( eta->num_vect < phi->num_vect_now )
-    error0("spin0and1_clover_PRECISION: assumptions are not met\n");
-
-  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta=eta->num_vect, i, j, jj;
-  buffer_PRECISION eta_end = eta->vector_buffer + l->inner_vector_size*nvec_eta, leta = eta->vector_buffer, lphi = phi->vector_buffer;
-
-  if ( g.csw == 0.0 ) {
-    while ( leta < eta_end ) {
-      for( i=0; i<6; i++ ){
-        VECTOR_LOOP(j, nvec, jj, *leta = (*lphi)*(*clover); leta++; lphi++;) 
-	leta += nvec_eta-nvec; lphi += nvec_phi-nvec;
-        clover++;
-      }
-      for( i=0; i<6; i++ ){
-        VECTOR_LOOP(j, nvec_eta, jj, *leta = _COMPLEX_PRECISION_ZERO; leta++;)
-      }
-      lphi += 6*nvec_phi; clover+=6;
-    }
-  } else {
-    while ( leta < eta_end ) {
-      spin0and1_site_clover_PRECISION( leta, lphi, clover, nvec, nvec_eta, nvec_phi );
-      leta += 12*nvec_eta; lphi += 12*nvec_phi; clover+=42;
-    }
-  }
-}
-
-// eta <- spin2and3_clove*phi
-static void spin2and3_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, config_PRECISION clover, level_struct *l ) {
-
-  if ( eta->num_vect < phi->num_vect_now )
-    error0("spin2and3_clover_PRECISION: assumptions are not met\n");
-
-  int i, j, jj;
-  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
-  buffer_PRECISION eta_end = eta->vector_buffer + l->inner_vector_size*nvec_eta, leta = eta->vector_buffer, lphi = phi->vector_buffer;
-  if ( g.csw == 0.0 ) {
-    while ( leta < eta_end ) {
-      lphi += 6*nvec_phi; clover+=6;
-      for( i=0; i<6; i++ ){
-        VECTOR_LOOP(j, nvec_eta, jj, *leta = _COMPLEX_PRECISION_ZERO; leta++;)
-      }
-      for( i=0; i<6; i++ ){
-        VECTOR_LOOP(j, nvec, jj, *leta = (*lphi)*(*clover); leta++; lphi++;)
-	leta += nvec_eta-nvec; lphi += nvec_phi-nvec;
-        clover++;
-      }
-    }
-  } else {
-    while ( leta < eta_end ) {
-      spin2and3_site_clover_PRECISION( leta, lphi, clover, nvec, nvec_eta, nvec_phi );
-      leta += 12*nvec_eta; lphi += 12*nvec_phi; clover+=42;
-    }
-  }
-}
-
 // eta <- d_plus_clover*phi
 void d_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
   
@@ -243,12 +182,11 @@ void d_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, oper
 
   if ( eta->num_vect < phi->num_vect_now )
     error0("d_plus_clover_PRECISION: assumptions are not met\n");
-  //  printf0("start of d_plus_clover_PRECISION %d %d %d\n", nvec, nvec_phi, nvec_op);
-  //compute_core_start_end(0, nv*n, &start, &end, l, threading );
-  compute_core_start_end_custom(0, nv*n, &start, &end, l, threading, nv );//!!!!!
+
+  compute_core_start_end_custom(0, nv*n, &start, &end, l, threading, nv );
 
   SYNC_MASTER_TO_ALL(threading)
-    clover_PRECISION( eta, phi, op, start, end, l, threading );//printf("dplus clo\n");fflush(stdout);//eta=op*phi where clover term of op is applied
+  clover_PRECISION( eta, phi, op, start, end, l, threading );
   START_MASTER(threading)
   PROF_PRECISION_START( _NC ); 
   END_MASTER(threading)
@@ -463,7 +401,8 @@ void d_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, oper
   SYNC_MASTER_TO_ALL(threading)
 }
 
-//eta = blockD*phi 
+// eta = blockD*phi
+// Assume: sites are order blockwise, i.e., in Schwarz layout
 void block_d_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
 
   START_UNTHREADED_FUNCTION(threading)
@@ -611,7 +550,65 @@ void block_d_plus_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi
   END_UNTHREADED_FUNCTION(threading)
 }
 
-/********************  aggreagate operators ************************************************/
+/********************  aggreagate operators for coarse op. setup  ************************************************/
+
+// eta <-spin0and1_clover*phi
+static void spin0and1_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, config_PRECISION clover, level_struct *l ) {
+  
+  if ( eta->num_vect < phi->num_vect_now )
+    error0("spin0and1_clover_PRECISION: assumptions are not met\n");
+
+  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta=eta->num_vect, i, j, jj;
+  buffer_PRECISION eta_end = eta->vector_buffer + l->inner_vector_size*nvec_eta, leta = eta->vector_buffer, lphi = phi->vector_buffer;
+
+  if ( g.csw == 0.0 ) {
+    while ( leta < eta_end ) {
+      for( i=0; i<6; i++ ){
+        VECTOR_LOOP(j, nvec, jj, *leta = (*lphi)*(*clover); leta++; lphi++;) 
+	leta += nvec_eta-nvec; lphi += nvec_phi-nvec;
+        clover++;
+      }
+      for( i=0; i<6; i++ ){
+        VECTOR_LOOP(j, nvec_eta, jj, *leta = _COMPLEX_PRECISION_ZERO; leta++;)
+      }
+      lphi += 6*nvec_phi; clover+=6;
+    }
+  } else {
+    while ( leta < eta_end ) {
+      spin0and1_site_clover_PRECISION( leta, lphi, clover, nvec, nvec_eta, nvec_phi );
+      leta += 12*nvec_eta; lphi += 12*nvec_phi; clover+=42;
+    }
+  }
+}
+
+// eta <- spin2and3_clover*phi
+static void spin2and3_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, config_PRECISION clover, level_struct *l ) {
+
+  if ( eta->num_vect < phi->num_vect_now )
+    error0("spin2and3_clover_PRECISION: assumptions are not met\n");
+
+  int i, j, jj;
+  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
+  buffer_PRECISION eta_end = eta->vector_buffer + l->inner_vector_size*nvec_eta, leta = eta->vector_buffer, lphi = phi->vector_buffer;
+  if ( g.csw == 0.0 ) {
+    while ( leta < eta_end ) {
+      lphi += 6*nvec_phi; clover+=6;
+      for( i=0; i<6; i++ ){
+        VECTOR_LOOP(j, nvec_eta, jj, *leta = _COMPLEX_PRECISION_ZERO; leta++;)
+      }
+      for( i=0; i<6; i++ ){
+        VECTOR_LOOP(j, nvec, jj, *leta = (*lphi)*(*clover); leta++; lphi++;)
+	leta += nvec_eta-nvec; lphi += nvec_phi-nvec;
+        clover++;
+      }
+    }
+  } else {
+    while ( leta < eta_end ) {
+      spin2and3_site_clover_PRECISION( leta, lphi, clover, nvec, nvec_eta, nvec_phi );
+      leta += 12*nvec_eta; lphi += 12*nvec_phi; clover+=42;
+    }
+  }
+}
 
 // used in coarse_operator_PRECISION_setup: no_threading  
 void diagonal_aggregate_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, config_PRECISION diag, level_struct *l ) {
@@ -637,7 +634,7 @@ void diagonal_aggregate_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta
   }
 }
 
-// <- phi????
+// eta <- d_plus_clover_aggregate*phi
 // used in coarse_operator_PRECISION_setup: no_threading
 void d_plus_clover_aggregate_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, schwarz_PRECISION_struct *s, level_struct *l ) {
   
@@ -800,45 +797,8 @@ void d_neighbor_aggregate_PRECISION( vector_PRECISION *eta1, vector_PRECISION *e
   }
 }
  
-// does this not affect eta and phi after returning to the calling pt?
-void apply_twisted_bc_to_vector_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, double *theta, level_struct *l) {
-  int t, z, y, x, i, j, jj, nvec = phi->num_vect_now, nvec_eta = eta->num_vect, nvec_phi = phi->num_vect;
-  int *gl=l->global_lattice, sl[4];
-  double phase[4];
-  buffer_PRECISION eta_pt = eta->vector_buffer, phi_pt = phi->vector_buffer;
-  complex_double twisted_bc;
-  for (i=0; i<4; i++)
-    sl[i] = l->local_lattice[i]*g.my_coords[i];
-  
-  if ( nvec_eta < nvec )
-    error0("apply_twisted_bc_to_vector_PRECISION: assumptions are not met\n");
 
-  for (t=0; t<l->local_lattice[0]; t++) {
-    phase[T] = theta[T]*((double)sl[T]+t)/(double)gl[T];
-    for (z=0; z<l->local_lattice[1]; z++) {
-      phase[Z] = phase[T] + theta[Z]*((double)sl[Z]+z)/(double)gl[Z];
-      for (y=0; y<l->local_lattice[2]; y++) {
-        phase[Y] = phase[Z] + theta[Y]*((double)sl[Y]+y)/(double)gl[Y];
-        for (x=0; x<l->local_lattice[3]; x++) {
-          phase[X] = phase[Y] + theta[X]*((double)sl[X]+x)/(double)gl[X];
-          twisted_bc = exp(I*phase[X]);
-/*#ifdef HAVE_TM1p1
-          if( g.n_flavours == 2 ) {
-            FOR24( *eta->vector_buffer = (*phi->vector_buffer)*twisted_bc; phi->vector_buffer++; eta->vector_buffer++; );
-          } else
-#endif*/
-	  for (i=0; i<12; i++){
-	    VECTOR_LOOP(j, nvec, jj, *eta_pt = (*phi_pt)*twisted_bc; phi_pt++;  eta_pt++;)
-	    eta_pt += nvec_eta-nvec; phi_pt += nvec_phi-nvec;
-          }
-        }
-      }
-    }
-  }
-}
-
-
-/*************************** setup and update ************************************/
+/*************************** Setup and Update Functions ************************************/
 
 // used only in DDalphaAMG_interface.c: so not changed!!!!!!!!!!!!
 void operator_updates_PRECISION( level_struct *l, struct Thread *threading ) {
@@ -924,21 +884,20 @@ void tm_term_PRECISION_setup( PRECISION mu, PRECISION even, PRECISION odd, opera
 
   config_PRECISION tm_term = op->tm_term;
   if ( tm_term != NULL ) {
-    config_PRECISION odd_proj = op->odd_proj;
-    complex_PRECISION shift = I*mu;
+    config_PRECISION  odd_proj   = op->odd_proj;
+    complex_PRECISION shift      = I*mu;
     complex_PRECISION even_shift = I*even;
-    complex_PRECISION odd_shift = I*odd;
+    complex_PRECISION odd_shift  = I*odd;
 
     START_MASTER(threading)
-    op->mu = mu;
+    op->mu            = mu;
     op->mu_even_shift = even;
-    op->mu_odd_shift = odd;
+    op->mu_odd_shift  = odd;
     END_MASTER(threading)
 
     int i, j;
     int start, end;
-    //compute_core_start_end(0, l->num_inner_lattice_sites, &start, &end, l, threading);
-    compute_core_start_end_custom(0, l->num_inner_lattice_sites, &start, &end, l, threading, 1);//!!!!!!
+    compute_core_start_end_custom(0, l->num_inner_lattice_sites, &start, &end, l, threading, 1);
     int n = end-start;
           
     if ( l->depth == 0 ) {
@@ -950,22 +909,24 @@ void tm_term_PRECISION_setup( PRECISION mu, PRECISION even, PRECISION odd, opera
         if( cimag(even_shift) == 0. && cimag(odd_shift) == 0. )
           tm_shift = shift;
         else
-          tm_shift = shift + even_shift + odd_proj[0]*(odd_shift - even_shift);
-        FOR6( *tm_term = - tm_shift; tm_term++; )
+          tm_shift = shift + even_shift + odd_proj[0]*(odd_shift - even_shift); // odd_proj[0]=0 at even sites and non-zero otherwise
+        FOR6( *tm_term = - tm_shift; tm_term++; )//spin indicies orderd in T,Z,Y,X?
         FOR6( *tm_term = tm_shift; tm_term++; )
         odd_proj += 12;
       }
     } else {
       int k, m  = l->num_parent_eig_vect;
-      int tm_size = m*(m+1);
+      int tm_size = m*(m+1);// there are 2 m-by-m upper triangular block matrices for each aggregate
       
       tm_term += start*tm_size;
       odd_proj += start*tm_size;
       
       if( cimag(even_shift) == 0. && cimag(odd_shift) == 0. ) {
-        
-        for ( i=0; i<n; i++ ) {
-          for ( j=0; j<m; j++ ) {
+
+	// note: approximated eigenvectors consisting P is aggregate-wise orthonormalized.
+	
+        for ( i=0; i<n; i++ ) { // for each site
+          for ( j=0; j<m; j++ ) { // for each upper column
             for ( k=0; k<j; k++ )
               tm_term[k] = _COMPLEX_PRECISION_ZERO;
             tm_term += j;
@@ -983,21 +944,31 @@ void tm_term_PRECISION_setup( PRECISION mu, PRECISION even, PRECISION odd, opera
         }
       } else {
         complex_PRECISION odd_factor = odd_shift - even_shift;
-        
-        for ( i=0; i<n; i++ ) {
-          for ( j=0; j<m; j++ ) {
-            for ( k=0; k<j; k++ ) 
-              tm_term[k] = -1. * odd_factor * odd_proj[k] ;
+
+	/*
+	  For off-diagonal entries, we need TM_jk = mu_even_shift*(v_j(e)*v_k(e))+mu_odd_shift*(v_j(o)*v_k(o))
+	  Note: v_j(e)*v_k(e)+v_j(o)*v_k(o) = \delta_jk & odd_proj_jk = v_j(o)*v_k(o)
+	  So: TM_jk(j!=k) = mu_even_shift*(v_j(e)*v_k(e)+v_j(o)*v_k(o))+odd_factor*odd_proj_jk
+	  For diagonal entries, we use 1= v_j(e)*v_j(e)+v_j(o)*v_j(o)
+	 */
+        for ( i=0; i<n; i++ ) { // for each site
+	  // for spin 01, i.e., T,Z
+          for ( j=0; j<m; j++ ) { // for each upper column 
+            for ( k=0; k<j; k++ ) // for off-diagonal entries
+              tm_term[k] = -1. * odd_factor * odd_proj[k]; 
+	    // for diagonal entry
             tm_term += j;
             odd_proj += j;
             *tm_term = -1.* ( shift + even_shift + odd_factor * (*odd_proj));
             tm_term++;
             odd_proj++;
           } 
-          
-          for ( j=0; j<m; j++ ) {
-            for ( k=0; k<j; k++ ) 
+
+	  // for spin 23, i.e., Y,X
+          for ( j=0; j<m; j++ ) { // for each upper column 
+            for ( k=0; k<j; k++ ) // for off-diagonal entries  
               tm_term[k] = odd_factor * odd_proj[k] ;
+	    // for diagonal entry
             tm_term += j;
             odd_proj += j;
             *tm_term = ( shift + even_shift + odd_factor * (*odd_proj));
@@ -1098,6 +1069,46 @@ void epsbar_term_PRECISION_setup( PRECISION epsbar, PRECISION even, PRECISION od
   }
 #endif
 }
+
+
+/*************************** Helper Functions ************************************/
+
+void apply_twisted_bc_to_vector_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, double *theta, level_struct *l) {
+  int t, z, y, x, i, j, jj, nvec = phi->num_vect_now, nvec_eta = eta->num_vect, nvec_phi = phi->num_vect;
+  int *gl=l->global_lattice, sl[4];
+  double phase[4];
+  buffer_PRECISION eta_pt = eta->vector_buffer, phi_pt = phi->vector_buffer;
+  complex_double twisted_bc;
+  for (i=0; i<4; i++)
+    sl[i] = l->local_lattice[i]*g.my_coords[i];
+  
+  if ( nvec_eta < nvec )
+    error0("apply_twisted_bc_to_vector_PRECISION: assumptions are not met\n");
+
+  for (t=0; t<l->local_lattice[0]; t++) {
+    phase[T] = theta[T]*((double)sl[T]+t)/(double)gl[T];
+    for (z=0; z<l->local_lattice[1]; z++) {
+      phase[Z] = phase[T] + theta[Z]*((double)sl[Z]+z)/(double)gl[Z];
+      for (y=0; y<l->local_lattice[2]; y++) {
+        phase[Y] = phase[Z] + theta[Y]*((double)sl[Y]+y)/(double)gl[Y];
+        for (x=0; x<l->local_lattice[3]; x++) {
+          phase[X] = phase[Y] + theta[X]*((double)sl[X]+x)/(double)gl[X];
+          twisted_bc = exp(I*phase[X]);
+/*#ifdef HAVE_TM1p1
+          if( g.n_flavours == 2 ) {
+            FOR24( *eta->vector_buffer = (*phi->vector_buffer)*twisted_bc; phi->vector_buffer++; eta->vector_buffer++; );
+          } else
+#endif*/
+	  for (i=0; i<12; i++){
+	    VECTOR_LOOP(j, nvec, jj, *eta_pt = (*phi_pt)*twisted_bc; phi_pt++;  eta_pt++;)
+	    eta_pt += nvec_eta-nvec; phi_pt += nvec_phi-nvec;
+          }
+        }
+      }
+    }
+  }
+}
+
 
 // eta <- gamma5*phi: not used anywhere
 void gamma5_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, level_struct *l, struct Thread *threading ) {

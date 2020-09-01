@@ -68,7 +68,7 @@ static inline void coarse_perform_fwd_bwd_subs_PRECISION( vector_PRECISION *x, v
     for ( i=0; i<n2; i++ ) {
       VECTOR_LOOP( jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] = b_pt[i*nvec_b+jj+jjj];)
 	for ( j=0; j<i; j++ ) 
-	  VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= A[i*n2+j]*x_pt[j*nvec_x+jj+jjj];)//printf("%g ",creal_PRECISION(A[i*n2+j]));)
+	  VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= A[i*n2+j]*x_pt[j*nvec_x+jj+jjj];)
     }
     // backward substitution with U
     for ( i=n2-1; i>=0; i-- ) {

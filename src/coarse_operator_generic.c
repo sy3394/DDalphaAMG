@@ -16,28 +16,29 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- *  copied: 11/27/2019 (US system)
- * changed from sbacchio
- * checked: 12/07/2019
- * 1st cleanup:12/18/2019
  */
 
 #include "main.h"
 
+static void coarse_aggregate_self_couplings_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, 
+						       schwarz_PRECISION_struct *s, level_struct *l );
+static void coarse_aggregate_neighbor_couplings_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi,
+							   const int mu, schwarz_PRECISION_struct *s, level_struct *l );
+static void coarse_aggregate_block_diagonal_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, config_PRECISION block, level_struct *l );
 static void set_coarse_self_coupling_PRECISION( vector_PRECISION *buffer1, vector_PRECISION *buffer2, vector_PRECISION *V, const int n, level_struct *l );
 static void set_coarse_neighbor_coupling_PRECISION( vector_PRECISION *buffer1, vector_PRECISION *buffer2, vector_PRECISION *V, const int mu, const int n, level_struct *l );
 static void set_block_diagonal_PRECISION( vector_PRECISION *spin_0_1, vector_PRECISION *spin_2_3, vector_PRECISION *V, const int n, config_PRECISION block, level_struct *l );
-static void coarse_spinwise_self_couplings_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, config_PRECISION clover, 
+static void coarse_spinwise_self_couplings_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi, config_PRECISION clover, int length, level_struct *l );
+static void coarse_operator_PRECISION_setup_finalize( level_struct *l, struct Thread *threading );
 
-							  int length, level_struct *l );
 void coarse_operator_PRECISION_alloc( level_struct *l ) {
 
   int nd = l->next_level->num_inner_lattice_sites;
   int  k = l->next_level->num_parent_eig_vect*2;   // internal d.o.f. on the next level
 
-  l->next_level->D_size      = k*k*4*nd;           // (internal d.o.f.)**2*(# nearest neighbor couplings)*(# lattice sites)
-  l->next_level->clover_size = ((k*(k+1))/2)*nd;   // upper triangle???
-  l->next_level->block_size  = ((k/2*(k/2+1)))*nd; // upper triangle???
+  l->next_level->D_size      = k*k*4*nd;           // (internal d.o.f.)**2*(#nearest neighbor couplings)*(#lattice sites)
+  l->next_level->clover_size = ((k*(k+1))/2)*nd;   // upper triangle matrices of blocks in a self copuling matrix at each site
+  l->next_level->block_size  = ((k/2*(k/2+1)))*nd; // upper triangle matrices of diagonal blocks in a self coupling matrix at each site
 
   // allocates space for setting up an operator and compute neighbor tables.  
   operator_PRECISION_alloc( &(l->next_level->op_PRECISION), _ORDINARY, l->next_level );
@@ -50,6 +51,7 @@ void coarse_operator_PRECISION_free( level_struct *l ) {
   
 }
 
+/********************** Setup Functions *********************************************************/
 void coarse_operator_PRECISION_setup( vector_PRECISION *V, level_struct *l ) {
   /**************************************
    * Input
@@ -77,13 +79,11 @@ void coarse_operator_PRECISION_setup( vector_PRECISION *V, level_struct *l ) {
   for ( i=0; i<3; i++ ) {
     vector_PRECISION_init(&(buffer[i]));
     vector_PRECISION_alloc( &(buffer[i]), _ORDINARY, num_loop, l, no_threading );
-    //buffer[i] = l->vbuf_PRECISION[i+4];
     buffer[i].num_vect_now = num_loop; 
   }
 
-  // define index tables for op application
+  // define index tables for op application and initialize op's
   operator_PRECISION_define( &(l->next_level->op_PRECISION), l->next_level );
-  // initialize op's  
   for ( j=0; j<D_size; j++ )
     l->next_level->op_PRECISION.D[j]        = _COMPLEX_PRECISION_ZERO;
   for ( j=0; j<clover_size; j++ )
@@ -108,16 +108,18 @@ void coarse_operator_PRECISION_setup( vector_PRECISION *V, level_struct *l ) {
     aggregate_self_coupling( &buffer[0], &buffer[1], &buffer[2], &(l->s_PRECISION), l );
     //       set l->next_level->op_PRECISION.clover)
     set_coarse_self_coupling_PRECISION( &buffer[0], &buffer[1], V, i, l );
-    //       set l->s_PRECISION.op.odd_proj
+    // calculate projection op onto odd sites at the next level
+    //       apply l->s_PRECISION.op.odd_proj
     aggregate_block( &buffer[0], &buffer[1], &buffer[2], l->s_PRECISION.op.odd_proj, l );
     //       set l->next_level->op_PRECISION.odd_proj
-    set_block_diagonal_PRECISION( &buffer[0], &buffer[1], V, i, l->next_level->op_PRECISION.odd_proj, l ); 
+    set_block_diagonal_PRECISION( &buffer[0], &buffer[1], V, i, l->next_level->op_PRECISION.odd_proj, l );
+    // calculate neighbor-coupling entries of the coarse grid operator 
     for ( mu=0; mu<4; mu++ ) {
       //      finish updating ghostcells of V[i]
       negative_wait_PRECISION( mu, &(l->s_PRECISION.op.c), l );      
       //      apply 2spin-restricted dirac operator for direction mu for all aggregates
       aggregate_neighbor_coupling( &buffer[0], &buffer[1], &buffer[2], mu, &(l->s_PRECISION), l );      
-      //     finally set l->next_level->op_PRECISION.D 
+      //      finally set l->next_level->op_PRECISION.D 
       tc-=MPI_Wtime();
       vector_PRECISION_copy2( V, &buffer[2], i, num_loop, -1, 0, l->vector_size, l );
       tc+=MPI_Wtime();
@@ -125,6 +127,7 @@ void coarse_operator_PRECISION_setup( vector_PRECISION *V, level_struct *l ) {
     }
   }
   for ( i=0; i<3; i++ ) vector_PRECISION_free( &(buffer[i]), l, no_threading);
+  
   // set tm_term (and eps_term if HAVE_TM1p1)
   coarse_operator_PRECISION_setup_finalize( l, no_threading );
   t1 = MPI_Wtime();
@@ -132,17 +135,18 @@ void coarse_operator_PRECISION_setup( vector_PRECISION *V, level_struct *l ) {
 
 }
 
-void coarse_operator_PRECISION_setup_finalize( level_struct *l, struct Thread *threading ) {
+static void coarse_operator_PRECISION_setup_finalize( level_struct *l, struct Thread *threading ) {
 
-  int block_size = l->next_level->block_size;
-  
+  int block_size = l->next_level->block_size; //block_size here is the size of the vector; cf coarse_operator_PRECISION_alloc
+
+  // set mass at the next level
   l->next_level->op_PRECISION.m0 = l->s_PRECISION.op.m0;
 #ifdef HAVE_TM    
-  //tm_term
+  // set tm_term at the next level; mu, even_shift, odd_shit are all multiplied by mu_factor at the coarse levels
   PRECISION mf = (g.mu_factor[l->depth]) ? g.mu_factor[l->next_level->depth]/g.mu_factor[l->depth]:0;
   if ( mf*l->s_PRECISION.op.mu + mf*l->s_PRECISION.op.mu_even_shift == 0 &&
        mf*l->s_PRECISION.op.mu + mf*l->s_PRECISION.op.mu_odd_shift == 0 )
-    buffer_PRECISION_define( l->next_level->op_PRECISION.tm_term, _COMPLEX_double_ZERO, 0, block_size, l->next_level ); //block_size here is the size of the vector; cf coarse_operator_PRECISION_alloc
+    buffer_PRECISION_define( l->next_level->op_PRECISION.tm_term, _COMPLEX_double_ZERO, 0, block_size, l->next_level ); 
   else
     tm_term_PRECISION_setup( mf*l->s_PRECISION.op.mu, mf*l->s_PRECISION.op.mu_even_shift,
                              mf*l->s_PRECISION.op.mu_odd_shift, &(l->next_level->op_PRECISION),
@@ -319,117 +323,8 @@ static void set_coarse_neighbor_coupling_PRECISION( vector_PRECISION *spin_0_1, 
   }
 }
 
-// eta <- coarse_self_couplings*phi
-void coarse_self_couplings_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
-						 operator_PRECISION_struct *op, int start, int end, level_struct *l ) {
-
-  int num_eig_vect = l->num_parent_eig_vect, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
-  int site_size    = l->num_lattice_site_var;
-  int clover_size  = (2*num_eig_vect*num_eig_vect+num_eig_vect);
-  int block_size   = (num_eig_vect*num_eig_vect+num_eig_vect);
-  vector_PRECISION eta_pt, phi_pt;
-  vector_PRECISION_duplicate( &eta_pt, eta, start, l );
-  vector_PRECISION_duplicate( &phi_pt, phi, start, l );
-  
-  if ( nvec > nvec_eta )
-    error0("coarse_self_couplings_PRECISION: assumptions are not met\n");
-
-  coarse_self_couplings_clover_PRECISION( &eta_pt, &phi_pt, op->clover+start*clover_size, (end-start)*site_size, l );
-#ifdef HAVE_TM // tm_term
-  if (op->mu + op->mu_odd_shift != 0.0 || op->mu + op->mu_even_shift != 0.0 )
-    coarse_add_anti_block_diagonal_PRECISION( &eta_pt, &phi_pt, op->tm_term+start*block_size, (end-start)*site_size, l );
-#endif
-/*#ifdef HAVE_TM1p1 //eps_term
-  if ( g.n_flavours == 2 &&
-       ( op->epsbar != 0 || op->epsbar_ig5_odd_shift != 0 || op->epsbar_ig5_odd_shift != 0 ) )
-    coarse_add_doublet_coupling_PRECISION( eta+start*vector_size, phi+start*vector_size, 
-                                           op->epsbar_term+start*block_size, (end-start)*vector_size, l );
-#endif*/
-
-}
-
-// eta <- coarse_block_operator*phi
-// start should be equal to site_index*l->num_lattice_site_var!!!!
-void coarse_block_operator_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
-  
-  START_UNTHREADED_FUNCTION(threading)
-
-  int n = s->num_block_sites, *length = s->dir_length, **index = s->index;
-  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
-  int *ind, *neighbor = s->op.neighbor_table, m = l->num_lattice_site_var, num_eig_vect = l->num_parent_eig_vect;
-  vector_PRECISION lphi, leta;
-  vector_PRECISION_duplicate( &lphi, phi, 0, l );//start/m, l );
-  vector_PRECISION_duplicate( &leta, eta, 0, l );//start/m, l );//which is better?????
-
-  if ( nvec_eta < nvec_phi )
-    error0("coarse_block_operator_PRECISION: assumptions are not met\n");
-  
-  // site-wise self coupling
-  coarse_self_couplings_PRECISION( &leta, &lphi, &(s->op), (start/m), (start/m)+n, l);
-
-  // inner block couplings
-  int hopp_size = 4 * SQUARE( num_eig_vect*2 );
-  config_PRECISION D_pt, D = s->op.D + (start/m)*hopp_size;
-
-  for ( int mu=0; mu<4; mu++ ) {
-    ind = index[mu]; // mu direction
-    for ( int i=0; i<length[mu]; i++ ) {
-      int k = ind[i]; int j = neighbor[5*k+mu+1];
-      D_pt = D + hopp_size*k + (hopp_size/4)*mu;
-      leta.vector_buffer = eta->vector_buffer+(start+m*k)*nvec_eta;
-      lphi.vector_buffer = phi->vector_buffer+(start+m*j)*nvec_phi;
-      coarse_hopp_PRECISION( &leta, &lphi, D_pt, l );
-
-      leta.vector_buffer = eta->vector_buffer+(start+m*j)*nvec_eta;
-      lphi.vector_buffer = phi->vector_buffer+(start+m*k)*nvec_phi;
-      coarse_daggered_hopp_PRECISION( &leta, &lphi, D_pt, l );
-    }
-  }
-  END_UNTHREADED_FUNCTION(threading)
-}
-
-// eta1,eta2 <- coarse_aggregate_self_couplings_PRECISION_*phi (eta1&2 are initialized to 0's)
-void coarse_aggregate_self_couplings_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi,
-						    schwarz_PRECISION_struct *s, level_struct *l ) {
-  
-  int i, mu, index1, index2, length, *index_dir;
-  int *neighbor = s->op.neighbor_table;
-  int n         = l->num_lattice_site_var;
-  int Dls       = n*n;
-  int Dss       = 4*n*n;
-  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta1 = eta1->num_vect, nvec_eta2 = eta2->num_vect;
-
-  vector_PRECISION eta1_pt, eta2_pt, phi_pt;
-  config_PRECISION D_pt, D = s->op.D;
-  vector_PRECISION_duplicate( &eta1_pt, eta1, 0, l );
-  vector_PRECISION_duplicate( &eta2_pt, eta2, 0, l );
-  vector_PRECISION_duplicate( &phi_pt, phi, 0, l );
-  
-  if ( nvec_eta1 != nvec_eta2 || nvec_eta1 < nvec_phi )
-    error0("coarse_aggregate_self_couplings_PRECISION: assumptions are not met\n");
-
-  vector_PRECISION_define( eta1, 0, 0, l->vector_size, l );
-  vector_PRECISION_define( eta2, 0, 0, l->vector_size, l );  
-  coarse_spinwise_self_couplings_PRECISION( eta1, eta2, phi, s->op.clover, l->inner_vector_size, l );
-  
-  for ( mu=0; mu<4; mu++ ) { // direction mu
-    length = l->is_PRECISION.agg_length[mu]; index_dir = l->is_PRECISION.agg_index[mu];
-    for ( i=0; i<length; i++ ) {
-      index1 = index_dir[i]; index2 = neighbor[5*index1+mu+1]; D_pt = D + Dss*index1 + Dls*mu;
-      phi_pt.vector_buffer  = phi->vector_buffer  + n*index2*nvec_phi; 
-      eta1_pt.vector_buffer = eta1->vector_buffer + n*index1*nvec_eta1; 
-      eta2_pt.vector_buffer = eta2->vector_buffer + n*index1*nvec_eta2;
-      coarse_spinwise_n_hopp_PRECISION( &eta1_pt, &eta2_pt, &phi_pt, D_pt, l );
-      phi_pt.vector_buffer  = phi->vector_buffer  + n*index1*nvec_phi; 
-      eta1_pt.vector_buffer = eta1->vector_buffer + n*index2*nvec_eta1; 
-      eta2_pt.vector_buffer = eta2->vector_buffer + n*index2*nvec_eta2;
-      coarse_spinwise_n_daggered_hopp_PRECISION( &eta1_pt, &eta2_pt, &phi_pt, D_pt, l );
-    }
-  }
-}
-
 static void coarse_spinwise_self_couplings_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi,
-							  config_PRECISION clover, int length, level_struct *l ) {
+						      config_PRECISION clover, int length, level_struct *l ) {
   
   int num_eig_vect      = l->num_parent_eig_vect;
   int clover_step_size1 = (num_eig_vect * (num_eig_vect+1))/2;
@@ -468,8 +363,48 @@ static void coarse_spinwise_self_couplings_PRECISION( vector_PRECISION *eta1, ve
   }
 }
 
+// eta1,eta2 <- coarse_aggregate_self_couplings_PRECISION_*phi (eta1&2 are initialized to 0's)
+static void coarse_aggregate_self_couplings_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi,
+						    schwarz_PRECISION_struct *s, level_struct *l ) {
+  
+  int i, mu, index1, index2, length, *index_dir;
+  int *neighbor = s->op.neighbor_table;
+  int n         = l->num_lattice_site_var;
+  int Dls       = n*n;
+  int Dss       = 4*n*n;
+  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta1 = eta1->num_vect, nvec_eta2 = eta2->num_vect;
+
+  vector_PRECISION eta1_pt, eta2_pt, phi_pt;
+  config_PRECISION D_pt, D = s->op.D;
+  vector_PRECISION_duplicate( &eta1_pt, eta1, 0, l );
+  vector_PRECISION_duplicate( &eta2_pt, eta2, 0, l );
+  vector_PRECISION_duplicate( &phi_pt, phi, 0, l );
+  
+  if ( nvec_eta1 != nvec_eta2 || nvec_eta1 < nvec_phi )
+    error0("coarse_aggregate_self_couplings_PRECISION: assumptions are not met\n");
+
+  vector_PRECISION_define( eta1, 0, 0, l->vector_size, l );
+  vector_PRECISION_define( eta2, 0, 0, l->vector_size, l );  
+  coarse_spinwise_self_couplings_PRECISION( eta1, eta2, phi, s->op.clover, l->inner_vector_size, l );
+  
+  for ( mu=0; mu<4; mu++ ) { // direction mu
+    length = l->is_PRECISION.agg_length[mu]; index_dir = l->is_PRECISION.agg_index[mu];
+    for ( i=0; i<length; i++ ) {
+      index1 = index_dir[i]; index2 = neighbor[5*index1+mu+1]; D_pt = D + Dss*index1 + Dls*mu;
+      phi_pt.vector_buffer  = phi->vector_buffer  + n*index2*nvec_phi; 
+      eta1_pt.vector_buffer = eta1->vector_buffer + n*index1*nvec_eta1; 
+      eta2_pt.vector_buffer = eta2->vector_buffer + n*index1*nvec_eta2;
+      coarse_spinwise_n_hopp_PRECISION( &eta1_pt, &eta2_pt, &phi_pt, D_pt, l );
+      phi_pt.vector_buffer  = phi->vector_buffer  + n*index1*nvec_phi; 
+      eta1_pt.vector_buffer = eta1->vector_buffer + n*index2*nvec_eta1; 
+      eta2_pt.vector_buffer = eta2->vector_buffer + n*index2*nvec_eta2;
+      coarse_spinwise_n_daggered_hopp_PRECISION( &eta1_pt, &eta2_pt, &phi_pt, D_pt, l );
+    }
+  }
+}
+
 // eta1, eta2 <-coarse_aggregate_neighbor_couplings_PRECISION*phi (eta1&2 are initialized to 0's)
-void coarse_aggregate_neighbor_couplings_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi,
+static void coarse_aggregate_neighbor_couplings_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi,
 							const int mu, schwarz_PRECISION_struct *s, level_struct *l ) {
   
   int i, index1, index2;
@@ -505,8 +440,8 @@ void coarse_aggregate_neighbor_couplings_PRECISION( vector_PRECISION *eta1, vect
   }
 }
 
-// 
-void coarse_aggregate_block_diagonal_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi,
+// Assume: sites are order blockwise, i.e., in Schwarz layout
+static void coarse_aggregate_block_diagonal_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, vector_PRECISION *phi,
 						    config_PRECISION block, level_struct *l ) {
   int length          = l->inner_vector_size;
   int num_eig_vect    = l->num_parent_eig_vect;
@@ -542,6 +477,78 @@ void coarse_aggregate_block_diagonal_PRECISION( vector_PRECISION *eta1, vector_P
     eta2_pt.vector_buffer += num_eig_vect*nvec_eta2;
     phi_pt.vector_buffer  += num_eig_vect*nvec_phi;
   }
+}
+
+
+/********************** Coarse Dirac Application Functions *********************************************************/
+// eta <- coarse_self_couplings*phi
+void coarse_self_couplings_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
+				      operator_PRECISION_struct *op, int start, int end, level_struct *l ) {
+
+  int num_eig_vect = l->num_parent_eig_vect, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
+  int site_size    = l->num_lattice_site_var;
+  int clover_size  = (2*num_eig_vect*num_eig_vect+num_eig_vect);
+  int block_size   = (num_eig_vect*num_eig_vect+num_eig_vect);
+  vector_PRECISION eta_pt, phi_pt;
+  vector_PRECISION_duplicate( &eta_pt, eta, start, l );
+  vector_PRECISION_duplicate( &phi_pt, phi, start, l );
+  
+  if ( nvec > nvec_eta )
+    error0("coarse_self_couplings_PRECISION: assumptions are not met\n");
+
+  coarse_self_couplings_clover_PRECISION( &eta_pt, &phi_pt, op->clover+start*clover_size, (end-start)*site_size, l );
+#ifdef HAVE_TM // tm_term
+  if (op->mu + op->mu_odd_shift != 0.0 || op->mu + op->mu_even_shift != 0.0 )
+    coarse_add_anti_block_diagonal_PRECISION( &eta_pt, &phi_pt, op->tm_term+start*block_size, (end-start)*site_size, l );
+#endif
+/*#ifdef HAVE_TM1p1 //eps_term
+  if ( g.n_flavours == 2 &&
+       ( op->epsbar != 0 || op->epsbar_ig5_odd_shift != 0 || op->epsbar_ig5_odd_shift != 0 ) )
+    coarse_add_doublet_coupling_PRECISION( eta+start*vector_size, phi+start*vector_size, 
+                                           op->epsbar_term+start*block_size, (end-start)*vector_size, l );
+#endif*/
+
+}
+
+// eta <- coarse_block_operator*phi
+// Assume: sites are order blockwise, i.e., in Schwarz layout
+// start should be equal to site_index*l->num_lattice_site_var!!!!
+void coarse_block_operator_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
+  
+  START_UNTHREADED_FUNCTION(threading)
+
+  int n = s->num_block_sites, *length = s->dir_length, **index = s->index;
+  int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
+  int *ind, *neighbor = s->op.neighbor_table, m = l->num_lattice_site_var, num_eig_vect = l->num_parent_eig_vect;
+  vector_PRECISION lphi, leta;
+  vector_PRECISION_duplicate( &lphi, phi, 0, l );//start/m, l );
+  vector_PRECISION_duplicate( &leta, eta, 0, l );//start/m, l );//which is better?????
+
+  if ( nvec_eta < nvec_phi )
+    error0("coarse_block_operator_PRECISION: assumptions are not met\n");
+  
+  // site-wise self coupling
+  coarse_self_couplings_PRECISION( &leta, &lphi, &(s->op), (start/m), (start/m)+n, l);
+
+  // inner block couplings
+  int hopp_size = 4 * SQUARE( num_eig_vect*2 );
+  config_PRECISION D_pt, D = s->op.D + (start/m)*hopp_size;
+
+  for ( int mu=0; mu<4; mu++ ) {
+    ind = index[mu]; // mu direction
+    for ( int i=0; i<length[mu]; i++ ) {
+      int k = ind[i]; int j = neighbor[5*k+mu+1];
+      D_pt = D + hopp_size*k + (hopp_size/4)*mu;
+      leta.vector_buffer = eta->vector_buffer+(start+m*k)*nvec_eta;
+      lphi.vector_buffer = phi->vector_buffer+(start+m*j)*nvec_phi;
+      coarse_hopp_PRECISION( &leta, &lphi, D_pt, l );
+
+      leta.vector_buffer = eta->vector_buffer+(start+m*j)*nvec_eta;
+      lphi.vector_buffer = phi->vector_buffer+(start+m*k)*nvec_phi;
+      coarse_daggered_hopp_PRECISION( &leta, &lphi, D_pt, l );
+    }
+  }
+  END_UNTHREADED_FUNCTION(threading)
 }
 
 void coarse_gamma5_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int start, int end, level_struct *l ) {

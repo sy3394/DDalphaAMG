@@ -363,6 +363,7 @@ void set_clover( complex_double *Qstore, int mu, int nu, int index, config_doubl
 }
 
 
+// compute self-coupling terms
 void compute_clover_term ( SU3_storage U, level_struct *l ) {
   int i, j, t, z, y, x, mu, nu;
   operator_double_struct *op = &(g.op_double);
@@ -385,7 +386,7 @@ void compute_clover_term ( SU3_storage U, level_struct *l ) {
         }
   
 #ifdef HAVE_TM
-  if ( g.mu + g.mu_even_shift == 0 && g.mu + g.mu_odd_shift == 0 )
+  if ( g.mu + g.mu_even_shift == 0 && g.mu + g.mu_odd_shift == 0 ) // tm_term is zero in this case
     buffer_double_define( op->tm_term, _COMPLEX_double_ZERO, 0, l->inner_vector_size, l );
   else
     tm_term_double_setup( g.mu, g.mu_even_shift, g.mu_odd_shift, op, l, no_threading );  

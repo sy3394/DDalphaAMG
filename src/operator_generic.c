@@ -80,13 +80,13 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
 
   int mu, nu, its = 1, its_boundary, nls, clover_site_size, coupling_site_size;
   
-  //------------- allocate memory for op->D, op->clove, op->odd_proj, (op->tm_term if HAVE_TM,  op->epsbar_term if HAVE_TM1p1)
+  //------------- allocate memory for op->D & op->clover
   if ( l->depth == 0 ) {
-    clover_site_size = 42;//??????????
-    coupling_site_size = 4*9; // coupling term in D_w
+    clover_site_size = 42;    // clover term is Hermitian and Gamma_5 symmetric => (d.o.f.)=21*2 
+    coupling_site_size = 4*9; // neighbor-coupling terms in D_w: (#mu dirs)*(size of color matrix) (spin is taken care of explicitly)
   } else {
-    clover_site_size = (l->num_lattice_site_var*(l->num_lattice_site_var+1))/2;
-    coupling_site_size = 4*l->num_lattice_site_var*l->num_lattice_site_var;
+    clover_site_size = (l->num_lattice_site_var*(l->num_lattice_site_var+1))/2; // size of self-coupling matrices
+    coupling_site_size = 4*l->num_lattice_site_var*l->num_lattice_site_var;     // neighbor-coupling terms in D_c: (#mu dirs)*(internal d.o.f.)^2
   }
 
   nls = (type==_SCHWARZ) ? (2*l->num_lattice_sites-l->num_inner_lattice_sites):l->num_inner_lattice_sites;
@@ -94,7 +94,9 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
   MALLOC( op->D, complex_PRECISION, coupling_site_size*nls );
   MALLOC( op->clover, complex_PRECISION, clover_site_size*l->num_inner_lattice_sites );
 
-  int block_site_size = ( l->depth == 0 ) ? 12 : (l->num_lattice_site_var/2*(l->num_lattice_site_var/2+1));//??????
+  //------------ allocate memomory for block-digonal self-couling matrices: op->odd_proj, (op->tm_term if HAVE_TM,  op->epsbar_term if HAVE_TM1p1)
+  //               block_site_size: d.o.f. at each site; at coarse levels, block diagonal matrices of the self-copuling matrix
+  int block_site_size = ( l->depth == 0 ) ? 12 : (l->num_lattice_site_var/2*(l->num_lattice_site_var/2+1));
   MALLOC( op->odd_proj, complex_PRECISION, block_site_size*l->num_inner_lattice_sites );
 #ifdef HAVE_TM
   MALLOC( op->tm_term, complex_PRECISION, block_site_size*l->num_inner_lattice_sites );
@@ -103,6 +105,7 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
   MALLOC( op->epsbar_term, complex_PRECISION, block_site_size*l->num_inner_lattice_sites );
 #endif
 
+  //------------- allocate memory for decomposition matrices for the sum of self-coupling terms
   if ( type == _SCHWARZ && l->depth == 0 && g.odd_even ) {
     if( g.csw ) {
 #ifdef HAVE_TM //we use LU here
@@ -118,9 +121,9 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
 
   //---------------- allocate memory for index tables
   if ( type ==_SCHWARZ ) {
-    its_boundary = 2; // postive and negative boundaries???
+    its_boundary = 2; // postive and negative boundaries
   } else {
-    its_boundary = 1; // only one side boundary???
+    its_boundary = 1; // only one side boundary
   }
   for ( mu=0; mu<4; mu++ ) {
     its *= (l->local_lattice[mu]+its_boundary); //its:index table size
@@ -143,7 +146,7 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
   ghost_alloc_PRECISION( 0, &(op->c), l );
 
   for ( mu=0; mu<4; mu++ ) {
-    // its: #boundary sites in the mu dir
+    // its=(#boundary sites in the mu dir)
     its = 1;
     for ( nu=0; nu<4; nu++ ) {
       if ( mu != nu ) {

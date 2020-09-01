@@ -1258,33 +1258,28 @@ void local_minres_PRECISION( vector_PRECISION *phi, vector_PRECISION *eta, vecto
   
 /*********************************************************************************
 * Minimal Residual iteration solver used to solve the block systems
-*     blockD phi = eta
-* within the Schwarz method, phi contains an initial guess and its updated version
-* is returned after the block solve has been performed.
-* eta is overwritten by the block residual r.
-* To calculate the missing contributions to r on the current Schwarz block
-* coming from outside of the block, an update "phi - phi_old" is returned in
-* latest_iter -> cheaper residual update in the Schwarz method
-* NOTE: phi and eta are a bundle of vectors here. 
+*     blockD psi = eta = r ... (1)
+* within the Schwarz method.
+* In SAP, we solve D*phi = eta_0 ... (2) via phi <- phi + psi where psi = blockD^{-1}*r
+* In SAP, eta = r = eta_0 - D*phi.  This function computes the increment psi and update r
+* Assume: initial guess for Eq. (1)is zero.
+* phi: (in) current estimate of Eq. (2); (return) updated estimate after l->block_iter steps of MinRes
+* eta: (in) initial residual; (return) overwritten by the block residual r.
+* latest_iter: the increment to the estimate in the last step of MinRes applied to Eq. (1) = psi
+* Note: The increment in the update eq. for Eq. (2), i.e., latest_iter = "phi - phi_old"
+*       is returned to calculate the missing contributions to r on the current Schwarz block
+*       coming from outside of the block, i.e., block boundaries and complete the residual 
+*       update in SAP at a cheaper cost.
 *********************************************************************************/
   
   START_UNTHREADED_FUNCTION(threading)
 
-  int i, nvec;
+  int i, nvec = eta->num_vect_now;
   int nv  = l->num_lattice_site_var;
   int n   = l->block_iter;
   int end = (g.odd_even&&l->depth==0)?(start+nv*s->num_block_even_sites):(start+s->block_vector_size);
   vector_PRECISION Dr, r, lphi;
  
-  Dr.vector_buffer   = s->local_minres_buffer[0]; // _SCHWARZ size 
-  r.vector_buffer    = s->local_minres_buffer[1]; // _SCHWARZ size 
-  lphi.vector_buffer = s->local_minres_buffer[2]; // _SCHWARZ size 
-
-  if ( phi != NULL )
-    nvec = phi->num_vect_now;
-  else
-    nvec = eta->num_vect_now;
-
   if ( nvec != num_loop ) //g.num_vect_now )//!!!!!!!!
     error0("local_minres_PRECISION: incosistent number of vectors %d %d\n",nvec,g.num_vect_now);
 
@@ -1299,8 +1294,12 @@ void local_minres_PRECISION( vector_PRECISION *phi, vector_PRECISION *eta, vecto
   r.num_vect_now    = nvec;
   lphi.num_vect_now = nvec;
 
-  vector_PRECISION_copy( &r, eta, start, end, l );
-  vector_PRECISION_define( &lphi, 0, start, end, l );
+  Dr.vector_buffer   = s->local_minres_buffer[0]; // _SCHWARZ size 
+  r.vector_buffer    = s->local_minres_buffer[1]; // _SCHWARZ size 
+  lphi.vector_buffer = s->local_minres_buffer[2]; // _SCHWARZ size 
+
+  vector_PRECISION_copy( &r, eta, start, end, l );    // r = eta
+  vector_PRECISION_define( &lphi, 0, start, end, l ); // phi = 0
   
   for ( i=0; i<n; i++ ) {
     // Dr = blockD*r
