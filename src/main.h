@@ -41,12 +41,13 @@
   #define EPS_double 1E-14
 
   #define HAVE_TM       // flag for enable twisted mass
-  //#define HAVE_TM1p1    // flag for enable doublet for twisted mass
+#define HAVE_MULT_TM
+  //#define HAVE_TM1p1    // flag for enable doublet for twisted mass; unless g.n_flavours==2, Dirac matrix is degenerate, and each part is inverted individually, although the size of the memoery is doubled
   #define INIT_ONE_PREC // flag undef for enabling additional features in the lib
 
   #define num_loop 4
   #define SIMD_byte 32
-#define MUN_C
+  #define MUN_C
   #if num_loop == 1
     #define VECTOR_LOOP(j, jmax, jj, instructions) for( j=0; j<jmax; j++) { jj=0; instructions; }
   #else
@@ -54,7 +55,8 @@
   #endif
 
   // These explicit repetitions are faster than for-loops.
-  #define FORN( N, e ) _Pragma( "unroll (N)" ) for(int i=0; i < N; i++){ e }; // suggestion
+//  #define DO_UNROLL(EXP) _Pragma (#EXP )
+//  #define FORN( N, e ) DO_UNROLL(unroll (N)) for(int i=0; i < N; i++){ e }; // suggestion: This is relevant only when compiled with -O3 -time
   #define FOR2( e )  { e e }
   #define FOR6( e )  { e e e  e e e }
   #define FOR12( e ) { e e e  e e e  e e e  e e e }       // used only in the master thread
@@ -314,7 +316,7 @@
     // gmres used in V/K-cycle
     gmres_float_struct p_float;
     gmres_double_struct p_double;
-    // gmres as a smoother: used when g.method >= 5
+    // gmres as a smoother: used when g.method >= 4
     gmres_float_struct sp_float;
     gmres_double_struct sp_double;
     // dummy gmres struct
@@ -401,6 +403,7 @@
     char in[STRINGLENGTH], in_clov[STRINGLENGTH], source_list[STRINGLENGTH], tv_io_file_name[STRINGLENGTH];
     
     // geometry, method parameters
+    //   process_grid: #processes in the mu dir in the Cartesian topology of processes
     int num_levels, num_desired_levels, process_grid[4], in_format,
         **global_lattice, **local_lattice, **block_lattice, 
         *post_smooth_iter, *block_iter, *setup_iter, *ncycle,
@@ -418,8 +421,11 @@
 
 #ifdef HAVE_TM
     // twisted mass parameters
-    int downprop;
-    double mu, setup_mu, mu_odd_shift, mu_even_shift, *mu_factor;
+    //   setup_mu should be smaller than or equal to mu
+    //   As long as this is true, the performance of the solver part does not depend on setup_mu
+    //   Otherwise, the solver becomes slower.
+    int downprop, is_even_shifted_mu_nonzero, no_shift, even_shifted, n_chunk;
+    double mu, setup_mu, mu_odd_shift, *mu_even_shift, *mu_factor;
 #endif
 
 #ifdef HAVE_TM1p1           

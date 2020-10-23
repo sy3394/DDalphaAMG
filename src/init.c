@@ -57,6 +57,8 @@ void g_init(){
   g.relax_fac = NULL;
 #ifdef HAVE_TM
   g.mu_factor = NULL;
+  g.even_shifted = 0;
+  g.is_even_shifted_mu_nonzero = 0;
 #endif
 #ifdef HAVE_TM1p1
   g.epsbar_factor = NULL;
@@ -149,7 +151,8 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     prof_init( l );
   
   //-------------- Setup g.p(_MP) for the solver part (gmres_PRECISION_struct in global_struct: used only in the solver part)
-  //                  The top level solver is MP/double/float (MP:g.mixed_precision==2;double:0;single:1)
+  //                  g.op_double is inverted for all methods for all precision options
+  //                  The top level solver is MP or double (MP:g.mixed_precision==2;double:0;single:1)
   //                  MP precision solver uses float except when double is necessary to keep the precision of the resid.
   //                  The lower level solvers are of double precision if g.mixed_precision=0 and of float otherwise
 #ifdef HAVE_TM1p1
@@ -213,8 +216,9 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
   if ( g.method >= 0 ) {
     START_LOCKED_MASTER(threading)
     t0 = MPI_Wtime();
+    // define s_PRECISION & p_PRECISION; also setup for oe prec. at the top level if g.method==4,5
     if ( g.mixed_precision ) {
-      smoother_float_def( l ); // define s_PRECISION
+      smoother_float_def( l );
       if ( g.method >= 4 && g.odd_even )
 	oddeven_setup_float( &(g.op_double), l );
     } else {
@@ -284,8 +288,9 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
       printf0("|                setup mu: %+9.6lf                       |\n", g.setup_mu );
     if(g.mu_odd_shift!=0.)
       printf0("|         mu on odd sites: %+9.6lf                       |\n", g.mu + g.mu_odd_shift );
-    if(g.mu_even_shift!=0.)
-      printf0("|        mu on even sites: %+9.6lf                       |\n", g.mu + g.mu_even_shift );
+    for( int j=0; j<g.num_rhs_vect; j++ )
+      if(g.mu_even_shift[j]!=0.)
+	printf0("|        mu on even sites for %dth rhs: %+9.6lf                 |\n", j, g.mu + g.mu_even_shift[j] );
 #endif
 #ifdef HAVE_TM1p1
     if(g.epsbar)
@@ -326,8 +331,9 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
           printf0("|                      mu: %+9.6lf                       |\n", g.mu * g.mu_factor[i] );
         if( g.mu_odd_shift!=0. && g.mu_factor[i]!=1 )
           printf0("|         mu on odd sites: %+9.6lf                       |\n", (g.mu + g.mu_odd_shift) * g.mu_factor[i] );
-        if( g.mu_even_shift!=0. && g.mu_factor[i]!=1 )
-          printf0("|        mu on even sites: %+9.6lf                       |\n", (g.mu + g.mu_even_shift) * g.mu_factor[i] );
+        for( int j=0; j<g.num_rhs_vect; j++ )
+	  if( g.mu_even_shift[j]!=0. && g.mu_factor[i]!=1 )
+	    printf0("|        mu on even sites for %dth rhs: %+9.6lf                |\n", j, (g.mu + g.mu_even_shift[j]) * g.mu_factor[i] );
 #endif
 #ifdef HAVE_TM1p1
         if( g.epsbar!=0. && g.epsbar_factor[i]!=1 )
@@ -386,7 +392,7 @@ void next_level_setup( vector_double *V, level_struct *l, struct Thread *threadi
     l->next_level->relax_fac            = g.relax_fac[l->depth+1];
     l->next_level->block_iter           = g.block_iter[l->depth+1];
     l->next_level->setup_iter           = g.setup_iter[l->depth+1];
-    l->next_level->num_eig_vect         = l->level==1?l->num_eig_vect:g.num_eig_vect[l->depth+1];//??????
+    l->next_level->num_eig_vect         = l->level==1?l->num_eig_vect:g.num_eig_vect[l->depth+1];
     l->next_level->num_parent_eig_vect  = l->num_eig_vect;
     l->next_level->num_lattice_site_var = 2 * l->num_eig_vect;
     l->next_level->n_cy                 = g.ncycle[l->depth+1];
@@ -458,11 +464,11 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
     
     if ( g.setup_m0 != g.m0 ) {
       m0_update( (complex_double)g.setup_m0, l, threading );
-#ifdef HAVE_TM
+#if 0 //def HAVE_TM //now should be redundant
     }
-    if ( g.setup_mu != g.mu ) {
+    if ( g.setup_mu != g.mu ) {// update tm_term and related fields with the mu value g.setup_mu
       tm_term_update( (complex_double)g.setup_mu, l, threading );
-      finalize_operator_update( l, threading );//D_c is not updated????
+      finalize_operator_update( l, threading );//need to update oddeven counter parts
     } else if (g.setup_m0 != g.m0) {
 #endif
       finalize_operator_update( l, threading );//test routine
@@ -473,19 +479,24 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
     else
       iterative_double_setup( setup_iter, l, threading );
 
+    START_LOCKED_MASTER(threading)
+    g.in_setup = 0;
+    END_LOCKED_MASTER(threading)
     
     if ( g.setup_m0 != g.m0 ) {
       m0_update( (complex_double)g.m0, l, threading );
 #ifdef HAVE_TM
     }
-    if ( g.setup_mu != g.mu ) {
+    if ( g.setup_mu != g.mu ) {// resume to the original values for tm_term and related fields 
       tm_term_update( (complex_double)g.mu, l, threading );
+      // update tm_term or eps_term dependent fiedls
       finalize_operator_update( l, threading );
     } else if (g.setup_m0 != g.m0) {
 #endif
+      // update tm_term or eps_term dependent fiedls
       finalize_operator_update( l, threading );
     }
-
+    
     MASTER(threading) {
       t1 = MPI_Wtime();
       g.iter_times[0] = t1-t0;
@@ -494,7 +505,7 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
     }
     
     START_LOCKED_MASTER(threading)
-    g.in_setup = 0;
+      //g.in_setup = 0;
     if ( l->depth==0 )
       prof_print( l );
     END_LOCKED_MASTER(threading)
@@ -578,7 +589,8 @@ void method_finalize( level_struct *l ) {
   FREE( g.ncycle, int, ls );
   FREE( g.relax_fac, double, ls );
 #ifdef HAVE_TM
-  FREE( g.mu_factor, double, ls*g.num_rhs_vect );
+  FREE( g.mu_factor, double, ls );
+  FREE( g.mu_even_shift, double, g.num_rhs_vect );
 #endif
 #ifdef HAVE_TM1p1
   FREE( g.epsbar_factor, double, ls );

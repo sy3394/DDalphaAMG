@@ -196,7 +196,7 @@
 
   // eta = clover*phi
   static inline void coarse_self_couplings_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
-							     config_PRECISION clover, int length, level_struct *l ) {
+							     config_PRECISION clover, int start, int end, level_struct *l ) {
 
     // clover stores coarse clover term of D_W, diagonal in the aggregate index, x,
     // which is like a site index on the fine lattice
@@ -213,7 +213,8 @@
     int clover_step_size2 = SQUARE(num_eig_vect);                // #elements of B and C
 
     config_PRECISION clover_pt = clover;
-    buffer_PRECISION phi_pt = phi->vector_buffer, eta_pt = eta->vector_buffer, phi_end_pt = phi->vector_buffer+length*nvec_phi;
+    buffer_PRECISION phi_pt = phi->vector_buffer+start*site_var*nvec_phi, eta_pt = eta->vector_buffer+start*site_var*nvec_eta,
+      phi_end_pt = phi->vector_buffer+end*site_var*nvec_phi;
   
 /*#ifdef HAVE_TM1p1
     if( g.n_flavours == 2 ) {
@@ -307,18 +308,20 @@
       }
   }
 
+  // used only for tm_term
   static inline void coarse_add_anti_block_diagonal_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
-								   config_PRECISION block, int length, level_struct *l ) {
-
-    int num_eig_vect = l->num_parent_eig_vect, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
-    int block_step_size = (num_eig_vect * (num_eig_vect+1))/2;
-    config_PRECISION block_pt = block;
-    buffer_PRECISION phi_pt = phi->vector_buffer, eta_pt = eta->vector_buffer, phi_end_pt = phi->vector_buffer+length*nvec_phi;
-
+							       config_PRECISION block, int length, level_struct *l ) {
+    
     // U(x) = [ A 0      , A=-A*, D=-D* diag. excluded
     //          0 D ]
     // storage order: upper triangle of A, upper triangle of D, columnwise
     // diagonal coupling
+    
+    int num_eig_vect = l->num_parent_eig_vect, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
+    int block_step_size = (num_eig_vect * (num_eig_vect+1))/2;
+    config_PRECISION block_pt = block;
+    buffer_PRECISION phi_pt = phi->vector_buffer, eta_pt = eta->vector_buffer, phi_end_pt = phi->vector_buffer+length*nvec_phi;
+    
 /*#ifdef HAVE_TM1p1
     if( g.n_flavours == 2 ) {
       while ( phi_pt < phi_end_pt ) {
@@ -344,7 +347,147 @@
         block_pt += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
       }
   }
-// used only if HAVE_TM1p1
+
+#ifdef HAVE_TM
+  static inline void coarse_add_tm_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, 
+						   int start, int end, level_struct *l ) {
+    
+    // U(x) = [ A 0      , A=-A*, D=-D* diag. excluded
+    //          0 D ]
+    // storage order: upper triangle of A, upper triangle of D, columnwise
+    // diagonal coupling
+
+    register int i, j, k, jj, jjj, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect, n = g.n_chunk;
+    int num_eig_vect = l->num_parent_eig_vect, block_step_size = (num_eig_vect * (num_eig_vect+1))/2, site_var = l->num_lattice_site_var;
+#ifdef HAVE_MULT_TM
+    config_PRECISION diag = op->tm_term + (start+l->num_inner_lattice_sites*n)*2*block_step_size*num_loop;
+#else
+    register complex_PRECISION odd = (complex_PRECISION) I*op->odd_shifted_mu;
+    complex_PRECISION d_mu_eo[num_loop]; for( i=0; i<num_loop; i++) d_mu_eo[i] = (complex_PRECISION) I*op->diff_mu_eo[n*num_loop+i];
+    config_PRECISION diag = op->odd_proj + start*block_step_size*2;
+#endif
+    //buffer_PRECISION phi_pt = phi->vector_buffer, eta_pt = eta->vector_buffer, phi_end_pt = phi->vector_buffer+(end-start)*l->num_lattice_site_var*nvec_phi;
+    buffer_PRECISION phi_pt = phi->vector_buffer+start*site_var*nvec_phi, eta_pt = eta->vector_buffer+start*site_var*nvec_eta;
+    buffer_PRECISION phi_end_pt = phi->vector_buffer+end*site_var*nvec_phi;
+
+/*#ifdef HAVE_TM1p1
+    if( g.n_flavours == 2 ) {
+      while ( phi_pt < phi_end_pt ) {
+        // A
+        pamvp_PRECISION( eta_pt, block_pt, phi_pt, num_eig_vect );
+        eta_pt += num_eig_vect; phi_pt += num_eig_vect;
+        mamvp_PRECISION( eta_pt, block_pt, phi_pt, num_eig_vect );
+        block_pt += block_step_size; eta_pt += num_eig_vect; phi_pt += num_eig_vect;
+        // D
+        pamvp_PRECISION( eta_pt, block_pt, phi_pt, num_eig_vect );
+        eta_pt += num_eig_vect; phi_pt += num_eig_vect;
+        mamvp_PRECISION( eta_pt, block_pt, phi_pt, num_eig_vect );
+        block_pt += block_step_size; eta_pt += num_eig_vect; phi_pt += num_eig_vect;
+      }
+    } else
+#endif*/
+
+      while ( phi_pt < phi_end_pt ) {
+#ifdef HAVE_MULT_TM
+	// A
+        VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj] += diag[jj+jjj]*phi_pt[jj+jjj];)
+        for ( i=1, k=1; i<num_eig_vect; i++ ) {
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] -= conj_PRECISION(diag[k*num_loop+jj+jjj])*phi_pt[jj+jjj];)
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj]            += diag[k*num_loop+jj+jjj]*phi_pt[i*nvec_phi+jj+jjj];)
+          k++;
+          for ( j=1; j<i; j++, k++ ) {
+            VECTOR_LOOP( jj, nvec, jjj, eta_pt[j*nvec_eta+jj+jjj] += diag[k*num_loop+jj+jjj]*phi_pt[i*nvec_phi+jj+jjj];)
+	    VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] -= conj_PRECISION(diag[k*num_loop+jj+jjj])*phi_pt[j*nvec_phi+jj+jjj];)
+          }
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] += diag[k*num_loop+jj+jjj]*phi_pt[i*nvec_phi+jj+jjj];)
+          k++;
+        }
+        diag += block_step_size*num_loop; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
+        // D
+        VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj] += diag[jj+jjj]*phi_pt[jj+jjj];)
+        for ( i=1, k=1; i<num_eig_vect; i++ ) {
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] -= conj_PRECISION(diag[k*num_loop+jj+jjj])*phi_pt[jj+jjj];)
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj]            += diag[k*num_loop+jj+jjj]*phi_pt[i*nvec_phi+jj+jjj];)
+          k++;
+          for ( j=1; j<i; j++, k++ ) {
+            VECTOR_LOOP( jj, nvec, jjj, eta_pt[j*nvec_eta+jj+jjj] += diag[k*num_loop+jj+jjj]*phi_pt[i*nvec_phi+jj+jjj];)
+            VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] -= conj_PRECISION(diag[k*num_loop+jj+jjj])*phi_pt[j*nvec_phi+jj+jjj];)
+          }
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] += diag[k*num_loop+jj+jjj]*phi_pt[i*nvec_phi+jj+jjj];)
+          k++;
+        }
+        diag += block_step_size*num_loop; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
+#else
+#if 1
+	complex_PRECISION even[num_loop];
+	// the following makes tm_term contribution on the bottom and one up inconsistent
+	//if(g.odd_even && l->level==0) for( i=0; i<num_loop; i++) even[i] = (complex_PRECISION) I*(op->mu+op->even_shift_avg);
+	//else for( i=0; i<num_loop; i++) even[i] = (complex_PRECISION) I*(op->mu+op->mu_even_shift[n*num_loop+i]);
+	for( i=0; i<num_loop; i++) even[i] = (complex_PRECISION) I*(op->mu+op->mu_even_shift[n*num_loop+i]);
+	// A
+        VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj] += -(even[jj+jjj]-d_mu_eo[jj+jjj]*diag[0])*phi_pt[jj+jjj];)
+	for ( i=1, k=1; i<num_eig_vect; i++ ) {
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] -= conj_PRECISION(d_mu_eo[jj+jjj]*diag[k])*phi_pt[jj+jjj];)
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj]            += (d_mu_eo[jj+jjj]*diag[k])*phi_pt[i*nvec_phi+jj+jjj];)
+          k++;
+          for ( j=1; j<i; j++, k++ ) {
+            VECTOR_LOOP( jj, nvec, jjj, eta_pt[j*nvec_eta+jj+jjj] += (d_mu_eo[jj+jjj]*diag[k])*phi_pt[i*nvec_phi+jj+jjj];)
+            VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] -= conj_PRECISION(d_mu_eo[jj+jjj]*diag[k])*phi_pt[j*nvec_phi+jj+jjj];)
+          }
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] += -(even[jj+jjj]-d_mu_eo[jj+jjj]*diag[k])*phi_pt[i*nvec_phi+jj+jjj];)
+          k++;
+        }
+        diag += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
+	// D
+        VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj] += (even[jj+jjj]-d_mu_eo[jj+jjj]*diag[0])*phi_pt[jj+jjj];)
+        for ( i=1, k=1; i<num_eig_vect; i++ ) {
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] -= conj_PRECISION(-d_mu_eo[jj+jjj]*diag[k])*phi_pt[jj+jjj];)
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj]            += (-d_mu_eo[jj+jjj]*diag[k])*phi_pt[i*nvec_phi+jj+jjj];)
+          k++;
+          for ( j=1; j<i; j++, k++ ) {
+            VECTOR_LOOP( jj, nvec, jjj, eta_pt[j*nvec_eta+jj+jjj] += (-d_mu_eo[jj+jjj]*diag[k])*phi_pt[i*nvec_phi+jj+jjj];)
+            VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] -= conj_PRECISION(-d_mu_eo[jj+jjj]*diag[k])*phi_pt[j*nvec_phi+jj+jjj];)
+          }
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] += (even[jj+jjj]-d_mu_eo[jj+jjj]*diag[k])*phi_pt[i*nvec_phi+jj+jjj];)
+          k++;
+        }
+        diag += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
+#else
+        // A
+	VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj] += -(odd+d_mu_eo[jj+jjj]*(1-diag[0]))*phi_pt[jj+jjj];)
+	for ( i=1, k=1; i<num_eig_vect; i++ ) {
+	  VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] -= -conj_PRECISION(-d_mu_eo[jj+jjj]*diag[k])*phi_pt[jj+jjj];)
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj]            += -(-d_mu_eo[jj+jjj]*diag[k])*phi_pt[i*nvec_phi+jj+jjj];)
+	  k++;
+	  for ( j=1; j<i; j++, k++ ) {
+	    VECTOR_LOOP( jj, nvec, jjj, eta_pt[j*nvec_eta+jj+jjj] += -(-d_mu_eo[jj+jjj]*diag[k])*phi_pt[i*nvec_phi+jj+jjj];)
+	    VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] -= -conj_PRECISION(-d_mu_eo[jj+jjj]*diag[k])*phi_pt[j*nvec_phi+jj+jjj];)
+	  }
+	  VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] += -(odd+d_mu_eo[jj+jjj]*(1-diag[k]))*phi_pt[i*nvec_phi+jj+jjj];)
+	  k++;
+	}
+        diag += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
+        // D
+	VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj] += (odd+d_mu_eo[jj+jjj]*(1-diag[0]))*phi_pt[jj+jjj];)
+	for ( i=1, k=1; i<num_eig_vect; i++ ) {
+	  VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] -= conj_PRECISION(-d_mu_eo[jj+jjj]*diag[k])*phi_pt[jj+jjj];)
+	  VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj]            += (-d_mu_eo[jj+jjj]*diag[k])*phi_pt[i*nvec_phi+jj+jjj];)
+	  k++;
+	  for ( j=1; j<i; j++, k++ ) {
+	    VECTOR_LOOP( jj, nvec, jjj, eta_pt[j*nvec_eta+jj+jjj] += (-d_mu_eo[jj+jjj]*diag[k])*phi_pt[i*nvec_phi+jj+jjj];)
+	    VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] -= conj_PRECISION(-d_mu_eo[jj+jjj]*diag[k])*phi_pt[j*nvec_phi+jj+jjj];)
+	  }
+          VECTOR_LOOP( jj, nvec, jjj, eta_pt[i*nvec_eta+jj+jjj] += (odd+d_mu_eo[jj+jjj]*(1-diag[k]))*phi_pt[i*nvec_phi+jj+jjj];)
+	  k++;
+	}
+        diag += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
+#endif
+#endif
+      }
+  }
+#endif
+
+  // used only if HAVE_TM1p1
   static inline void coarse_add_doublet_coupling_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
                                                           config_PRECISION block, int length, level_struct *l ) {
     
@@ -640,7 +783,7 @@
   }
 
   static inline void coarse_spinwise_hopp_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2, 
-							 vector_PRECISION *phi, config_PRECISION D, level_struct *l ) {
+						     vector_PRECISION *phi, config_PRECISION D, level_struct *l ) {
     
     int num_eig_vect  = l->num_parent_eig_vect;
     int num_eig_vect2 = SQUARE(l->num_parent_eig_vect);
@@ -700,7 +843,7 @@
 */
 
   static inline void coarse_spinwise_n_hopp_PRECISION( vector_PRECISION *eta1, vector_PRECISION *eta2,
-							   vector_PRECISION *phi, config_PRECISION D, level_struct *l ) {
+						       vector_PRECISION *phi, config_PRECISION D, level_struct *l ) {
     
     int num_eig_vect  = l->num_parent_eig_vect;
     int num_eig_vect2 = SQUARE(l->num_parent_eig_vect);

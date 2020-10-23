@@ -16,14 +16,15 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * checked: 11/29/2019
- * not changed from sbacchio
- * glanced over: 12/08/2019
- * glanced over:12/19/2019
- * confirmed: not changed from milla:01/02/2020
  */
 
 #include "main.h"
+
+/********************
+ * index table: Given the lexicographic index of a site, it returns the location of the site in an array
+ * There are several layouts
+ * local lexicogaphic layout (normal): lists sites in the order X->Y->Z->T
+ ********************/
 
 // Compute volume of local lattice and size of local vectors
 void data_layout_init( level_struct *l ) {

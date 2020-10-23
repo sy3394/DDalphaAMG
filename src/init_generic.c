@@ -102,6 +102,19 @@ double prof_PRECISION_print( level_struct *l ) {
 
 /*********** LEVEL STRUCTURE  ******************************************************************/
 
+void level_PRECISION_init( level_struct *l ) {
+
+  for ( int i=0; i<5; i++ )
+    vector_PRECISION_init( &(l->vbuf_PRECISION[i]) );
+  
+  operator_PRECISION_init( &(l->op_PRECISION) );
+  operator_PRECISION_init( &(l->oe_op_PRECISION) );
+  schwarz_PRECISION_init( &(l->s_PRECISION), l );
+  interpolation_PRECISION_struct_init( &(l->is_PRECISION) );
+  fgmres_PRECISION_struct_init( &(l->p_PRECISION) );
+  fgmres_PRECISION_struct_init( &(l->sp_PRECISION) );
+}
+
 void fine_level_PRECISION_alloc( level_struct *l ) {
   
   int i, nvecs = num_loop, n = (g.method != -1)?2:4;
@@ -124,19 +137,6 @@ void fine_level_PRECISION_free( level_struct *l ) {
     vector_PRECISION_free( &(l->vbuf_PRECISION[i]), l, no_threading );
   vector_PRECISION_free( &(l->p_PRECISION.b), l, no_threading );
   vector_PRECISION_free( &(l->p_PRECISION.x), l, no_threading );
-}
-
-void level_PRECISION_init( level_struct *l ) {
-
-  for ( int i=0; i<5; i++ )
-    vector_PRECISION_init( &(l->vbuf_PRECISION[i]) );
-  
-  operator_PRECISION_init( &(l->op_PRECISION) );
-  operator_PRECISION_init( &(l->oe_op_PRECISION) );
-  schwarz_PRECISION_init( &(l->s_PRECISION), l );
-  interpolation_PRECISION_struct_init( &(l->is_PRECISION) );
-  fgmres_PRECISION_struct_init( &(l->p_PRECISION) );
-  fgmres_PRECISION_struct_init( &(l->sp_PRECISION) );
 }
 
 void next_level_PRECISION_setup( level_struct *l ) {

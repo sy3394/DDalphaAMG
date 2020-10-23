@@ -380,7 +380,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
       res = _RES;
       if ( p->kind == _LEFT && p->preconditioner ) {// what is LEFT?????
         apply_operator_PRECISION( &(p->Z[0]), &(p->x), p, l, threading ); // Z[0] <- D*x
-        if ( g.method == 6 ) {
+        if ( g.method == 5 ) {
           START_LOCKED_MASTER(threading)
 	  g.bicgstab_tol = (!g.mixed_precision)?p->tol:MAX( 1E-3, (p->tol/find_max_PRECISION(n_vect,gamma_jp1,norm_r0))*5E-1 );
 	  END_LOCKED_MASTER(threading)
@@ -1258,14 +1258,14 @@ void local_minres_PRECISION( vector_PRECISION *phi, vector_PRECISION *eta, vecto
   
 /*********************************************************************************
 * Minimal Residual iteration solver used to solve the block systems
-*     blockD psi = eta = r ... (1)
+*     blockD varphi = r = eta ... (1)
 * within the Schwarz method.
-* In SAP, we solve D*phi = eta_0 ... (2) via phi <- phi + psi where psi = blockD^{-1}*r
-* In SAP, eta = r = eta_0 - D*phi.  This function computes the increment psi and update r
+* In SAP, we solve D*phi = eta_0 ... (2) via phi <- phi + varphi where varphi = blockD^{-1}*r
+* In SAP, eta = r = eta_0 - D*phi.  This function computes the increment varphi and update r
 * Assume: initial guess for Eq. (1)is zero.
 * phi: (in) current estimate of Eq. (2); (return) updated estimate after l->block_iter steps of MinRes
 * eta: (in) initial residual; (return) overwritten by the block residual r.
-* latest_iter: the increment to the estimate in the last step of MinRes applied to Eq. (1) = psi
+* latest_iter: the increment to the estimate in the last step of MinRes applied to Eq. (1) = varphi
 * Note: The increment in the update eq. for Eq. (2), i.e., latest_iter = "phi - phi_old"
 *       is returned to calculate the missing contributions to r on the current Schwarz block
 *       coming from outside of the block, i.e., block boundaries and complete the residual 

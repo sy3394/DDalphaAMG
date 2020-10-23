@@ -67,7 +67,7 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
   if( g.n_flavours == 1 )
 #endif
 #ifdef HAVE_TM
-    if ( g.mu + g.mu_odd_shift != 0.0 || g.mu + g.mu_even_shift != 0.0 )
+    if ( g.mu + g.mu_odd_shift != 0.0 || g.is_even_shifted_mu_nonzero )
       if(g.downprop) {
 	SYNC_MASTER_TO_ALL(threading)      
 	START_MASTER(threading)  
@@ -85,7 +85,7 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 	  printf0("\n\n+-------------------------- down --------------------------+\n\n");
 	  g.mu*=-1;
 	  g.mu_odd_shift*=-1;
-	  g.mu_even_shift*=-1;
+	  for( int i=0; i<g.num_rhs_vect; i++ ) g.mu_even_shift[i]*=-1;
 	END_LOCKED_MASTER(threading)
 
 	tm_term_update( g.mu, l, threading );
@@ -107,7 +107,7 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
 
-#if 1 //my addition     
+#if 0 //my addition     
   if (g.my_rank == 0){//need to update it
     START_LOCKED_MASTER(threading)
     vector_double_change_layout( &solution, &solution, _NVEC_OUTER, no_threading );
@@ -201,6 +201,9 @@ static int wilson_driver( vector_double *solution, vector_double *source, level_
     double tmp_t = -MPI_Wtime();
 #endif
   for ( int i=0; i<g.num_rhs_vect; i+=num_loop ) {
+    START_LOCKED_MASTER(threading)
+    g.n_chunk = i/num_loop;
+    END_LOCKED_MASTER(threading)
     vector_double_copy2( &rhs, source, i, num_loop, 1, start, end, l );
     if ( g.method == -1 ) {
       cgn_double( &(g.p), l, threading );

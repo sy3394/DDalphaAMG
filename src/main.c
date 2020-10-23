@@ -61,22 +61,23 @@ int main( int argc, char **argv ) {
   //------------ initialize and setup g and l according to the inputfile
   method_init( &argc, &argv, &l );
 
+  // setup threading structures
   no_threading = (struct Thread *)malloc(sizeof(struct Thread));
   setup_no_threading(no_threading, &l);
-  
+
+  commonthreaddata = (struct common_thread_data *)malloc(sizeof(struct common_thread_data));
+  init_common_thread_data(commonthreaddata);
+
+  // store gauge configuration in hopp
   MALLOC( hopp, complex_double, 3*l.inner_vector_size );
-  //  printf("main %g\n",sizeof(var_table_entry)/(1024.0*1024.0));
   if(g.in_format == _LIME)
     lime_read_conf( (double*)(hopp), g.in, &(g.plaq_hopp) );
   else 
     read_conf( (double*)(hopp), g.in, &(g.plaq_hopp), &l );
 
-  // store configuration, compute clover term
+  // setup Dirac matrices (gauge matrices, self-coupling terms) and compute plaquettes
   dirac_setup( hopp, &l );
   FREE( hopp, complex_double, 3*l.inner_vector_size );
-
-  commonthreaddata = (struct common_thread_data *)malloc(sizeof(struct common_thread_data));
-  init_common_thread_data(commonthreaddata);
 
   THREADED(g.num_openmp_processes)
   {
@@ -84,12 +85,12 @@ int main( int argc, char **argv ) {
     struct Thread threading;
     setup_threading(&threading, commonthreaddata, &l);
 
-    // setup up initial MG hierarchy
+    // setup up initial MG hierarchy (null vector setup)
     method_setup( NULL, &l, &threading );
     
-    // iterative part of the setup
+    // iteratively update P and D_c
     method_iterative_setup( l.setup_iter, &l, &threading );
-
+    //        error0("STOP\n");
     //----------------- solve
     solve_driver( &l, &threading );
   }

@@ -51,18 +51,48 @@
                                        level_struct *l, struct Thread *threading );
 
 
-static inline void coarse_perform_fwd_bwd_subs_PRECISION( vector_PRECISION *x, vector_PRECISION *b, config_PRECISION A, int start, int end, level_struct *l ) {
-
+//static inline void coarse_perform_fwd_bwd_subs_PRECISION( vector_PRECISION *x, vector_PRECISION *b, operator_PRECISION_struct *op, int start, int end, level_struct *l ) {
+//static inline void coarse_perform_fwd_bwd_subs_PRECISION( vector_PRECISION *x, vector_PRECISION *b, config_PRECISION A, int start, int end, level_struct *l ) {
+static inline void coarse_perform_fwd_bwd_subs_PRECISION( const buffer_PRECISION x_pt, const buffer_PRECISION b_pt, config_PRECISION A, 
+							  const int nvec, const int nvec_b, const int nvec_x, level_struct *l ) {
   register int s, i, j, jj, jjj;
   int n2 = l->num_lattice_site_var;
   int oo_inv_size = SQUARE(n2);
+#if 0
   int nvec = b->num_vect_now, nvec_x = x->num_vect, nvec_b = b->num_vect;
-  buffer_PRECISION x_pt = x->vector_buffer, b_pt = b->vector_buffer;
-  
-  if( nvec_x < nvec )
+  config_PRECISION A = op->clover_oo_inv;
+  buffer_PRECISION x_pt = x->vector_buffer+(op->num_even_sites+start)*n2*nvec_x, b_pt = b->vector_buffer+(op->num_even_sites+start)*n2*nvec_b;
+#endif
+#ifdef DEBUG
+  if( nvec_x < nvec && nvec==num_loop )
     error0("coarse_perform_fwd_bwd_subs_PRECISION: assumptions are not met\n");
+#endif
 
-  for ( s=start; s<end; s++ ) {  
+#if defined(HAVE_MULT_TM)
+  //  A += oo_inv_size*start*num_loop;
+  int nc = g.n_chunk, nv = oo_inv_size*(l->num_inner_lattice_sites/2)*num_loop;
+  //  for ( s=start; s<end; s++ ) {  
+    // solve x = U^(-1) L^(-1) b
+    // forward substitution with L
+    for ( i=0; i<n2; i++ ) {
+      VECTOR_LOOP( jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] = b_pt[i*nvec_b+jj+jjj];)
+	for ( j=0; j<i; j++ ) 
+	  VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= A[(i*n2+j)*num_loop+nc*nv+jj+jjj]*x_pt[j*nvec_x+jj+jjj];)
+    }
+    // backward substitution with U
+    for ( i=n2-1; i>=0; i-- ) {
+      for ( j=i+1; j<n2; j++ ) 
+	VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= A[(i*n2+j)*num_loop+nc*nv+jj+jjj]*x_pt[j*nvec_x+jj+jjj];)//printf("%g ",creal_PRECISION(A[i*n2+j]));)
+      VECTOR_LOOP( jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] /= A[i*(n2+1)*num_loop+nc*nv+jj+jjj];)//printf("%g ",creal_PRECISION(A[i*n2+j]));)
+    }
+    /*
+    x_pt += n2*nvec_x;
+    b_pt += n2*nvec_b;
+    A += oo_inv_size*num_loop;
+  }*/
+#else
+  //  A += oo_inv_size*start;
+    //  for ( s=start; s<end; s++ ) {  
     // solve x = U^(-1) L^(-1) b
     // forward substitution with L
     for ( i=0; i<n2; i++ ) {
@@ -74,25 +104,57 @@ static inline void coarse_perform_fwd_bwd_subs_PRECISION( vector_PRECISION *x, v
     for ( i=n2-1; i>=0; i-- ) {
       for ( j=i+1; j<n2; j++ ) 
 	VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= A[i*n2+j]*x_pt[j*nvec_x+jj+jjj];)//printf("%g ",creal_PRECISION(A[i*n2+j]));)
-	  VECTOR_LOOP( jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] /= A[i*(n2+1)];)//printf("%g ",creal_PRECISION(A[i*n2+j]));)
+      VECTOR_LOOP( jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] /= A[i*(n2+1)];)//printf("%g ",creal_PRECISION(A[i*n2+j]));)
     }
+    /*
     x_pt += n2*nvec_x;
     b_pt += n2*nvec_b;
     A += oo_inv_size;
-  }
+    }*/
+#endif
 }
 
 // used only in test routines
-static inline void coarse_LU_multiply_PRECISION( vector_PRECISION *y, vector_PRECISION *x, config_PRECISION A, int start, int  end, level_struct *l ) {
-  
-  register int s, i, j, n2 = l->num_lattice_site_var, oo_inv_size = SQUARE(n2), jj, jjj;
-  int  nvec = x->num_vect_now, nvec_x  = x->num_vect, nvec_y = y->num_vect;
-  buffer_PRECISION x_pt = x->vector_buffer, y_pt = y->vector_buffer;
+//static inline void coarse_LU_multiply_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_PRECISION_struct *op, int start, int  end, level_struct *l ) {
+//static inline void coarse_LU_multiply_PRECISION( vector_PRECISION *y, vector_PRECISION *x, config_PRECISION A, int start, int  end, level_struct *l ) {
+static inline void coarse_LU_multiply_PRECISION( const buffer_PRECISION y_pt, const buffer_PRECISION x_pt, const config_PRECISION A,
+						 const int nvec, const int nvec_y, const int nvec_x, level_struct *l ) {
+  register int i, j, jj, jjj;
+  int n2 = l->num_lattice_site_var, oo_inv_size = SQUARE(n2);
 
+#if 0
+  int s, nvec = x->num_vect_now, nvec_x  = x->num_vect, nvec_y = y->num_vect;
+  config_PRECISION A = op->clover_oo_inv;
+  buffer_PRECISION x_pt = x->vector_buffer+(op->num_even_sites+start)*n2*nvec_x, y_pt = y->vector_buffer+(op->num_even_sites+start)*n2*nvec_y;
+#endif
+#ifdef DEBUG
   if ( nvec_y < nvec )
     error0("coarse_LU_multiply_PRECISION: assumptions are not met\n");
+#endif
 
-  for ( s=start; s<end; s++ ) { 
+#if defined(HAVE_MULT_TM)
+  //  A += oo_inv_size*start*num_loop;
+    int nc = g.n_chunk, nv = oo_inv_size*(l->num_inner_lattice_sites/2)*num_loop;//#odd sits!!!!
+  //  for ( s=start; s<end; s++ ) { 
+    // y = Ax
+    // multiplication with U
+    for ( i=0; i<n2; i++ ) {
+      VECTOR_LOOP( jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] = A[i*(n2+1)*num_loop+nc*nv+jj+jjj]*x_pt[i*nvec_x+jj+jjj];)
+	for ( j=i+1; j<n2; j++ )
+	  VECTOR_LOOP( jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] += A[(i*n2+j)*num_loop+nc*nv+jj+jjj]*x_pt[j*nvec_x+jj+jjj];)
+    }
+    // multiplication with L
+    for ( i=n2-1; i>0; i-- )
+      for ( j=0; j<i; j++ )
+	VECTOR_LOOP(jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] += A[(i*n2+j)*num_loop+nc*nv+jj+jjj]*y_pt[j*nvec_y+jj+jjj];)
+	  /*
+    x_pt += n2*nvec_x;
+    y_pt += n2*nvec_y;
+    A += oo_inv_size*num_loop;
+      }*/
+#else
+  //  A += oo_inv_size*start;
+    //  for ( s=start; s<end; s++ ) { 
     // y = Ax
     // multiplication with U
     for ( i=0; i<n2; i++ ) {
@@ -104,10 +166,12 @@ static inline void coarse_LU_multiply_PRECISION( vector_PRECISION *y, vector_PRE
     for ( i=n2-1; i>0; i-- )
       for ( j=0; j<i; j++ )
 	VECTOR_LOOP(jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] += A[i*n2+j]*y_pt[j*nvec_y+jj+jjj];)
+	  /*
     x_pt += n2*nvec_x;
     y_pt += n2*nvec_y;
     A += oo_inv_size;
-  }
+    }*/
+#endif
 }
   
 #endif

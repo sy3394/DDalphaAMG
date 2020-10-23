@@ -34,12 +34,13 @@ void smoother_PRECISION_def( level_struct *l ) { // called only at the top level
     schwarz_PRECISION_setup( &(l->s_PRECISION), &(g.op_double), l );
   }
 
-  // setup op used for gmres with AMG in l->p_PRECISION
+  // setup op used for gmres with AMG in l->p_PRECISION (where is this used?????)
   //   if l->depth != 0, l->p_PRECISION is set using fgmres_PRECISION_struct_alloc
-  l->p_PRECISION.op = &(l->s_PRECISION.op);
-  l->p_PRECISION.v_start = 0;
-  l->p_PRECISION.v_end = l->inner_vector_size;
-  l->p_PRECISION.eval_operator = (l->depth > 0)?apply_coarse_operator_PRECISION:d_plus_clover_PRECISION;
+  l->p_PRECISION.op            = &(l->s_PRECISION.op);
+  l->p_PRECISION.v_start       = 0;
+  l->p_PRECISION.v_end         = l->inner_vector_size;
+  l->p_PRECISION.eval_operator = d_plus_clover_PRECISION;
+  //l->p_PRECISION.eval_operator = (l->depth > 0)?apply_coarse_operator_PRECISION:d_plus_clover_PRECISION;
 
   //   if g.method == 4,5, we use GMRES or biCGstab as a preconditioner, i.e., as a sort of smoother (non AMG)
   //? Currently, g.method==4,5 is non AMG and used when even-odd preconditioned.  So all conditionals are not necessary...?
@@ -122,7 +123,7 @@ void schwarz_PRECISION_alloc( schwarz_PRECISION_struct *s, level_struct *l ) {
   if ( l->level > 0 && l->depth > 0 ) l->p_PRECISION.op = &(s->op);//this is hard to find!!!!!!!!
 
   //--------- Compute the size of index tables and allocate memory for them
-  //   initialize dir_length (#block lattice sites excluding inner boundary sites in mu dir)
+  //   initialize dir_length (#block lattice sites excluding pos inner boundary sites in mu dir)
  for( mu=0; mu<4; mu++ ) 
     s->dir_length[mu] = bl[T]*bl[Z]*bl[Y]*bl[X]/bl[mu]*(bl[mu]-1);
   //   allocate memory for index[mu] accordingly  
@@ -611,13 +612,15 @@ void schwarz_layout_PRECISION_define( schwarz_PRECISION_struct *s, level_struct 
   define_nt_bt_tt( s->op.neighbor_table, s->op.backward_neighbor_table, s->op.c.boundary_table, s->op.translation_table, it, dt, l );
 }
 
+// called only at the top (in smoother_PRECISION_def or in DDalphaAMG_interface.c)
 void schwarz_PRECISION_setup( schwarz_PRECISION_struct *s, operator_double_struct *op_in, level_struct *l ) {
 
-/*********************************************************************************  
-* Copies the Dirac operator and the clover term from op_in into the Schwarz 
-* struct (this function is depth 0 only).
-* - operator_double_struct *op_in: Input operator.                                  
-*********************************************************************************/
+  /*********************************************************************************  
+   * Copies the Dirac operator and the clover term from op_in into the Schwarz 
+   * struct while reordering D in Scwarz layout which respects odd-even ordering 
+   * (this function is depth 0 only)
+   * - operator_double_struct *op_in: Input operator.                                  
+   *********************************************************************************/
 
   int i, index, n = l->num_inner_lattice_sites, *tt = s->op.translation_table;
   config_PRECISION D_out_pt, clover_out_pt, odd_proj_out_pt;
@@ -652,8 +655,8 @@ void schwarz_PRECISION_setup( schwarz_PRECISION_struct *s, operator_double_struc
   }
 
 #ifdef HAVE_TM
-  tm_term_PRECISION_setup( (PRECISION) (g.mu_factor[l->depth]*op_in->mu), (PRECISION) (g.mu_factor[l->depth]*op_in->mu_even_shift),
-			   (PRECISION) (g.mu_factor[l->depth]*op_in->mu_odd_shift), &(s->op), l, no_threading );
+  printf0("schwarz_PRECISION_setup: depth %d, mu factor %g, %d, setup? %d\n",l->depth,g.mu_factor[l->depth], g.num_rhs_vect, g.in_setup);
+  tm_term_PRECISION_setup( op_in->mu, op_in->mu_even_shift, op_in->mu_odd_shift, 1, &(s->op), l, no_threading );
 #endif  
 
 #ifdef HAVE_TM1p1
@@ -1211,9 +1214,9 @@ void schwarz_PRECISION( vector_PRECISION *phi, vector_PRECISION *D_phi, vector_P
   int color, k, mu, i, nb = s->num_blocks, init_res = res, nvec = phi->num_vect_now, jj, jjj;
   vector_PRECISION *r = &(s->buf[0]), *Dphi = &(s->buf[3]), *latest_iter = &(s->buf[1]), *x = &(s->buf[2]);
   void (*block_op)()      = (l->depth==0)?block_d_plus_clover_PRECISION:            coarse_block_operator_PRECISION;
-  void (*boundary_op)()   = (l->depth==0)?block_PRECISION_boundary_op:              coarse_block_PRECISION_boundary_op,
-       (*n_boundary_op)() = (l->depth==0)?n_block_PRECISION_boundary_op:            n_coarse_block_PRECISION_boundary_op,
-       (*block_solve)()   = (l->depth==0&&g.odd_even)?block_solve_oddeven_PRECISION:local_minres_PRECISION;
+  void (*boundary_op)()   = (l->depth==0)?block_PRECISION_boundary_op:              coarse_block_PRECISION_boundary_op;
+  void (*n_boundary_op)() = (l->depth==0)?n_block_PRECISION_boundary_op:            n_coarse_block_PRECISION_boundary_op;
+  void (*block_solve)()   = (l->depth==0&&g.odd_even)?block_solve_oddeven_PRECISION:local_minres_PRECISION;
   
   complex_PRECISION relax_factor[nvec];
   VECTOR_LOOP(jj, nvec, jjj, relax_factor[jj+jjj]=l->relax_fac;)
@@ -1619,21 +1622,27 @@ void additive_schwarz_PRECISION( vector_PRECISION *phi, vector_PRECISION *D_phi,
 }
 
 void red_black_schwarz_PRECISION( vector_PRECISION *phi, vector_PRECISION *D_phi, vector_PRECISION *eta, const int cycles, int res,
-				      schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
+				  schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
   /************************************************
    * Description: Solver D*phi = eta by red-black SAP
-   * phi (_ORDINARY):
-   * eta (_INNER):
-   * r (_INNER at depth==0):
+   *              In SAP, phi <- phi + varphi where varphi = D_i^{-1} r (r_i = eta - D*phi_i)
+   *              Below, D_i varphi = r is solved using MinRes with the initial guess being 0.
+   *              During MinRes, r is updated locally (with boundary contribution computed at the end)
+   * phi (_ORDINARY): smoothed vector
+   * eta (_INNER): rhs
+   * D_phi: If D_phi != NULL, this func is called in a Krylov solver, 
+   *        and D is applied to the obtained estimate phi for extending the Krylov subspace by one
    ************************************************/
   
   START_NO_HYPERTHREADS(threading)
 
   int jj, jjj, k=0, mu, i, init_res = res, res_comm = res, step;
   int nvec = phi->num_vect_now;
-  // latest_iter is increment
-  // s->buf[3] is non NULL, and so Dphi is always non NULL???????
-  vector_PRECISION *r = &(s->buf[0]), *Dphi = &(s->buf[3]), *latest_iter = &(s->buf[1]), *x = &(s->buf[2]);
+
+  vector_PRECISION *x           = &(s->buf[2]); // holds updated estimate to phi for D*phi = eta
+  vector_PRECISION *latest_iter = &(s->buf[1]); // latest_iter is increment varphi in phi <- phi + varphi
+  vector_PRECISION *r           = &(s->buf[0]); // (_INNER at depth==0): (input) r_0 = eta - D*phi_0; resid for D_i varphi = r, i.e., updated resid for D*phi = eta
+  vector_PRECISION *Dphi        = &(s->buf[3]); // D_i*varphi used to update r
   void (*block_op)()       = (l->depth==0)?            block_d_plus_clover_PRECISION: coarse_block_operator_PRECISION;
   void (*boundary_op)()    = (l->depth==0)?            block_PRECISION_boundary_op:   coarse_block_PRECISION_boundary_op;
   void (*n_boundary_op)()  = (l->depth==0)?            n_block_PRECISION_boundary_op: n_coarse_block_PRECISION_boundary_op;

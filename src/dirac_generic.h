@@ -40,8 +40,8 @@
 
   void operator_updates_PRECISION( level_struct *l, struct Thread *threading );
   void m0_update_PRECISION( PRECISION m0,operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
-  void tm_term_PRECISION_setup( PRECISION mu, PRECISION even, PRECISION odd, operator_PRECISION_struct *op,
-                              level_struct *l, struct Thread *threading );
+  void tm_term_PRECISION_setup( double mu, double *even, double odd, double factor, operator_PRECISION_struct *op,
+				level_struct *l, struct Thread *threading );
   void epsbar_term_PRECISION_setup( PRECISION epsbar, PRECISION even, PRECISION odd, operator_PRECISION_struct *op,
                                     level_struct *l, struct Thread *threading );
 
@@ -61,12 +61,14 @@
 //eta+= diag*phi
   static inline void add_diagonal_PRECISION( const vector_PRECISION *eta, const vector_PRECISION *phi,
              const config_PRECISION diag, const int length ) {
-    int i, j, jj, n_vect_phi = phi->num_vect_now, n_vect_eta = eta->num_vect_now;
+    int i, j, jj, nvec = eta->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
     config_PRECISION diag_pt = diag;
-    buffer_PRECISION phi_pt = phi->vector_buffer, eta_pt = eta->vector_buffer, eta_end = eta->vector_buffer + length*eta->num_vect;
+    buffer_PRECISION phi_pt = phi->vector_buffer, eta_pt = eta->vector_buffer, eta_end = eta->vector_buffer + length*nvec_eta;
 
-    if ( n_vect_phi != n_vect_eta )
+#ifdef DEBUG
+    if ( nvec != phi->num_vect_now )
       error0("add_diagonal_PRECISION: assumptions are not met\n");
+#endif
 /*#ifdef HAVE_TM1p1
     if(g.n_flavours == 2)
       while ( eta_pt < eta_end ) {
@@ -85,12 +87,9 @@
        ...
      else
 #endif*/
-       while ( eta_pt < eta_end )
-         for ( i=0; i<12; i++ ) {
-           VECTOR_LOOP(j, n_vect_eta, jj, *eta_pt += (*phi_pt)*(*diag_pt); eta_pt++; phi_pt++;)
-	   eta_pt += eta->num_vect-n_vect_eta; phi_pt += phi->num_vect -n_vect_eta;
-           diag_pt++;
-         }
+    while ( eta_pt < eta_end )
+      FOR12( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] += phi_pt[j+jj]*(*diag_pt);)
+	     eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt++;)
   }
 
 #ifdef HAVE_TM1p1
@@ -108,7 +107,51 @@
     }
   }
 #endif
+#ifdef HAVE_TM
+  static inline void set_diag_PRECISION( const buffer_PRECISION eta, const buffer_PRECISION phi, const config_PRECISION clover, const config_PRECISION diag,
+					 operator_PRECISION_struct *op, const int nvec, const int nvec_eta, const int nvec_phi, const int length ) {
 
+    /***********************
+     * apply tm_term (and clover term if clover != NULL): if clover!= NULL, eta = (tm_term+clover)*phi; else eta += tm_term*phi
+     * If HAVE_MULT_TM, diag = tm_term, which contains a vector for a tm term for each rhs with its own shift,
+     * else diag = odd_proj, and tm terms are computed on the fly.
+     **********************/
+
+    register int i, j, jj, n = g.n_chunk;
+#ifndef HAVE_MULT_TM
+    register complex_PRECISION odd = (complex_PRECISION) I*op->odd_shifted_mu;
+    complex_PRECISION d_mu_eo[num_loop]; for( i=0; i<num_loop; i++) d_mu_eo[i] = (complex_PRECISION) I*op->diff_mu_eo[n*num_loop+i];
+#endif
+    buffer_PRECISION eta_pt = eta, phi_pt = phi;
+    config_PRECISION clover_pt = clover, diag_pt = diag;
+    
+    if ( clover != NULL ) {
+      for ( i=0; i<length; i++ ) {
+#ifdef HAVE_MULT_TM
+	FOR12( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)+diag_pt[j+jj]);)
+	       eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt += num_loop; clover_pt++; )
+#else
+	FOR6( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)-(odd+d_mu_eo[j+jj]*(1-(*diag_pt))));)
+	      eta_pt += nvec_eta; phi_pt += nvec_phi; clover_pt++; diag_pt++; )
+	FOR6( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)+(odd+d_mu_eo[j+jj]*(1-(*diag_pt))));)
+	      eta_pt += nvec_eta; phi_pt += nvec_phi; clover_pt++; diag_pt++; )
+#endif
+      }
+    } else {
+      for ( i=0; i<length; i++ ) {
+#ifdef HAVE_MULT_TM
+	FOR12( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] += phi_pt[j+jj]*diag_pt[j+jj];)
+	       eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt += num_loop; )
+#else
+	FOR6( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] += -phi_pt[j+jj]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt)));)
+	      eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt++; )
+	FOR6( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] +=  phi_pt[j+jj]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt)));)
+	      eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt++; )
+#endif
+      }
+    }
+  }
+#endif
   // eta = D*phi
   static inline void mvm_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D, const buffer_PRECISION phi, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     int j, jj;

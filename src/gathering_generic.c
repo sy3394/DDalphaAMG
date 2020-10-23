@@ -24,7 +24,14 @@
 #include "main.h"
 
 void gathering_PRECISION_next_level_init( gathering_PRECISION_struct *gs, level_struct *l ) {
-  // note: input gs is at the next level
+  /**************************************************************************************************************************
+   * Assume: gs is one-level below than l, e.g., gs is at the next level if l is current level
+   *         So fields in gs refers to the lattice at the level whose level struct containing this gs
+   * gs->dist_local_lattice[mu]: dims of local lattice if none of the processes are turned off 
+   * gs->dist_inner_lattice_sites: #sites of local lattice if none of the processes are turned off 
+   * gs->gather_list_length: #processes in a group (parent and child at the next level)   
+   **************************************************************************************************************************/
+
   int mu;
   
   gs->permutation = NULL;
@@ -36,12 +43,12 @@ void gathering_PRECISION_next_level_init( gathering_PRECISION_struct *gs, level_
   /* 
    * Some processes can be turned off when going one-level down.
    * comm_offset[mu] specifies which process is idle in the mu dir in the Cartesian grid of processes.
-   * In particular, it says: every comm_offset[mu]^th process in the mu dir is idle.
+   * In particular, it says: every comm_offset[mu]^th process in the mu dir is idle.  So
        (#processes at the given level) = (#process at the top level)/(product of comm_offset[i]) = (product of num_process_dir[i])
    * That is, if comm_offset[i] != 1, #active processes is reduced.
    * When this happens, when going one step down, an active process needs to handle more coarse sites than the ones
      obtained from the given process.
-   * l->next_level->local_lattice[mu] is #sites in the mu dir that the active process needs to take care of.
+   * l->next_level->local_lattice[mu] is #sites in the mu dir that the active process needs to take care of at the next level.
    * So, one process (parent process) take care of calculation on sites of gs->gather_list_length many processes,
      all of which except the parent process will be idle at the next_level.
      So l->next_level->local_lattice[mu] > gs->dist_local_lattice[mu] b/c a process now take care of more sites */
@@ -72,7 +79,7 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
 
   l->idle = 0;
   i = 0;
-  // go over each process 
+  // go over each process both active and idle
   for ( process_coords[T]=0; process_coords[T]<g.process_grid[T]; process_coords[T]++ )
     for ( process_coords[Z]=0; process_coords[Z]<g.process_grid[Z]; process_coords[Z]++ )
       for ( process_coords[Y]=0; process_coords[Y]<g.process_grid[Y]; process_coords[Y]++ )
@@ -108,7 +115,7 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
   MPI_Comm_create( g.comm_cart, gs->level_comm_group, &(gs->level_comm) );
   FREE( process_list, int, l->num_processes );
   
-  if ( !l->idle ) {
+  if ( !l->idle ) { // only parent performs the folowing setup
     int d0, c0, b0, a0, d1, c1, b1, a1, t, z, y, x, k, j, *field1=NULL, *field2=NULL, *count[4],
     merge[4], block_size[4], block_split[4], agg_split[4];
     MALLOC( gs->gather_list, int, gs->gather_list_length );
@@ -125,15 +132,13 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
     MALLOC( field1, int, l->num_inner_lattice_sites );
     MALLOC( field2, int, l->num_inner_lattice_sites );
     
-    for ( mu=0; mu<4; mu++ ) {
+    for ( mu=0; mu<4; mu++ ) { // processes are grouped into a family of the parent rank and its children
       block_size[mu] = gs->dist_local_lattice[mu];       // dims of local lattice on each process in the family
-      merge[mu] = l->local_lattice[mu] / block_size[mu]; // dims of Cartesian block of the family of processes
+      merge[mu] = l->local_lattice[mu] / block_size[mu]; // #processes of this family in the mu dir
     }
 
-    // process wise linearly ordered, process blocks linearly ordered
-    // ---> completely linearly ordered
-    // field1: local_lex_index -> blockwise lexicographical index
-    //  visit each site on each process and each site on the process lexicographically
+    // visit each site on a rank (a block in the new local lattice) in the family in the order x->y->z->t
+    // field1: local_lex_index of each site on the new local lattice for the parent -> local_lex_index of each site on each rank in the family
     count[0]=&d0; count[1]=&c0; count[2]=&b0; count[3]=&a0;
     i=0; j=0;
     // for each process in the family (parent and its children)
@@ -141,13 +146,15 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
       for ( c0=0; c0<merge[Z]; c0++)
         for ( b0=0; b0<merge[Y]; b0++ )
           for ( a0=0; a0<merge[X]; a0++ ) {
-            // determine list of processes for gathering and distribution data
+            // find the rank ID for each child rank in the family
+	    //   Active ranks on the level one up are grouped into families of a parent and children.
+	    //   So to find a global coordinate of child ranks, we need comm_offset for the level one up.
+	    //   This can be found by l->comm_offset[mu]/merge[mu].
             for ( mu=0; mu<4; mu++ )
               process_coords[mu] = g.my_coords[mu] + *(count[mu]) * (l->comm_offset[mu]/merge[mu]);
-
             g.Cart_rank( g.comm_cart, process_coords, gs->gather_list + j );
-
             j++;
+	    
             // for each site on the process
             for ( t=d0*block_size[T]; t<(d0+1)*block_size[T]; t++ )
               for ( z=c0*block_size[Z]; z<(c0+1)*block_size[Z]; z++ )
@@ -159,11 +166,10 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
                   }
           }
     
-    // completely linearly ordered ----> aggregate wise, Schwarz block wise and
-    // within Schwarz blocks again linearly
+
+    // visit each site in the Schwarz order (aggregate->block->lex_site) if l->level > 0
+    // otherwise, visit each site on the new local lattie lexicographically (even->odd if g.odd_even)
     // field2: local_lex_index -> Scwarz_index (if l->level != 0) and local_lex_index (if l->level == 0)
-    //  visit each site in the local lattice (wchich includes sites coming from child processes)
-    //  in the Schwarz order not at the bottom and lexicographically at the bottom????
     if ( l->level > 0 ) {
       
       for ( mu=0; mu<4; mu++ ) {
@@ -227,7 +233,7 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
       }
     }      
     
-    // build the permutation table blockwise_lex_index to Scwarz_index
+    // build the permutation table process-wise_lex_index to Scwarz_index/lex_index (level>0/level==0)
     for ( i=0; i<l->num_inner_lattice_sites; i++ )
       gs->permutation[ field1[i] ] = field2[i];
     
@@ -257,22 +263,30 @@ void gathering_PRECISION_free( gathering_PRECISION_struct *gs, level_struct *l )
   FREE( gs->transfer_buffer.vector_buffer, complex_PRECISION, gs->dist_inner_lattice_sites * l->num_lattice_site_var * nvec );
 
 }
-//intact
+
 void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_struct *in, level_struct *l ) {
+  /*
+   * Descrption: copies in into out while taking care of possible redunction of #processes
+   */
   
-  int send_size_hopp = l->gs_PRECISION.dist_inner_lattice_sites * 4 * SQUARE( l->num_lattice_site_var ),
-    send_size_clov = l->gs_PRECISION.dist_inner_lattice_sites * ( (l->num_lattice_site_var*(l->num_lattice_site_var+1))/2 ),
-    send_size_block = l->gs_PRECISION.dist_inner_lattice_sites * ( (l->num_lattice_site_var/2*(l->num_lattice_site_var/2+1)) );
+  int send_size_hopp  = l->gs_PRECISION.dist_inner_lattice_sites * 4 * SQUARE( l->num_lattice_site_var );
+  int send_size_clov  = l->gs_PRECISION.dist_inner_lattice_sites * ( (l->num_lattice_site_var*(l->num_lattice_site_var+1))/2 );
+  int send_size_block = l->gs_PRECISION.dist_inner_lattice_sites * ( (l->num_lattice_site_var/2*(l->num_lattice_site_var/2+1)) );
+  int jj, jjj;;
 #ifdef HAVE_TM
-  out->mu = in->mu;
-  out->mu_even_shift = in->mu_even_shift;
-  out->mu_odd_shift = in->mu_odd_shift;
+  out->mu            = in->mu;
+  for ( int i=0; i<g.num_rhs_vect; i++ ) out->mu_even_shift[i] = in->mu_even_shift[i];
+  out->mu_odd_shift  = in->mu_odd_shift;
+  out->odd_shifted_mu = in->odd_shifted_mu;
+  for ( int i=0; i<g.num_rhs_vect; i++ ) out->diff_mu_eo[i] = in->diff_mu_eo[i];
+  out->even_shift_avg = out->even_shift_avg;
+  out->is_even_shifted_mu_nonzero = in->is_even_shifted_mu_nonzero;
 #endif
   out->m0 = in->m0;
 #ifdef HAVE_TM1p1
-  out->epsbar = in->epsbar;
+  out->epsbar                = in->epsbar;
   out->epsbar_ig5_even_shift = in->epsbar_ig5_even_shift;
-  out->epsbar_ig5_odd_shift = in->epsbar_ig5_odd_shift;
+  out->epsbar_ig5_odd_shift  = in->epsbar_ig5_odd_shift;
 #endif
 
   if ( g.my_rank != l->parent_rank ) {
@@ -281,9 +295,14 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
     MPI_Request eps_req;
     MPI_Isend( in->epsbar_term, send_size_block, MPI_COMPLEX_PRECISION, l->parent_rank, 4, g.comm_cart, &eps_req );
 #endif
-#ifdef HAVE_TM
+#ifdef HAVE_MULT_TM
+    int nrt = num_loop; //g.num_rhs_vect;
     MPI_Request tm_req;
-    MPI_Isend( in->tm_term, send_size_block, MPI_COMPLEX_PRECISION, l->parent_rank, 3, g.comm_cart, &tm_req );
+    buffer_PRECISION tm_send_buffer;
+    MALLOC( tm_send_buffer, complex_PRECISION, nrt*send_size_block );
+    for ( int i=0; i< send_size_block; i++ )
+      VECTOR_LOOP(jj, nrt, jjj, tm_send_buffer[nrt*i+jj+jjj] = in->tm_term[i*num_loop+jj*send_size_block+jjj]) 
+    MPI_Isend( tm_send_buffer, nrt*send_size_block, MPI_COMPLEX_PRECISION, l->parent_rank, 3, g.comm_cart, &tm_req );
 #endif
     MPI_Isend( in->odd_proj, send_size_block, MPI_COMPLEX_PRECISION, l->parent_rank, 2, g.comm_cart, &odd_req );
     MPI_Isend( in->D, send_size_hopp, MPI_COMPLEX_PRECISION, l->parent_rank, 0, g.comm_cart, &req );
@@ -291,14 +310,15 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
 #ifdef HAVE_TM1p1
     MPI_Wait( &eps_req, MPI_STATUS_IGNORE );
 #endif
-#ifdef HAVE_TM
+#ifdef HAVE_MULT_TM
     MPI_Wait( &tm_req, MPI_STATUS_IGNORE );
     MPI_Wait( &odd_req, MPI_STATUS_IGNORE );
+    FREE( tm_send_buffer, complex_PRECISION, nrt*send_size_block );
 #endif
     MPI_Wait( &req, MPI_STATUS_IGNORE );
   } else {
     int i, j, n=l->gs_PRECISION.gather_list_length, s=l->num_inner_lattice_sites,
-        t, *pi = l->gs_PRECISION.permutation;
+      t, *pi = l->gs_PRECISION.permutation;
     buffer_PRECISION buffer_hopp = NULL, buffer_clov = NULL, buffer_odd_proj = NULL;
     MPI_Request *hopp_reqs = NULL, *clov_reqs = NULL, *odd_proj_reqs = NULL;
 
@@ -308,10 +328,11 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
     MALLOC( buffer_eps_term, complex_PRECISION, n*send_size_block );
     MALLOC( eps_term_reqs, MPI_Request, n );
 #endif
-#ifdef HAVE_TM
+#ifdef HAVE_MULT_TM
+    int nrt = num_loop;
     buffer_PRECISION buffer_tm_term = NULL;
     MPI_Request *tm_term_reqs = NULL;
-    MALLOC( buffer_tm_term, complex_PRECISION, n*send_size_block );
+    MALLOC( buffer_tm_term, complex_PRECISION, n*nrt*send_size_block );
     MALLOC( tm_term_reqs, MPI_Request, n );
 #endif
     MALLOC( buffer_hopp, complex_PRECISION, n*send_size_hopp );
@@ -327,9 +348,9 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
       MPI_Irecv( buffer_eps_term+i*send_size_block, send_size_block, MPI_COMPLEX_PRECISION,
                  l->gs_PRECISION.gather_list[i], 4, g.comm_cart, &(eps_term_reqs[i]) );
 #endif
-#ifdef HAVE_TM
-      MPI_Irecv( buffer_tm_term+i*send_size_block, send_size_block, MPI_COMPLEX_PRECISION,
-                 l->gs_PRECISION.gather_list[i], 3, g.comm_cart, &(tm_term_reqs[i]) );
+#ifdef HAVE_MULT_TM
+      MPI_Irecv( buffer_tm_term+i*nrt*send_size_block, nrt*send_size_block, MPI_COMPLEX_PRECISION,
+		 l->gs_PRECISION.gather_list[i], 3, g.comm_cart, &(tm_term_reqs[i]) );
 #endif
       MPI_Irecv( buffer_hopp+i*send_size_hopp, send_size_hopp, MPI_COMPLEX_PRECISION,
                  l->gs_PRECISION.gather_list[i], 0, g.comm_cart, &(hopp_reqs[i]) );
@@ -344,9 +365,9 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
     for ( i=0; i<send_size_block; i++ )
       buffer_eps_term[i] = in->epsbar_term[i];
 #endif
-#ifdef HAVE_TM
+#ifdef HAVE_MULT_TM
     for ( i=0; i<send_size_block; i++ )
-      buffer_tm_term[i] = in->tm_term[i];    
+      VECTOR_LOOP(jj, nrt, jjj, buffer_tm_term[i*nrt+jj+jjj] = in->tm_term[i*num_loop+send_size_block*jj+jjj];)
 #endif
     
     for ( i=0; i<send_size_hopp; i++ )
@@ -369,16 +390,17 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
       for ( j=0; j<t; j++ )
         out->epsbar_term[ t*pi[i] + j ] = buffer_eps_term[ t*i + j ];
 #endif
-#ifdef HAVE_TM
+#ifdef HAVE_MULT_TM
     PROF_PRECISION_START( _GD_IDLE );
     for ( i=1; i<n; i++ )
       MPI_Wait( &(tm_term_reqs[i]), MPI_STATUS_IGNORE );
     PROF_PRECISION_STOP( _GD_IDLE, n-1 );
-    
-    t = (send_size_block*n)/s;
+
+    t = (send_size_block*n)/s;//==internal d.o.f.
+    printf0("gather conf %d %d\n",t, (l->num_lattice_site_var/2*(l->num_lattice_site_var/2+1)));
     for ( i=0; i<s; i++ )
       for ( j=0; j<t; j++ )
-        out->tm_term[ t*pi[i] + j ] = buffer_tm_term[ t*i + j ];
+	VECTOR_LOOP(jj, nrt, jjj, out->tm_term[ (t*pi[i] + j)*num_loop+send_size_block*jj+jjj ] = buffer_tm_term[ (t*i + j)*nrt+jj+jjj ];)
 #endif
 
     PROF_PRECISION_START( _GD_IDLE );
@@ -417,8 +439,8 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
     FREE( hopp_reqs, MPI_Request, n );
     FREE( clov_reqs, MPI_Request, n );
     FREE( odd_proj_reqs, MPI_Request, n );
-#ifdef HAVE_TM
-    FREE( buffer_tm_term, complex_PRECISION, n*send_size_block );
+#ifdef HAVE_MULT_TM
+    FREE( buffer_tm_term, complex_PRECISION, n*nrt*send_size_block );
     FREE( tm_term_reqs, MPI_Request, n );
 #endif
 #ifdef HAVE_TM1p1

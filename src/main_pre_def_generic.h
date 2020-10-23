@@ -59,7 +59,7 @@
     MPI_Comm level_comm;
   } gathering_PRECISION_struct;
   
-typedef struct {//operators are row-major
+  typedef struct {//operators are row-major????
     double m0;
     config_PRECISION D, clover, clover_oo_inv;
     config_PRECISION odd_proj; //identity on the odd sites
@@ -72,7 +72,8 @@ typedef struct {//operators are row-major
     buffer_PRECISION prnT, prnZ, prnY, prnX, prpT, prpZ, prpY, prpX;
     comm_PRECISION_struct c;
 #ifdef HAVE_TM
-    double mu, mu_odd_shift, mu_even_shift;
+    int is_even_shifted_mu_nonzero;
+    double factor, mu, mu_odd_shift, *mu_even_shift, odd_shifted_mu, *diff_mu_eo, even_shift_avg;
     config_PRECISION tm_term;
 #endif
 #ifdef HAVE_TM1p1

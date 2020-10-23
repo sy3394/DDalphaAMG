@@ -32,7 +32,7 @@
 
   void selfcoupling_cholesky_decomposition_PRECISION( const config_PRECISION output, config_double input );
 #ifdef HAVE_TM
-  void selfcoupling_LU_decomposition_PRECISION( const config_PRECISION output, config_double input );
+  void selfcoupling_LU_decomposition_PRECISION( const config_PRECISION output, config_double input, level_struct *l );
 #endif
 #ifdef HAVE_TM1p1
   void selfcoupling_LU_doublet_decomposition_PRECISION( const config_PRECISION output, config_double input );
@@ -50,68 +50,72 @@
   void oddeven_PRECISION_test( level_struct *l );
 
 
-static inline void LLH_perform_fwd_bwd_subs_PRECISION( vector_PRECISION *x, vector_PRECISION *b, config_PRECISION L,
-							   int start, int end ) {
+  static inline void LLH_perform_fwd_bwd_subs_PRECISION( vector_PRECISION *x, vector_PRECISION *b, config_PRECISION L,
+							 int start, int end ) {
 
-/*********************************************************************************
-* Solves L*(L^H)*x = b for x, i.e., the clover coupling for a single lattice 
-* site.
-* - vector_PRECISION *b: Right hand side.
-* - vector_PRECISION *x: Solution.
-* - config_PRECISION L: Cholesky factor ( lower triangular matrix )
-*********************************************************************************/
+    /*********************************************************************************
+     * Solves L*(L^H)*x = b for x, i.e., the clover coupling for a single lattice 
+     * site.
+     * - vector_PRECISION *b: Right hand side.
+     * - vector_PRECISION *x: Solution.
+     * - config_PRECISION L: Cholesky factor ( lower triangular matrix )
+     *********************************************************************************/
 
-  register int s, i, j;
-  int n, jj, jjj, nvec = x->num_vect_now, nvec_x = x->num_vect, nvec_b = b->num_vect;
-  buffer_PRECISION x_pt = x->vector_buffer, b_pt = b->vector_buffer;
+    register int s, i, j;
+    int n, jj, jjj, nvec = x->num_vect_now, nvec_x = x->num_vect, nvec_b = b->num_vect;
+    buffer_PRECISION x_pt = x->vector_buffer, b_pt = b->vector_buffer;
 
-  if ( b->num_vect_now != nvec )
-    error0("LLH_perform_fwd_bwd_subs_PRECISION: assumptions are not met\n");
-
-  for ( s=start; s<end; s++ ) {//id+=12 ) {
-    for ( n=0; n<2; n++ ) {
-      // forward substitution with L
-      for ( i=0; i<6; i++ ) {
-        VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] = b_pt[i*nvec_b+jj+jjj];)
-        for ( j=0; j<i; j++ ) {
-	  VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= *L * x_pt[j*nvec_x+jj+jjj];)
-          L++;
-        }
-        VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] /= *L;)
-        L++;
+#ifdef DEBUG
+    if ( b->num_vect_now != nvec )
+      error0("LLH_perform_fwd_bwd_subs_PRECISION: assumptions are not met\n");
+#endif
+  
+    for ( s=start; s<end; s++ ) {//id+=12 ) {
+      for ( n=0; n<2; n++ ) {
+	// forward substitution with L
+	for ( i=0; i<6; i++ ) {
+	  VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] = b_pt[i*nvec_b+jj+jjj];)
+	    for ( j=0; j<i; j++ ) {
+	      VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= *L * x_pt[j*nvec_x+jj+jjj];)
+	      L++;
+	    }
+	  VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] /= *L;)
+	  L++;
+	}
+	L -= 21;
+	// backward substitution with L^H
+	for ( i=5; i>=0; i-- ) {
+	  for ( j=i+1; j<6; j++ ) 
+	    VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= conj_PRECISION(L[(j*(j+1))/2 + i]) * x_pt[j*nvec_x+jj+jjj];)
+	    VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] /= conj_PRECISION(L[(i*(i+1))/2 + i]);)
+	  }
+	x_pt+=6*nvec_x;
+	b_pt+=6*nvec_b;
+	L+=21;
       }
-      L -= 21;
-      // backward substitution with L^H
-      for ( i=5; i>=0; i-- ) {
-        for ( j=i+1; j<6; j++ ) 
-	  VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= conj_PRECISION(L[(j*(j+1))/2 + i]) * x_pt[j*nvec_x+jj+jjj];)
-        VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] /= conj_PRECISION(L[(i*(i+1))/2 + i]);)
-      }
-      x_pt+=6*nvec_x;
-      b_pt+=6*nvec_b;
-      L+=21;
     }
   }
-}
 
-static inline void LU_perform_fwd_bwd_subs_PRECISION( vector_PRECISION *x, vector_PRECISION *b, config_PRECISION LU,
-							  int start, int end ) {
+  static inline void LU_perform_fwd_bwd_subs_PRECISION( vector_PRECISION *x, vector_PRECISION *b, config_PRECISION LU,
+							int start, int end, level_struct *l ) {
 
-/*********************************************************************************
-* Solves L*U*x = b for x, i.e., the clover coupling for a single lattice 
-* site.
-* - vector_PRECISION *b: Right hand side.
-* - vector_PRECISION *x: Solution.
-* - config_PRECISION L: Lower matrix from modified LU decomposition
-* Note: U is given by u_{ii}=1, u_{ij}=l_{ji}* / l_{ii} 
-*********************************************************************************/
+    /*********************************************************************************
+     * Solves L*U*x = b for x, i.e., the clover coupling for a single lattice 
+     * site.
+     * - vector_PRECISION *b: Right hand side.
+     * - vector_PRECISION *x: Solution.
+     * - config_PRECISION L: Lower matrix from modified LU decomposition
+     * Note: U is given by u_{ii}=1, u_{ij}=l_{ji}* / l_{ii} 
+     *********************************************************************************/
+    
+    register int s, i, j, n, jj, jjj, nvec = x->num_vect_now, nvec_x = x->num_vect, nvec_b = b->num_vect;
+    buffer_PRECISION x_pt = x->vector_buffer, b_pt = b->vector_buffer;
 
-  register int s, i, j, n, jj, jjj, nvec = x->num_vect_now, nvec_x = x->num_vect, nvec_b = b->num_vect;
-  buffer_PRECISION x_pt = x->vector_buffer, b_pt = b->vector_buffer;
- 
-  if ( b->num_vect_now != nvec )
-    error0("LU_perform_fwd_bwd_subs_PRECISION: assumptions are not met\n");
-
+#ifdef DEBUG
+    if ( b->num_vect_now != nvec )
+      error0("LU_perform_fwd_bwd_subs_PRECISION: assumptions are not met\n");
+#endif
+  
 /*#ifdef HAVE_TM1p1
   if( g.n_flavours == 2) {
     LU += (start/24)*288;
@@ -141,27 +145,50 @@ static inline void LU_perform_fwd_bwd_subs_PRECISION( vector_PRECISION *x, vecto
   } else
 #endif*/
     {
-       for ( s=start; s<end; s++ ) {//id+=12 ) {
+#ifdef HAVE_MULT_TM
+      int nc = g.n_chunk, nv = (l->num_inner_lattice_sites/2+1)*72;
+      for ( s=start; s<end; s++ ) {//id+=12 ) {
         for ( n=0; n<2; n++ ) {
           // solve x = U^(-1) L^(-1) b
           // forward substitution with L
           for ( i=0; i<6; i++ ) {
             VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] = b_pt[i*nvec_b+jj+jjj];)
             for ( j=0; j<i; j++ ) 
-	      VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= LU[i*6+j]*x_pt[j*nvec_x+jj+jjj];)
+	      VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= LU[(i*6+j)*num_loop+nc*nv+jj+jjj]*x_pt[j*nvec_x+jj+jjj];)
           }
           // backward substitution with U
           for ( i=6-1; i>=0; i-- ) {
-            for ( j=i+1; j<6; j++ ) {
-	      VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= LU[i*6+j]*x_pt[j*nvec_x+jj+jjj];)
-            }
-            VECTOR_LOOP(jj, nvec, jjj,  x_pt[i*nvec_x+jj+jjj] /=LU[i*(6+1)];)
+            for ( j=i+1; j<6; j++ )
+	      VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= LU[(i*6+j)*num_loop+nc*nv+jj+jjj]*x_pt[j*nvec_x+jj+jjj];)
+            VECTOR_LOOP(jj, nvec, jjj,  x_pt[i*nvec_x+jj+jjj] /=LU[i*(6+1)*num_loop+nc*nv+jj+jjj];)
           }
           x_pt+=6*nvec_x;
           b_pt+=6*nvec_b;
-          LU+=6*6;
-        }
+          LU+=6*6*num_loop;
+	}
       }
+#else
+       for ( s=start; s<end; s++ ) {//id+=12 ) {
+	 for ( n=0; n<2; n++ ) {
+	   // solve x = U^(-1) L^(-1) b
+	   // forward substitution with L
+	   for ( i=0; i<6; i++ ) {
+	     VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] = b_pt[i*nvec_b+jj+jjj];)
+	     for ( j=0; j<i; j++ ) 
+	       VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= LU[i*6+j]*x_pt[j*nvec_x+jj+jjj];)
+	   }
+	   // backward substitution with U
+	   for ( i=6-1; i>=0; i-- ) {
+	     for ( j=i+1; j<6; j++ ) 
+	       VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= LU[i*6+j]*x_pt[j*nvec_x+jj+jjj];)
+	     VECTOR_LOOP(jj, nvec, jjj,  x_pt[i*nvec_x+jj+jjj] /=LU[i*(6+1)];)
+	   }
+	   x_pt+=6*nvec_x;
+	   b_pt+=6*nvec_b;
+	   LU+=6*6;
+	 }
+       }
+#endif
     }
 }
 
@@ -211,23 +238,25 @@ static inline void LLH_multiply_PRECISION( vector_PRECISION *y, vector_PRECISION
   }
 }
 
-static inline void LU_multiply_PRECISION( vector_PRECISION *y, vector_PRECISION *x, config_PRECISION LU,
-					      int start, int end ) {
+  static inline void LU_multiply_PRECISION( vector_PRECISION *y, vector_PRECISION *x, config_PRECISION LU,
+					    int start, int end, level_struct *l ) {
 
-/*********************************************************************************
-* Applies the clover coupling term to a vector, by multiplying L^H 
-* and then L. 
-* - vector_PRECISION *x: Input vector.
-* - vector_PRECISION *y: Output vector.
-* - config_PRECISION LU: LU decomposition
-*********************************************************************************/
+    /*********************************************************************************
+     * Applies the clover coupling term to a vector, by multiplying L^H 
+     * and then L. 
+     * - vector_PRECISION *x: Input vector.
+     * - vector_PRECISION *y: Output vector.
+     * - config_PRECISION LU: LU decomposition
+     *********************************************************************************/
 
-  register int s, i, j, n, jj, jjj, nvec = x->num_vect_now, nvec_x = x->num_vect, nvec_y = y->num_vect;
-  buffer_PRECISION x_pt = x->vector_buffer, y_pt = y->vector_buffer;
+    register int s, i, j, n, jj, jjj, nvec = x->num_vect_now, nvec_x = x->num_vect, nvec_y = y->num_vect;
+    buffer_PRECISION x_pt = x->vector_buffer, y_pt = y->vector_buffer;
 
-  if ( nvec_y < nvec )
-    error0("LU_multiply_PRECISION: assumptions are not met\n");
-
+#ifdef DEBUG
+    if ( nvec_y < nvec )
+      error0("LU_multiply_PRECISION: assumptions are not met\n");
+#endif
+    
 /*#ifdef HAVE_TM1p1
   if( g.n_flavours == 2) {
     LU += (start/24)*288;
@@ -252,6 +281,26 @@ static inline void LU_multiply_PRECISION( vector_PRECISION *y, vector_PRECISION 
   } else
 #endif*/
     {
+#ifdef HAVE_MULT_TM
+      int nc = g.n_chunk, nv = (l->num_inner_lattice_sites/2+1)*72;
+      for ( s=start; s<end; s++ ) {//id+=12 ) {
+	for ( n=0; n<2; n++ ) {
+	  for ( i=0; i<6; i++ ) {
+            VECTOR_LOOP( jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] = LU[i*(6+1)*num_loop+nc*nv+jj+jjj]*x_pt[i*nvec_x+jj+jjj];)
+	    for ( j=i+1; j<6; j++ )
+              VECTOR_LOOP( jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] += LU[(i*6+j)*num_loop+nc*nv+jj+jjj]*x_pt[j*nvec_x+jj+jjj];)
+	  }
+	  // multiplication with L
+	  for ( i=6-1; i>0; i-- )
+	    for ( j=0; j<i; j++ )
+	      VECTOR_LOOP(jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] += LU[(i*6+j)*num_loop+nc*nv+jj+jjj]*y_pt[j*nvec_y+jj+jjj];)
+
+	  x_pt+=6*nvec_x;
+	  y_pt+=6*nvec_y;
+	  LU+=6*6*num_loop;
+	}
+      }
+#else
       for ( s=start; s<end; s++ ) {//id+=12 ) {
 	for ( n=0; n<2; n++ ) {
 	  for ( i=0; i<6; i++ ) {
@@ -269,6 +318,7 @@ static inline void LU_multiply_PRECISION( vector_PRECISION *y, vector_PRECISION 
 	  LU+=6*6;
 	}
       }
+#endif
     }
 }
   

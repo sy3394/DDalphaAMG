@@ -64,9 +64,11 @@ void coarse_operator_PRECISION_setup( vector_PRECISION *V, level_struct *l ) {
   t0 = MPI_Wtime();
   vector_PRECISION buffer[3];
 
+#ifdef DEBUG
   if ( V->num_vect_now != l->num_eig_vect || V->num_vect != l->num_eig_vect )
     error0("oarse_operator_PRECISION_setup: assumptions are not met\n");
-
+#endif
+  
   int mu, i, j;
   int n           = l->num_eig_vect;
   int D_size      = l->next_level->D_size;
@@ -141,15 +143,18 @@ static void coarse_operator_PRECISION_setup_finalize( level_struct *l, struct Th
 
   // set mass at the next level
   l->next_level->op_PRECISION.m0 = l->s_PRECISION.op.m0;
-#ifdef HAVE_TM    
-  // set tm_term at the next level; mu, even_shift, odd_shit are all multiplied by mu_factor at the coarse levels
+#ifdef HAVE_TM
   PRECISION mf = (g.mu_factor[l->depth]) ? g.mu_factor[l->next_level->depth]/g.mu_factor[l->depth]:0;
-  if ( mf*l->s_PRECISION.op.mu + mf*l->s_PRECISION.op.mu_even_shift == 0 &&
-       mf*l->s_PRECISION.op.mu + mf*l->s_PRECISION.op.mu_odd_shift == 0 )
-    buffer_PRECISION_define( l->next_level->op_PRECISION.tm_term, _COMPLEX_double_ZERO, 0, block_size, l->next_level ); 
+  // set tm_term at the next level; mu, even_shift, odd_shit are all multiplied by mu_factor at the coarse levels
+#ifdef HAVE_MULT_TM
+  if( !l->s_PRECISION.op.is_even_shifted_mu_nonzero && l->s_PRECISION.op.mu + l->s_PRECISION.op.mu_odd_shift == 0 )
+    buffer_PRECISION_define( l->next_level->op_PRECISION.tm_term, _COMPLEX_double_ZERO, 0, block_size*g.num_rhs_vect, l->next_level );
   else
-    tm_term_PRECISION_setup( mf*l->s_PRECISION.op.mu, mf*l->s_PRECISION.op.mu_even_shift,
-                             mf*l->s_PRECISION.op.mu_odd_shift, &(l->next_level->op_PRECISION),
+#else
+  if( l->s_PRECISION.op.is_even_shifted_mu_nonzero || l->s_PRECISION.op.mu + l->s_PRECISION.op.mu_odd_shift != 0 )
+#endif
+    tm_term_PRECISION_setup( l->s_PRECISION.op.mu, l->s_PRECISION.op.mu_even_shift,
+                             l->s_PRECISION.op.mu_odd_shift, mf, &(l->next_level->op_PRECISION),
                              l->next_level, threading ); 
 #endif
 #ifdef HAVE_TM1p1
@@ -276,10 +281,12 @@ static void set_coarse_neighbor_coupling_PRECISION( vector_PRECISION *spin_0_1, 
   int aggregate_size           = l->num_inner_lattice_sites*l->num_parent_eig_vect*2/num_aggregates;
   int nvec_V = V->num_vect, nvec_01 = spin_0_1->num_vect, nvec_23 = spin_2_3->num_vect;
   config_PRECISION D_pt, D = l->next_level->op_PRECISION.D;
-  
+
+#ifdef DEBUG
   if ( nvec_V != num_eig_vect )
     error0("set_coarse_neighbor_coupling_PRECISION: assumptions are not met\n");
-
+#endif
+  
   // U_mu(x) = [ A B      , U_-mu(x+muhat) = [ A* -C*
   //             C D ]                        -B*  D* ]
   // storage order: A, C, B, D, each column wise
@@ -333,9 +340,12 @@ static void coarse_spinwise_self_couplings_PRECISION( vector_PRECISION *eta1, ve
 
   config_PRECISION clover_pt = clover;
   buffer_PRECISION phi_pt = phi->vector_buffer, eta1_pt = eta1->vector_buffer, eta2_pt = eta2->vector_buffer+num_eig_vect*nvec_eta2, phi_end_pt = phi->vector_buffer+length*nvec_phi;
+
+#ifdef DEBUG
   if ( nvec_eta1 != nvec_eta2 || nvec_eta1 < nvec_phi )
     error0("coarse_spinwise_self_couplings_PRECISION: assumptions are not met\n");
-
+#endif
+  
   // U(x) = [ A B      , A=A*, D=D*, C = -B*
   //          C D ]
   // storage order: upper triangle of A, upper triangle of D, B, columnwise
@@ -485,21 +495,26 @@ static void coarse_aggregate_block_diagonal_PRECISION( vector_PRECISION *eta1, v
 void coarse_self_couplings_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 				      operator_PRECISION_struct *op, int start, int end, level_struct *l ) {
 
-  int num_eig_vect = l->num_parent_eig_vect, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
-  int site_size    = l->num_lattice_site_var;
+  int num_eig_vect = l->num_parent_eig_vect; //, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
+  //  int site_size    = l->num_lattice_site_var;
   int clover_size  = (2*num_eig_vect*num_eig_vect+num_eig_vect);
-  int block_size   = (num_eig_vect*num_eig_vect+num_eig_vect);
+  //  int block_size   = (num_eig_vect*num_eig_vect+num_eig_vect);
+  /*
   vector_PRECISION eta_pt, phi_pt;
   vector_PRECISION_duplicate( &eta_pt, eta, start, l );
   vector_PRECISION_duplicate( &phi_pt, phi, start, l );
-  
+  */
+#ifdef DEBUG0
   if ( nvec > nvec_eta )
     error0("coarse_self_couplings_PRECISION: assumptions are not met\n");
-
-  coarse_self_couplings_clover_PRECISION( &eta_pt, &phi_pt, op->clover+start*clover_size, (end-start)*site_size, l );
+#endif
+  
+  coarse_self_couplings_clover_PRECISION( eta, phi, op->clover+start*clover_size, start, end, l ); //(end-start)*site_size, l );
 #ifdef HAVE_TM // tm_term
-  if (op->mu + op->mu_odd_shift != 0.0 || op->mu + op->mu_even_shift != 0.0 )
-    coarse_add_anti_block_diagonal_PRECISION( &eta_pt, &phi_pt, op->tm_term+start*block_size, (end-start)*site_size, l );
+  //if (op->mu + op->mu_odd_shift != 0.0 || op->mu + op->mu_even_shift != 0.0 )
+  //coarse_add_anti_block_diagonal_PRECISION( &eta_pt, &phi_pt, op->tm_term+start*block_size, (end-start)*site_size, l );
+  if (op->mu + op->mu_odd_shift != 0.0 || op->is_even_shifted_mu_nonzero )
+    coarse_add_tm_term_PRECISION( eta, phi, op, start, end, l );
 #endif
 /*#ifdef HAVE_TM1p1 //eps_term
   if ( g.n_flavours == 2 &&
@@ -655,6 +670,8 @@ void coarse_operator_PRECISION_test_routine( level_struct *l, struct Thread *thr
     vector_PRECISION vp[4], vc[3];
     complex_PRECISION factor[n_vect];
 
+    g.n_chunk = 0;
+
     for(int i=0; i<4; i++){
       vector_PRECISION_init( &vp[i] );
       vector_PRECISION_alloc( &vp[i], _ORDINARY, n_vect, l, threading );
@@ -786,18 +803,29 @@ void coarse_operator_PRECISION_test_routine( level_struct *l, struct Thread *thr
 
 #ifdef HAVE_TM
     START_LOCKED_MASTER(threading)
-    if (g.mu + g.mu_odd_shift != 0.0 || g.mu + g.mu_even_shift != 0.0 ) {
+    if (g.mu + g.mu_odd_shift != 0.0 || g.is_even_shifted_mu_nonzero ) {
+      config_PRECISION diag;
+#ifdef HAVE_MULT_TM
+      diag = l->s_PRECISION.op.tm_term;
+#else
+      diag = l->s_PRECISION.op.odd_proj;
+#endif
+      printf0("test chunk:%d %g\n",g.n_chunk, diag[1]);
+      for( int i =0;i<g.num_rhs_vect;i++)printf0("mu %g %g\n",l->s_PRECISION.op.mu+l->s_PRECISION.op.mu_even_shift[i],l->s_PRECISION.op.diff_mu_eo[i]);
+      for( int i =0;i<g.num_rhs_vect;i++)printf0("mu %g %g %g\n",l->next_level->s_PRECISION.op.mu+l->next_level->s_PRECISION.op.mu_even_shift[i],l->next_level->s_PRECISION.op.diff_mu_eo[i], g.mu_factor[l->next_level->depth]/g.mu_factor[l->depth]);
       vector_PRECISION_define( &vp[1], 0, 0, ivs, l );
       if (l->depth==0) 
-        add_diagonal_PRECISION( &vp[1], &vp[0], l->s_PRECISION.op.tm_term, ivs );
+        set_diag_PRECISION( vp[1].vector_buffer, vp[0].vector_buffer, NULL, diag, &(l->s_PRECISION.op), n_vect, vp[1].num_vect, vp[0].num_vect, ivs/l->num_lattice_site_var );
       else
-        coarse_add_anti_block_diagonal_PRECISION( &vp[1], &vp[0], l->s_PRECISION.op.tm_term, ivs, l );
+	coarse_add_tm_term_PRECISION( &vp[1], &vp[0], &(l->s_PRECISION.op), 0, ivs/l->num_lattice_site_var, l );
+        //coarse_add_anti_block_diagonal_PRECISION( &vp[1], &vp[0], l->s_PRECISION.op.tm_term, ivs, l );
       restrict_PRECISION( &vc[1], &vp[1], l, no_threading );
       
       VECTOR_LOOP(j, n_vect, jj, factor[j+jj] = -g.mu_factor[l->next_level->depth]/g.mu_factor[l->depth];)
 
       vector_PRECISION_scale( &vc[1], &vc[1], factor, 0, 0, civs, l->next_level );
-      coarse_add_anti_block_diagonal_PRECISION( &vc[1], &vc[0], l->next_level->s_PRECISION.op.tm_term, civs, l->next_level );
+      coarse_add_tm_term_PRECISION( &vc[1], &vc[0], &(l->next_level->s_PRECISION.op), 0, civs/l->next_level->num_lattice_site_var, l->next_level );
+      //coarse_add_anti_block_diagonal_PRECISION( &vc[1], &vc[0], l->next_level->s_PRECISION.op.tm_term, civs, l->next_level );
       global_norm_PRECISION( diff1, &vc[1], 0, civs, l->next_level, no_threading );
       global_norm_PRECISION( diff2, &vc[0], 0, civs, l->next_level, no_threading );
       for(int i=0; i<n_vect; i++)
@@ -831,15 +859,25 @@ void coarse_operator_PRECISION_test_routine( level_struct *l, struct Thread *thr
       apply_operator_PRECISION( &vp[1], &vp[0], &(l->p_PRECISION), l, no_threading );      //l==0=>d_plus_clover
       
 #ifdef HAVE_TM
-      if (g.mu + g.mu_odd_shift != 0.0 || g.mu + g.mu_even_shift != 0.0 )
+      if (g.mu + g.mu_odd_shift != 0.0 ||  g.is_even_shifted_mu_nonzero ) { // replace tm_term contribution in vp[1] to the one with factor from one below
+	config_PRECISION diag;
+#ifdef HAVE_MULT_TM
+	diag = l->p_PRECISION.op->tm_term;
+#else
+	diag = l->p_PRECISION.op->odd_proj;
+#endif
         if (g.mu_factor[l->depth] != g.mu_factor[l->next_level->depth]) {  
           VECTOR_LOOP(j, n_vect, jj, factor[j+jj] = (g.mu_factor[l->next_level->depth]/g.mu_factor[l->depth])-1.;)
           vector_PRECISION_scale( &vp[2], &vp[0], factor, 0, 0, ivs, l );
-          if(l->depth == 0)
-            add_diagonal_PRECISION( &vp[1], &vp[2], l->p_PRECISION.op->tm_term, ivs );//tm==0!!!!!
+          if(l->depth == 0) 
+	    set_diag_PRECISION( vp[1].vector_buffer, vp[2].vector_buffer, NULL, diag, l->p_PRECISION.op, n_vect, vp[3].num_vect, vp[2].num_vect, ivs/l->num_lattice_site_var );
+	  //vector_PRECISION_plus( &vp[1], &vp[1], &vp[3], 0, ivs, l );
+	  //add_diagonal_PRECISION( &vp[1], &vp[2], l->p_PRECISION.op->tm_term, ivs );//tm==0!!!!!
           else
-            coarse_add_anti_block_diagonal_PRECISION( &vp[1], &vp[2], l->p_PRECISION.op->tm_term, ivs, l );
+	    coarse_add_tm_term_PRECISION( &vp[1], &vp[2], l->p_PRECISION.op, 0, ivs/l->num_lattice_site_var, l );
+	  //coarse_add_anti_block_diagonal_PRECISION( &vp[1], &vp[2], l->p_PRECISION.op->tm_term, ivs, l );
         }
+      }
 #endif
       //      printf0("eval me 4 depth %d\n",l->depth);
       /*

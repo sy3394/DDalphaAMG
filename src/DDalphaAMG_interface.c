@@ -31,7 +31,7 @@ static int (*vector_index_fct)(int t, int z, int y, int x);
 struct common_thread_data *commonthreaddata;
 struct Thread **threading;
 struct Thread *no_threading;
-
+#if 0
 /*
  * Mirror of 
  *   method_init( &argc, &argv, &l );
@@ -47,8 +47,8 @@ void DDalphaAMG_initialize( DDalphaAMG_init *mg_init, DDalphaAMG_parameters *mg_
    */
   MPI_Comm_rank( mg_init->comm_cart, &(g.my_rank) );//predefine_rank(mg_init->comm_cart);
 
+  g_init();
   l_init( &l );
-  g_init();// &l );//!!!!!!!!
 
   set_DDalphaAMG_parameters( mg_init, &l );
     
@@ -262,15 +262,18 @@ void DDalphaAMG_update_parameters( DDalphaAMG_parameters *mg_params, DDalphaAMG_
   // double mu_even_shift;
   // double mu_factor[MAX_MG_LEVELS];
 #ifdef HAVE_TM
-  int update_mu = 0;
+  int update_mu = 0, update_mu_odd = 0, update_mu_even = 0;
+  for ( i=0; i<g.num_rhs_vect; i++ ) {
+    update_mu_odd  += mg_params->mu_odd_shift != g.mu_odd_shift?1:0;
+    update_mu_even += mg_params->mu_even_shift != g.mu_even_shift[i]?1:0;
+  }
   for ( i=0; i<g.num_levels; i++ )
     if (mg_params->mu_factor[i] != g.mu_factor[i] ) {
       g.mu_factor[i] = mg_params->mu_factor[i];
       update_mu = 1;
     }
 
-  if( update_mu || mg_params->mu != g.mu || mg_params->mu_odd_shift != g.mu_odd_shift || 
-      mg_params->mu_even_shift != g.mu_even_shift ){
+  if( update_mu || mg_params->mu != g.mu || update_mu_odd || update_mu_even ) {
     g.setup_mu = mg_params->mu;
     g.mu = mg_params->mu;
     g.mu_even_shift = mg_params->mu_even_shift;
@@ -279,7 +282,7 @@ void DDalphaAMG_update_parameters( DDalphaAMG_parameters *mg_params, DDalphaAMG_
       if ( g.setup_flag )
         tm_term_update( g.mu, &l, threading[omp_get_thread_num()] );
       else if ( g.conf_flag )
-        tm_term_double_setup( g.mu, g.mu_even_shift, g.mu_odd_shift, &(g.op_double), &l, threading[omp_get_thread_num()] ); 
+        tm_term_double_setup( g.mu, g.mu_even_shift, g.mu_odd_shift, g.mu_factor[0], &(g.op_double), &l, threading[omp_get_thread_num()] ); 
     re_dirac++;
   }
   
@@ -369,7 +372,7 @@ void DDalphaAMG_change_mu_sign( DDalphaAMG_status *mg_status ) {
   if (g.conf_flag && !g.setup_flag ) {
     
     THREADED(threading[0]->n_core)
-    tm_term_double_setup( g.mu, g.mu_even_shift, g.mu_odd_shift, &(g.op_double), &l, threading[omp_get_thread_num()]);
+    tm_term_double_setup( g.mu, g.mu_even_shift, g.mu_odd_shift, g.mu_factor, &(g.op_double), &l, threading[omp_get_thread_num()]);
     
   } else if (g.conf_flag && g.setup_flag )
     THREADED(threading[0]->n_core) {
@@ -1052,7 +1055,7 @@ static inline void DDalphaAMG_ms_driver( double **vector1_out, double *vector1_i
                                          double  *even_shifts, double *odd_shifts, int n_shifts,
                                          double  *tol, DDalphaAMG_status *mg_status, int _TYPE ) 
 {
-  int t, z, y, x, i, j, k, n, mu, *ll = l.local_lattice, *gl=l.global_lattice, sl[4], precision_changed, nvec_rhs = g.num_rhs_vect;//!!!!!!!
+  int t, z, y, x, i, j, k, n, mu, *ll = l.local_lattice, *gl=l.global_lattice, sl[4], precision_changed, nvec_rhs = g.num_rhs_vect;
   complex_double twisted_bc, tmp1, tmp2;
   double phase[4] = {_COMPLEX_double_ZERO, _COMPLEX_double_ZERO, _COMPLEX_double_ZERO, _COMPLEX_double_ZERO},
     vmin=1, vmax=EPS_float, vtmp;
@@ -1988,3 +1991,4 @@ void DDalphaAMG_get_parameters( DDalphaAMG_parameters *mg_params ){
 #endif
   }  
 }
+#endif

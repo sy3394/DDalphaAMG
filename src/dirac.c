@@ -16,12 +16,6 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * copied:11/30/2019
- * changed from sbacchio
- * glanced over: it was a minor change: 12/03/2019
- * glanced over: 12/08/2019
- * glanced over:12/18/2019
- * confirmed: simple reordering of functions from milla
  */
 
 #include "main.h"
@@ -30,7 +24,7 @@ void dirac_setup( config_double hopp, level_struct *l ) {
 
 /*********************************************************************************
 * Sets up the gauge matrices + clover term for the dirac operator and calculates 
-* the plaquette of the configuration.
+* the plaquette of the configuration. (only those that need to be precomputed)
 * config_double hopp: Vector containing all entries of the hopping terms.
 * config_double clover: Vector containing all entries of the clover term.
 *********************************************************************************/
@@ -386,10 +380,13 @@ void compute_clover_term ( SU3_storage U, level_struct *l ) {
         }
   
 #ifdef HAVE_TM
-  if ( g.mu + g.mu_even_shift == 0 && g.mu + g.mu_odd_shift == 0 ) // tm_term is zero in this case
+#ifdef HAVE_MULT_TM
+  if ( !g.is_even_shifted_mu_nonzero && g.mu + g.mu_odd_shift == 0 ) {// tm_term is zero in this case
     buffer_double_define( op->tm_term, _COMPLEX_double_ZERO, 0, l->inner_vector_size, l );
+  }
   else
-    tm_term_double_setup( g.mu, g.mu_even_shift, g.mu_odd_shift, op, l, no_threading );  
+#endif
+    tm_term_double_setup( g.mu, g.mu_even_shift, g.mu_odd_shift, g.mu_factor[l->depth], op, l, no_threading );
 #endif
 
 #ifdef HAVE_TM1p1
@@ -710,37 +707,50 @@ void m0_update( double m0, level_struct *l, struct Thread *threading ) {
 
 
 void tm_term_update( double mu, level_struct *l, struct Thread *threading ) {
-
+  /***********************
+   * tm term data are contained in operator_PRECISION_struct.
+   * operator_PRECISION_struct is contained in g, l, gmres_PRECISION_struct & schwarz_PRECISION_struct
+   * These structure are in turn contained in g or l
+   *   g: op_PRECISION (<- op to be inverted), p or p_MP
+   *   l: op_PRECISION, oe_op_PRECISION, s_PRECISION,  p_PRECISION (if g.method < 4)
+   * g.op_PRECISION & l->op_PRECISION are constructed at the setup
+   * s_PRECISION.op are defined as rearrengement of sites of l->op_PRECISION
+   * oe_op_PRECISION is defined as rearrengement of sites of s_PRECISION.op
+   * op in p & p_MP in g and p_PRECISION in l points to op in g or op in op_PRECISION, oe_op_PRECISION, s_PRECISION in l
+   * ? l->op_PRECISION is actually not used????
+   **********************/
+  
 #ifdef HAVE_TM
-  double factor = g.mu_factor[l->depth];
-  double even_shift = g.mu_even_shift, odd_shift = g.mu_odd_shift;
-    
-  if (l->depth == 0) { // we don't use the multiplicative factor here
-    tm_term_double_setup( mu, even_shift, odd_shift, &(g.op_double), l, threading ); 
-    tm_term_float_setup( mu, even_shift, odd_shift, &(g.op_float), l, threading );
-  } else {
+  int i, n_shifts = 0; //(g.in_setup)?1:g.num_rhs_vect; <- not used!!!
+  double factor = g.mu_factor[l->depth];//printf0("up0 %d %d\n",g.in_setup,(g.in_setup)?1:g.num_rhs_vect);
+  double *even_shift = g.mu_even_shift, odd_shift = g.mu_odd_shift;
+  //  printf0("update %d, %d %d %d \n",l->depth,g.in_setup,n_shifts,g.num_rhs_vect);
+  if (l->depth == 0) { // we don't use the multiplicative factor at the top
+    tm_term_double_setup( mu, even_shift, odd_shift, 1, &(g.op_double), l, threading ); 
+    tm_term_float_setup( mu, even_shift, odd_shift, 1, &(g.op_float), l, threading );
+  } else {// are these used after update????
     if ( g.mixed_precision )
-      tm_term_float_setup( factor*mu, factor*even_shift, factor*odd_shift, &(l->op_float), l, threading );
+      tm_term_float_setup( mu, even_shift, odd_shift, factor, &(l->op_float), l, threading );
     else
-      tm_term_double_setup( factor*mu, factor*even_shift, factor*odd_shift, &(l->op_double), l, threading );
+      tm_term_double_setup( mu, even_shift, odd_shift, factor, &(l->op_double), l, threading );
   }
   
-  if ( g.mixed_precision ) {
-      tm_term_float_setup( factor*mu, factor*even_shift, factor*odd_shift, &(l->oe_op_float), l, threading );
-      tm_term_float_setup( factor*mu, factor*even_shift, factor*odd_shift, &(l->s_float.op), l, threading );
+  if ( g.mixed_precision ) {// if oe_op_PRECISION is not set, setup will be skipped
+    tm_term_float_setup( mu, even_shift, odd_shift, factor, &(l->oe_op_float), l, threading );printf0("m1 %d %d %d \n",g.in_setup,n_shifts,g.num_rhs_vect);
+    tm_term_float_setup( mu, even_shift, odd_shift, factor, &(l->s_float.op), l, threading );printf0("m2 %d %d %d \n",g.in_setup,n_shifts,g.num_rhs_vect);
   } else {
-      tm_term_double_setup( factor*mu, factor*even_shift, factor*odd_shift, &(l->oe_op_double), l, threading );   
-      tm_term_double_setup( factor*mu, factor*even_shift, factor*odd_shift, &(l->s_double.op), l, threading );   
+    tm_term_double_setup( mu, even_shift, odd_shift, factor, &(l->oe_op_double), l, threading );   
+    tm_term_double_setup( mu, even_shift, odd_shift, factor, &(l->s_double.op), l, threading );   
   }
 
   START_MASTER(threading)
-  if(g.print>0) {
-    if( g.mu_even_shift == g.mu_odd_shift )
-      printf0("depth: %d, mu updated to %f \n", (l->depth), factor*(mu+even_shift));
-    else  
-      printf0("depth: %d, mu updated to %f on even sites and %f on odd sites \n", l->depth, factor*(mu+even_shift),
-              factor*(mu+odd_shift));
-  }
+    printf0("stp %d %d %d %d %d\n",g.in_setup,n_shifts,g.num_rhs_vect, (n_shifts==1)?num_loop:g.num_rhs_vect, num_loop);//error0("STP\n");
+  if(g.print>0)
+    for( i=0; i<g.num_rhs_vect; i++) {
+      double even = (g.in_setup && i<num_loop)?even_shift[0]:even_shift[i];
+      printf0("depth: %d (%dth rhs), mu updated to %f on even sites and %f on odd sites \n",
+	      l->depth, i, factor*(mu+even), factor*(mu+odd_shift));
+    }
   END_MASTER(threading)
 
   if ( g.interpolation && l->level > 0 && l->next_level != NULL )
@@ -789,35 +799,30 @@ void epsbar_term_update( level_struct *l, struct Thread *threading ) {
 }
 
 void finalize_operator_update( level_struct *l, struct Thread *threading ) {
-
-  if (l->depth == 0) {
-    START_LOCKED_MASTER(threading)  
-    if(l->s_double.op.clover != NULL) {
-      if ( g.odd_even )
+  // update tm_term or eps_term dependent fiedls
+  
+  if ( g.odd_even ) {
+    if (l->depth == 0) {
+      START_LOCKED_MASTER(threading)  
+      if(l->s_double.op.clover != NULL )
         schwarz_double_oddeven_setup( &(l->s_double), l );
-    }  
-    
-    if ( l->s_float.op.clover != NULL ) {
-      if ( g.odd_even )
+      if ( l->s_float.op.clover != NULL )
         schwarz_float_oddeven_setup( &(l->s_float), l );
-    }  
-    END_LOCKED_MASTER(threading)
-  } else {
-    SYNC_CORES(threading)
-    if ( g.mixed_precision ) {
-      if ( !l->idle && g.odd_even && ((g.method >= 5 && l->level > 0) || l->level == 0) )
-        coarse_oddeven_float_set_self_couplings( l, threading );
+      END_LOCKED_MASTER(threading)
     } else {
-      if ( !l->idle && g.odd_even && ((g.method >= 5 && l->level > 0) || l->level == 0) )
-        coarse_oddeven_double_set_self_couplings( l, threading );
+      SYNC_CORES(threading)
+      if ( g.mixed_precision && !l->idle && (g.method >= 4 || l->level == 0) )
+	coarse_oddeven_float_set_self_couplings( l, threading );
+      else if ( !l->idle && (g.method >= 4 || l->level == 0) )
+	coarse_oddeven_double_set_self_couplings( l, threading );
     }
   }
 
-  if ( g.interpolation && l->level > 0 )
+  if ( g.interpolation && l->level > 0 && l->next_level != NULL )
     finalize_operator_update( l->next_level, threading );
          
 #ifdef DEBUG
-  if (l->depth == 0) 
+  if (l->depth == 0 && l->next_level != NULL) 
     test_routine( l, threading );
 #endif
 

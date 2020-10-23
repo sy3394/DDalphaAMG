@@ -54,7 +54,8 @@ static int read_parameter( void **save_at, char *search_pattern, char *read_form
   fseek( read_from, 0L, SEEK_SET );
   
   while ( !match && fgets( read_pattern, 100000, read_from ) ) {
-  
+
+    // Find out if there is a line starting from search_pattern
     k = strlen( read_pattern );
     /*
     j = 0;
@@ -78,11 +79,13 @@ static int read_parameter( void **save_at, char *search_pattern, char *read_form
       }
     }
   }
-  
+
+  // deal with initial white spaces
   read_pattern_pt = read_pattern+i;
   while ( *read_pattern_pt == ' ' )
     read_pattern_pt++;
-  
+
+  // if a matched line is found
   if ( match ) {
     if ( strcmp(read_format,"%s") != 0 ) {
       e.pt = *save_at;
@@ -93,7 +96,7 @@ static int read_parameter( void **save_at, char *search_pattern, char *read_form
       if ( strcmp(read_format,"%d") == 0 ) {
         // int
         for ( j=0; j<number; j++ ) {
-          sscanf( read_pattern_pt, read_format, &(((int*)*save_at)[j]) );
+          sscanf( read_pattern_pt, read_format, &(((int*)*save_at)[j]) );//sscanf does not put anyhting to save_at if read pattern is empty or shorter
           sscanf( read_pattern_pt, "%s", buffer );
           read_pattern_pt += strlen( buffer );
           while ( *read_pattern_pt == ' ' )
@@ -369,8 +372,8 @@ static void read_geometry_data( FILE *in, int ls ) {
     
 #ifdef HAVE_TM
     sprintf( inputstr, "d%d mu factor:", i );
-    save_pt = &(g.mu_factor[i*g.num_rhs_vect]); for ( int j=0; j<g.num_rhs_vect; j++ ) g.mu_factor[i*g.num_rhs_vect+j] = 1;
-    read_parameter( &save_pt, inputstr, "%lf", g.num_rhs_vect, in, _DEFAULT_SET );
+    save_pt = &(g.mu_factor[i]); g.mu_factor[i] = 1;
+    read_parameter( &save_pt, inputstr, "%lf", 1, in, _DEFAULT_SET );
 #endif
 
 #ifdef HAVE_TM1p1
@@ -445,10 +448,11 @@ static void read_solver_parameters( FILE *in ) {
   save_pt = &(g.setup_m0); g.setup_m0 = g.m0;
   read_parameter( &save_pt, "setup m0:", "%lf", 1, in, _DEFAULT_SET );
 #ifdef HAVE_TM
-  save_pt = &(g.mu_odd_shift); g.mu_odd_shift = 0;
+  //TODO: multi-mass shifts solveron odd-sites is not implemented
+  save_pt = &(g.mu_odd_shift); g.mu_odd_shift = 0.;
   read_parameter( &save_pt, "mu odd shift:", "%lf", 1, in, _DEFAULT_SET );
-  save_pt = &(g.mu_even_shift); g.mu_even_shift = 0;
-  read_parameter( &save_pt, "mu even shift:", "%lf", 1, in, _DEFAULT_SET );
+  save_pt = g.mu_even_shift; for ( int j=0; j<g.num_rhs_vect; j++ ) g.mu_even_shift[j] = 0.;
+  read_parameter( &save_pt, "mu even shift:", "%lf", g.num_rhs_vect, in, _DEFAULT_SET );
   save_pt = &(g.setup_mu); g.setup_mu = g.mu;
   read_parameter( &save_pt, "setup mu:", "%lf", 1, in, _DEFAULT_SET );
 #endif
@@ -546,19 +550,17 @@ static void validate_parameters( int ls, level_struct *l ) {
   int i;
   int mu;
 
-  if ( g.method == 5 ) {
+  if ( g.method > 3 ) {
     if( g.interpolation != 0 ) {
-      warning0("Multigrid with BiCGstab smoothing is not supported.\n         Switching to FGMRES preconditioned with BiCGstab (g.interpolation=0).\n");
+      warning0("Multigrid with GMRES/BiCGstab smoothing is not supported.\n         Switching to FGMRES preconditioned with GMRES/BiCGstab (g.interpolation=0).\n");
       g.interpolation = 0;
     }
-  }
-  if ( g.method == 4 || g.method ==5 ) {
     if ( g.mixed_precision == 2 ) {
       warning0("FGMRES+GMRES or BiCGstab with MP is not currently supported.\n         Switching to double precision\n");
       g.mixed_precision = 0;
     }
     if ( g.odd_even ) {//to be removed
-    warning0("BiCGstab w/t evenodd prec. is not currently supported.\n         Switching to even odd prec..\n");
+    warning0("BiCGstab w/t even-odd prec. is not currently supported.\n         Switching to even odd prec..\n");
     g.odd_even = 1;
     }
   }
@@ -656,15 +658,6 @@ static void validate_parameters( int ls, level_struct *l ) {
   if ( g.num_levels>2 && g.interpolation )
     ASSERT( g.mixed_precision );
 
-#ifdef HAVE_TM
-  //TODO: multi-mass shifts on odd-sites in even-odd prec. are not implemented
-  int flag = 0;
-  for ( i=0; i<g.num_levels-1; i++ )
-    for ( int j=0; j<g.num_rhs_vect-1; j++ )
-      flag += (g.mu_factor[g.num_rhs_vect*i+j]==g.mu_factor[g.num_rhs_vect*i+j+1])?0:1;
-  if ( flag && g.odd_even )
-    ASSERT( g.mu_odd_shift == 0 );
-#endif
 #ifdef HAVE_TM1p1
   //TODO: method = 6 not supported with HAVE_TM1p1. To fix all the g5D functions
   ASSERT( g.method !=6 );
@@ -687,7 +680,8 @@ static void allocate_for_global_struct_after_read_global_info( int ls ) {
   MALLOC( g.ncycle, int, ls );
   MALLOC( g.relax_fac, double, ls );
 #ifdef HAVE_TM
-  MALLOC( g.mu_factor, double, ls*g.num_rhs_vect );
+  MALLOC( g.mu_factor, double, ls );
+  MALLOC( g.mu_even_shift, double, g.num_rhs_vect );
 #endif
 #ifdef HAVE_TM1p1
   MALLOC( g.epsbar_factor, double, ls );
@@ -790,15 +784,29 @@ void lg_in( char *inputfile, level_struct *l ) {
   read_no_default_info( in ); 
   read_solver_parameters( in ); 
   read_geometry_data( in, ls );
-  
-  ls = MAX(g.num_levels,2);//This can be moved right before validate_parameters; g.num_levels could be changed in read_geometry_data
-  
+
+  ls = MAX(g.num_levels,2); // update ls
+
   set_level_and_global_structs_according_to_global_struct( l );
 
   read_testvector_io_data_if_necessary( in );
   read_evaluation_parameters_if_necessary( in );
   read_kcycle_data( in );
-  
+
+#ifdef HAVE_TM
+  double mu;
+  for ( int i=0; i<g.num_rhs_vect; i++ ) 
+    for ( int j=i+1; j<g.num_rhs_vect; j++ )
+      if (  g.mu_even_shift[i]*g.mu_even_shift[i] >  g.mu_even_shift[j]*g.mu_even_shift[j] ) {
+	mu = g.mu_even_shift[i];
+	g.mu_even_shift[i] = g.mu_even_shift[j];
+	g.mu_even_shift[j] = mu;
+      }
+  for ( int i=0; i<g.num_rhs_vect; i++ ) {
+    g.even_shifted += g.mu_even_shift[i]?1:0;
+    g.is_even_shifted_mu_nonzero += (g.mu + g.mu_even_shift[i]!=0.0)?1:0;
+  }
+#endif
   validate_parameters( ls, l );
 
   printf00("configuration: %s\n", g.in );

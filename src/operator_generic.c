@@ -43,9 +43,15 @@ void operator_PRECISION_init( operator_PRECISION_struct *op ) {
   op->clover_oo_inv = NULL;
   op->m0 = 0;
 #ifdef HAVE_TM
+  op->factor = 0;
   op->mu = 0;
   op->mu_even_shift = 0;
   op->mu_odd_shift = 0;
+  op->mu_even_shift = NULL;
+  op->odd_shifted_mu = 0;
+  op->is_even_shifted_mu_nonzero = 0;
+  op->even_shift_avg = 0;
+  op->diff_mu_eo = NULL;
   op->odd_proj = NULL;
   op->tm_term = NULL;
 #endif
@@ -79,7 +85,7 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
    *********************************************************************************/
 
   int mu, nu, its = 1, its_boundary, nls, clover_site_size, coupling_site_size;
-  
+  printf("op alloc %d %d\n",l->depth,type);
   //------------- allocate memory for op->D & op->clover
   if ( l->depth == 0 ) {
     clover_site_size = 42;    // clover term is Hermitian and Gamma_5 symmetric => (d.o.f.)=21*2 
@@ -99,7 +105,11 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
   int block_site_size = ( l->depth == 0 ) ? 12 : (l->num_lattice_site_var/2*(l->num_lattice_site_var/2+1));
   MALLOC( op->odd_proj, complex_PRECISION, block_site_size*l->num_inner_lattice_sites );
 #ifdef HAVE_TM
-  MALLOC( op->tm_term, complex_PRECISION, block_site_size*l->num_inner_lattice_sites );
+  MALLOC( op->mu_even_shift, double, g.num_rhs_vect );
+  MALLOC( op->diff_mu_eo, double, g.num_rhs_vect );
+#ifdef HAVE_MULT_TM
+  MALLOC( op->tm_term, complex_PRECISION, g.num_rhs_vect*block_site_size*l->num_inner_lattice_sites );
+#endif
 #endif
 #ifdef HAVE_TM1p1
   MALLOC( op->epsbar_term, complex_PRECISION, block_site_size*l->num_inner_lattice_sites );
@@ -107,9 +117,13 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
 
   //------------- allocate memory for decomposition matrices for the sum of self-coupling terms
   if ( type == _SCHWARZ && l->depth == 0 && g.odd_even ) {
-    if( g.csw ) {
+    if( g.csw ) {printf0("op alloc inv %d\n",l->depth);
 #ifdef HAVE_TM //we use LU here
+#ifdef HAVE_MULT_TM
+      MALLOC( op->clover_oo_inv, complex_PRECISION, g.num_rhs_vect*72*(l->num_inner_lattice_sites/2+1) );//#even sites????
+#else
       MALLOC( op->clover_oo_inv, complex_PRECISION, 72*(l->num_inner_lattice_sites/2+1) );
+#endif
 #else
       MALLOC( op->clover_oo_inv, complex_PRECISION, clover_site_size*(l->num_inner_lattice_sites/2+1) );
 #endif
@@ -176,7 +190,7 @@ void operator_PRECISION_free( operator_PRECISION_struct *op, const int type, lev
     clover_site_size = (l->num_lattice_site_var*(l->num_lattice_site_var+1))/2;
     coupling_site_size = 4*l->num_lattice_site_var*l->num_lattice_site_var;
   }
-  
+  //  printf0("op free %d %g %d\n",l->depth,op->tm_term[1],type );
   int its_boundary;
   if ( type ==_SCHWARZ ) {
     its_boundary = 2;
@@ -194,12 +208,20 @@ void operator_PRECISION_free( operator_PRECISION_struct *op, const int type, lev
   int block_site_size = ( l->depth == 0 ) ? 12 : (l->num_lattice_site_var/2*(l->num_lattice_site_var/2+1));
   FREE( op->odd_proj, complex_PRECISION, block_site_size*l->num_inner_lattice_sites );
 #ifdef HAVE_TM
-  FREE( op->tm_term, complex_PRECISION, block_site_size*l->num_inner_lattice_sites );
+  FREE( op->mu_even_shift, double, g.num_rhs_vect );
+  FREE( op->diff_mu_eo, double, g.num_rhs_vect );
+#ifdef HAVE_MULT_TM
+  FREE( op->tm_term, complex_PRECISION, g.num_rhs_vect*block_site_size*l->num_inner_lattice_sites );printf0("op free %d %d\n",l->depth,type );
+#endif
 #endif
   if ( type == _SCHWARZ && l->depth == 0 && g.odd_even ) {
     if( g.csw ) {
 #ifdef HAVE_TM //we use LU here
+#ifdef HAVE_MULT_TM
+      FREE( op->clover_oo_inv, complex_PRECISION, g.num_rhs_vect*72*(l->num_inner_lattice_sites/2+1) );
+#else
       FREE( op->clover_oo_inv, complex_PRECISION, 72*(l->num_inner_lattice_sites/2+1) );
+#endif
 #else
       FREE( op->clover_oo_inv, complex_PRECISION, clover_site_size*(l->num_inner_lattice_sites/2+1) );
 #endif
@@ -321,10 +343,10 @@ void operator_PRECISION_define( operator_PRECISION_struct *op, level_struct *l )
   }
   
   //--- define (for the application of the entire operator)
-  //      s->op.neighbor_table: local_lex_index+mu -> local_lex_index of the neighbor in the pos mu dir  
-  //      s->op.backward_neighbor_table: local_lex_index+mu -> local_lex_index of the neighbor in the neg mu dir
-  //      s->op.c.boundary_table: iter_index of inner bondaray sites -> local_lex_index
-  //      s->op.translation_table: local_lex_index -> local_lex_index 
+  //      op.neighbor_table: local_lex_index+mu -> local_lex_index of the neighbor in the pos mu dir  
+  //      op.backward_neighbor_table: local_lex_index+mu -> local_lex_index of the neighbor in the neg mu dir
+  //      op.c.boundary_table: iter_index of inner bondaray sites -> local_lex_index
+  //      op.translation_table: local_lex_index -> local_lex_index 
   define_nt_bt_tt( op->neighbor_table, op->backward_neighbor_table, op->c.boundary_table, op->translation_table, it, dt, l );
 }
 

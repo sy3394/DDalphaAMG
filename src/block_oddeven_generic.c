@@ -35,9 +35,15 @@ void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct 
   
   int mu, i, d0, c0, b0, a0, d1, c1, b1, a1, t, z, y, x, agg_split[4], block_split[4], block_size[4];
   operator_PRECISION_struct *op = &(s->op);
-  int ne = s->num_block_even_sites;
+  int ne = s->num_block_even_sites, factor = 1;
 #ifdef HAVE_TM
-  config_PRECISION tm_term_pt = op->tm_term;
+#ifdef HAVE_MULT_TM
+  factor *= g.num_rhs_vect;
+  int j,jj, nv = l->num_inner_lattice_sites*12;
+  config_PRECISION tm_term = op->tm_term;
+#else
+  complex_double odd = I*(op->mu+op->mu_odd_shift);
+#endif
 #endif
 
   for ( mu=0; mu<4; mu++ ) {
@@ -48,8 +54,8 @@ void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct 
   
   if ( g.csw ) {
     config_PRECISION clover_pt = op->clover, clover_oo_inv_pt = op->clover_oo_inv;
-    complex_double buffer[42];
-    int cs = 42; // clover term is Hermitian and Gamma_5 symmetric => (d.o.f.)=21*2
+    complex_double buffer[12*factor+30];
+    int cs = 42; // clover term is Hermitian and Gamma_5 symmetric => (d.o.f.)=[6*(6+1)/2]*2 (off-diagonal block matrices = 0 due to Gamma5 symm)
     // for each aggregate 
     for ( d0=0; d0<agg_split[T]; d0++ )
       for ( c0=0; c0<agg_split[Z]; c0++ )
@@ -63,8 +69,8 @@ void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct 
 
                     // skipping even sites
                     clover_pt += ne*cs;
-#ifdef HAVE_TM
-                    tm_term_pt += ne*12;
+#ifdef HAVE_MULT_TM
+                    tm_term += ne*12*num_loop;
 #endif
 		    // for each site within a block
                     for ( t=d1*block_size[T]; t<(d1+1)*block_size[T]; t++ )
@@ -73,16 +79,32 @@ void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct 
                           for ( x=a1*block_size[X]; x<(a1+1)*block_size[X]; x++ ) {
                             if (((t-d1*block_size[T])+(z-c1*block_size[Z])+
                                 (y-b1*block_size[Y])+(x-a1*block_size[X]))%2 == 1 ) {
+#ifdef HAVE_MULT_TM
+			      for ( i=0; i<12; i++ )
+                                VECTOR_LOOP(j, g.num_rhs_vect, jj, buffer[i*g.num_rhs_vect+j+jj] = (complex_double)clover_pt[i];)
+			      for ( i=12; i<42; i++ )
+                                buffer[12*g.num_rhs_vect+(i-12)] = (complex_double)clover_pt[i];
+#else
                               for ( i=0; i<42; i++ )
                                 buffer[i] = (complex_double)clover_pt[i];
+#endif
 #ifdef HAVE_TM
-                              if (g.mu + g.mu_odd_shift != 0.0 || g.mu + g.mu_even_shift != 0.0 )
-                                for ( i=0; i<12; i++ )
-                                  buffer[i] += (complex_double)tm_term_pt[i];
-                              tm_term_pt += 12;
-                              selfcoupling_LU_decomposition_PRECISION( clover_oo_inv_pt, buffer );
-                              clover_oo_inv_pt += 72; // 15*2+21*2 = [(non-1 entries of L) + (entries of U)]*(2 blocks)
-#else  
+                              if (g.mu + g.mu_odd_shift != 0.0 || g.is_even_shifted_mu_nonzero ) {
+#ifdef HAVE_MULT_TM
+				for ( i=0; i<12; i++ )
+				  VECTOR_LOOP(j, g.num_rhs_vect, jj, buffer[i*g.num_rhs_vect+j+jj] += (complex_double) (tm_term[i*num_loop+j*nv+jj]);)
+			      }
+			      tm_term += 12*num_loop;
+#else
+				for ( i=0; i<6; i++ )
+                                  buffer[i] += -odd;
+                                for ( i=6; i<12; i++ )
+                                  buffer[i] += odd;
+			      }
+#endif
+                              selfcoupling_LU_decomposition_PRECISION( clover_oo_inv_pt, buffer, l );
+                              clover_oo_inv_pt += factor*72; // 15*2+21*2 = [(non-1 entries of L) + (entries of U)]*(2 blocks)
+#else  // no TM term
                               selfcoupling_cholesky_decomposition_PRECISION( clover_oo_inv_pt, buffer );
                               clover_oo_inv_pt += 42;
 #endif
@@ -99,7 +121,7 @@ void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct 
   int cs = g.csw ? 42:12;
   config_PRECISION eps_term_pt = op->epsbar_term;
 #ifdef HAVE_TM
-  tm_term_pt = op->tm_term;
+  complex_PRECISION odd = I*(op->mu+op->mu_odd_shift);
 #endif
   
   for ( d0=0; d0<agg_split[T]; d0++ )
@@ -115,9 +137,7 @@ void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct 
                   // skipping even sites
                   clover_pt += ne*cs;
                   eps_term_pt += ne*12;
-#ifdef HAVE_TM
-                  tm_term_pt += ne*12;
-#endif
+		  //jump tm_term_pt!!!!!!
                   for ( t=d1*block_size[T]; t<(d1+1)*block_size[T]; t++ )
                     for ( z=c1*block_size[Z]; z<(c1+1)*block_size[Z]; z++ )
                       for ( y=b1*block_size[Y]; y<(b1+1)*block_size[Y]; y++ )
@@ -138,16 +158,20 @@ void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct 
                             for( i=0; i<12; i++ ) //54-65
                               buffer[i+54] = (complex_double) eps_term_pt[i];
 #ifdef HAVE_TM
-                            if (g.mu + g.mu_odd_shift != 0.0 || g.mu + g.mu_even_shift != 0.0 )
-                              for(int i=0; i<12; i++) { //0-23
-                                buffer[i] += (complex_double) tm_term_pt[i];
-                                buffer[i+12] -= (complex_double) tm_term_pt[i];
+                            if (g.mu + g.mu_odd_shift != 0.0 || g.is_even_shifted_mu_nonzero ) {
+                              for(int i=0; i<6; i++) { //0-23
+                                buffer[i] += (complex_double) (-odd);
+                                buffer[i+12] -= (complex_double) (-odd);
                               }
-                            tm_term_pt += 12;
+			      for(int i=6; i<12; i++) { //0-23
+                                buffer[i] += (complex_double) (odd);
+                                buffer[i+12] -= (complex_double) (odd);
+                              }
+			    }
 #endif
                             eps_term_pt += 12;
                             clover_pt += cs;
-                            selfcoupling_LU_doublet_decomposition_PRECISION( clover_oo_inv_pt, buffer );
+                            selfcoupling_LU_doublet_decomposition_PRECISION( clover_oo_inv_pt, buffer, l );
                             clover_oo_inv_pt += 288;
                           }
                         }
@@ -732,41 +756,50 @@ static void block_diag_oo_PRECISION( vector_PRECISION *eta, vector_PRECISION *ph
 
   START_UNTHREADED_FUNCTION(threading)
 
-  int i, n1 = s->num_block_even_sites, n2 = s->num_block_odd_sites;
+  int i, is, ne = s->num_block_even_sites, no = s->num_block_odd_sites;
   int j, jj, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
-  vector_PRECISION leta, lphi;
-  vector_PRECISION_duplicate( &leta, eta, n1+start/12, l );
-  vector_PRECISION_duplicate( &lphi, phi, n1+start/12, l );
-
+  
+#ifdef DEBUG
   if ( nvec_eta < nvec )
     error0("block_diag_oo_PRECISION: assunmptions are not met\n");
-
+#endif
+  
 /*#ifdef HAVE_TM1p1
   if ( g.n_flavours == 2 ) {
     int block_num = start/24/(n1+n2);
     //    config_PRECISION clover = s->op.clover_doublet_oo_inv+n1*288+(start/24)*288;
     config_PRECISION clover = s->op.clover_doublet_oo_inv-(block_num+1)*n1*288;
-    LU_multiply_PRECISION( eta, phi, clover, n1*24+start, (n1+n2)*24+start );
+    LU_multiply_PRECISION( eta, phi, clover, n1*24+start, (n1+n2)*24+start, l );
   } else {
 #endif*/
     if ( g.csw ) {
-      int block_num = start/12/(n1+n2);
+      int block_num = start/12/(ne+no);
+      vector_PRECISION leta, lphi;
+      vector_PRECISION_duplicate( &leta, eta, ne+start/12, l );
+      vector_PRECISION_duplicate( &lphi, phi, ne+start/12, l );
 #ifndef HAVE_TM
-      config_PRECISION clover = s->op.clover_oo_inv+(start/12-block_num*n1)*42;
-      LLH_multiply_PRECISION( &leta, &lphi, clover, 0, n2 );
+      config_PRECISION clover = s->op.clover_oo_inv+(start/12-block_num*ne)*42;
+      LLH_multiply_PRECISION( &leta, &lphi, clover, 0, no );
 #else
-      config_PRECISION clover =  s->op.clover_oo_inv+(start/12-block_num*n1)*72;
-      LU_multiply_PRECISION( &leta, &lphi, clover, 0, n2 );
+#ifdef HAVE_MULT_TM
+      config_PRECISION clover =  s->op.clover_oo_inv+(start/12-block_num*ne)*72*num_loop;
+#else
+      config_PRECISION clover =  s->op.clover_oo_inv+(start/12-block_num*ne)*72;
+#endif
+      LU_multiply_PRECISION( &leta, &lphi, clover, 0, no, l );
 #endif
     } else {
-      config_PRECISION clover = s->op.clover+n1*12+start;
+      config_PRECISION clover = s->op.clover+ne*12+start;
+      buffer_PRECISION eta_pt = eta->vector_buffer+(12*ne+start)*nvec_eta, phi_pt = phi->vector_buffer+(12*ne+start)*nvec_phi;
 #ifndef HAVE_TM
-      for ( i=0; i<12*n2; i++ )
-        VECTOR_LOOP(j, nvec, jj, leta.vector_buffer[i*nvec_eta+j+jj] = lphi.vector_buffer[i*nvec_phi+j+jj]*(clover[i]);)
+      for ( i=0; i<no; i++ )
+        FOR12(VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*(*clover);) clover++; eta_pt += nvec_eta; phi_pt += nvec_phi;)
 #else
-      config_PRECISION tm_term = s->op.tm_term+n1*12+start;
-      for ( i=0; i<12*n2; i++ )
-        VECTOR_LOOP(j, nvec, jj, leta.vector_buffer[i*nvec_eta+j+jj] = lphi.vector_buffer[i*nvec_phi+j+jj]*(clover[i]+tm_term[i]);)
+	  register complex_PRECISION odd = (complex_PRECISION) I*(s->op.mu+s->op.mu_odd_shift);
+      for ( is=0; is<no; is++ ) {
+	FOR6(VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*(*clover-odd);); clover++; eta_pt += nvec_eta; phi_pt += nvec_phi;)
+	FOR6(VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*(*clover+odd);); clover++; eta_pt += nvec_eta; phi_pt += nvec_phi;)
+      }
 #endif
     }
 /*#ifdef HAVE_TM1p1
@@ -781,42 +814,51 @@ static void block_diag_oo_inv_PRECISION( vector_PRECISION *eta, vector_PRECISION
 
   START_UNTHREADED_FUNCTION(threading)
   
-  int i, n1 = s->num_block_even_sites, n2 = s->num_block_odd_sites;
+  int i, is, ne = s->num_block_even_sites, no = s->num_block_odd_sites;
   int j, jj, nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
-  vector_PRECISION leta, lphi;
-  vector_PRECISION_duplicate( &leta, eta, n1+start/12, l );
-  vector_PRECISION_duplicate( &lphi, phi, n1+start/12, l );
 
+#ifdef DEBUG
   if ( nvec_eta < nvec )
     error0("block_diag_oo_inv_PRECISION: assumptions are not met\n");
-
+#endif
+  
 /*#ifdef HAVE_TM1p1
   if ( g.n_flavours == 2 ) {
 
     int block_num = start/24/(n1+n2);
     config_PRECISION clover = s->op.clover_doublet_oo_inv-(block_num+1)*n1*288;
-    LU_perform_fwd_bwd_subs_PRECISION( eta, phi, clover, n1*24+start, (n1+n2)*24+start );
+    LU_perform_fwd_bwd_subs_PRECISION( eta, phi, clover, n1*24+start, (n1+n2)*24+start, l );
   } else {
 #endif*/
 
     if ( g.csw ) {
-      int block_num = start/12/(n1+n2);
+      int block_num = start/12/(ne+no);
+      vector_PRECISION leta, lphi;
+      vector_PRECISION_duplicate( &leta, eta, ne+start/12, l );
+      vector_PRECISION_duplicate( &lphi, phi, ne+start/12, l );
 #ifndef HAVE_TM
-      config_PRECISION clover = s->op.clover_oo_inv+(start/12-(block_num)*n1)*42;
-      LLH_perform_fwd_bwd_subs_PRECISION( &leta, &lphi, clover, 0, n2 );
+      config_PRECISION clover = s->op.clover_oo_inv+(start/12-(block_num)*ne)*42;
+      LLH_perform_fwd_bwd_subs_PRECISION( &leta, &lphi, clover, 0, no );
 #else
-      config_PRECISION clover = s->op.clover_oo_inv+(start/12-(block_num)*n1)*72;
-      LU_perform_fwd_bwd_subs_PRECISION( &leta, &lphi, clover, 0, n2 );
+#ifdef HAVE_MULT_TM
+      config_PRECISION clover = s->op.clover_oo_inv+(start/12-(block_num)*ne)*72*num_loop;
+#else
+      config_PRECISION clover = s->op.clover_oo_inv+(start/12-(block_num)*ne)*72;
+#endif
+      LU_perform_fwd_bwd_subs_PRECISION( &leta, &lphi, clover, 0, no, l );
 #endif
     } else {
-      config_PRECISION clover = s->op.clover+n1*12+start;
+      config_PRECISION clover = s->op.clover+ne*12+start;
+      buffer_PRECISION eta_pt = eta->vector_buffer+(12*ne+start)*nvec_eta, phi_pt = phi->vector_buffer+(12*ne+start)*nvec_phi;
 #ifndef HAVE_TM
-      for ( i=0; i<12*n2; i++ )
-        VECTOR_LOOP(j, nvec, jj, leta.vector_buffer[i*nvec_eta+j+jj] = lphi.vector_buffer[i*nvec_phi+j+jj]/(clover[i]);)
+      for ( i=0; i<no; i++ )
+        FOR12( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]/(*clover);) clover++; eta_pt += nvec_eta; phi_pt += nvec_phi; )
 #else
-      config_PRECISION tm_term = s->op.tm_term+n1*12+start;
-      for ( i=0; i<12*n2; i++ )
-        VECTOR_LOOP(j, nvec, jj, leta.vector_buffer[i*nvec_eta+j+jj] = lphi.vector_buffer[i*nvec_phi+j+jj]/(clover[i]+tm_term[i]);)
+      register complex_PRECISION odd = (complex_PRECISION) I*(s->op.mu+s->op.mu_odd_shift);
+      for ( is=0; is<no; s++ ) {
+	FOR6(VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]/(*clover-odd)) clover++; eta_pt += nvec_eta; phi_pt += nvec_phi; )
+	FOR6(VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]/(*clover+odd)) clover++; eta_pt += nvec_eta; phi_pt += nvec_phi; )
+      }
 #endif
     }
 /*#ifdef HAVE_TM1p1
@@ -845,6 +887,7 @@ void apply_block_schur_complement_PRECISION( vector_PRECISION *out, vector_PRECI
   block_n_hopping_term_PRECISION( out, &tmp[1], start, _EVEN_SITES, s, l, threading );
 }
 
+// needed in red_black_schwarz_PRECISION
 void block_solve_oddeven_PRECISION( vector_PRECISION *phi, vector_PRECISION *r, vector_PRECISION *latest_iter,
 				    int start, schwarz_PRECISION_struct *s, level_struct *l, struct Thread *threading ) {
   /****************************************************************************************

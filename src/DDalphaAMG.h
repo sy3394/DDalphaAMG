@@ -491,7 +491,7 @@
      **/
     double mu;
     double mu_odd_shift;
-    double mu_even_shift;
+    double *mu_even_shift;
 
     /**
      ** Twisted mass factor for the preconditioner on each level, l.
