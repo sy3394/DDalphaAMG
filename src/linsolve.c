@@ -240,7 +240,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
     START_MASTER(threading)
     VECTOR_LOOP(i, n_vect, jj, p->dp.gamma[i+jj] = (complex_double) gamma0_real[i+jj];)
     END_MASTER(threading)
-
+      
     // report
     if( ol == 0) {
       if (l->depth == 0 && !p->dp.initial_guess_zero) {

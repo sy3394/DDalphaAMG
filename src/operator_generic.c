@@ -429,7 +429,7 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
   }
 
   START_LOCKED_MASTER(threading)
-  if ( g.method >= 5 && g.odd_even )
+  if ( g.method >= 4 && g.odd_even )
     oddeven_PRECISION_test( l );
   END_LOCKED_MASTER(threading) 
 }

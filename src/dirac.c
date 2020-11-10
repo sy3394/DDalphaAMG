@@ -721,10 +721,9 @@ void tm_term_update( double mu, level_struct *l, struct Thread *threading ) {
    **********************/
   
 #ifdef HAVE_TM
-  int i, n_shifts = 0; //(g.in_setup)?1:g.num_rhs_vect; <- not used!!!
-  double factor = g.mu_factor[l->depth];//printf0("up0 %d %d\n",g.in_setup,(g.in_setup)?1:g.num_rhs_vect);
+  int i;
+  double factor = g.mu_factor[l->depth];
   double *even_shift = g.mu_even_shift, odd_shift = g.mu_odd_shift;
-  //  printf0("update %d, %d %d %d \n",l->depth,g.in_setup,n_shifts,g.num_rhs_vect);
   if (l->depth == 0) { // we don't use the multiplicative factor at the top
     tm_term_double_setup( mu, even_shift, odd_shift, 1, &(g.op_double), l, threading ); 
     tm_term_float_setup( mu, even_shift, odd_shift, 1, &(g.op_float), l, threading );
@@ -736,15 +735,14 @@ void tm_term_update( double mu, level_struct *l, struct Thread *threading ) {
   }
   
   if ( g.mixed_precision ) {// if oe_op_PRECISION is not set, setup will be skipped
-    tm_term_float_setup( mu, even_shift, odd_shift, factor, &(l->oe_op_float), l, threading );printf0("m1 %d %d %d \n",g.in_setup,n_shifts,g.num_rhs_vect);
-    tm_term_float_setup( mu, even_shift, odd_shift, factor, &(l->s_float.op), l, threading );printf0("m2 %d %d %d \n",g.in_setup,n_shifts,g.num_rhs_vect);
+    tm_term_float_setup( mu, even_shift, odd_shift, factor, &(l->oe_op_float), l, threading );
+    tm_term_float_setup( mu, even_shift, odd_shift, factor, &(l->s_float.op), l, threading );
   } else {
     tm_term_double_setup( mu, even_shift, odd_shift, factor, &(l->oe_op_double), l, threading );   
     tm_term_double_setup( mu, even_shift, odd_shift, factor, &(l->s_double.op), l, threading );   
   }
 
   START_MASTER(threading)
-    printf0("stp %d %d %d %d %d\n",g.in_setup,n_shifts,g.num_rhs_vect, (n_shifts==1)?num_loop:g.num_rhs_vect, num_loop);//error0("STP\n");
   if(g.print>0)
     for( i=0; i<g.num_rhs_vect; i++) {
       double even = (g.in_setup && i<num_loop)?even_shift[0]:even_shift[i];

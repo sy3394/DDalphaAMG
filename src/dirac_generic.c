@@ -887,12 +887,11 @@ void tm_term_PRECISION_setup( double mu, double *even, double odd, double factor
    * g.method>=4 cases need to be modified.
    * We also set odd_shifted_mu = mu + mu_odd and diff_mu_oe[i] = mu_odd - mu_even[i]
    */
-  printf0("tm %d %d %d \n",l->depth,g.in_setup,g.num_rhs_vect, op->is_even_shifted_mu_nonzero );fflush(stdout);
 
- if ( op->diff_mu_eo != NULL) {
+  if ( op->diff_mu_eo != NULL) {
     //--- Set meta fields related to tm term
-   int nrt = (g.in_setup && g.method>0)?num_loop:g.num_rhs_vect;
-    START_MASTER(threading)
+    int nrt = (g.in_setup && g.method>0)?num_loop:g.num_rhs_vect;
+    START_LOCKED_MASTER(threading)
     op->factor         = factor;
     op->mu             = factor*mu;
     op->mu_odd_shift   = factor*odd;
@@ -905,7 +904,7 @@ void tm_term_PRECISION_setup( double mu, double *even, double odd, double factor
       op->diff_mu_eo[i]               = op->mu_even_shift[i] - factor*odd;//for on the fly 
       op->is_even_shifted_mu_nonzero += (factor*mu + op->mu_even_shift[i]!=0.0)?1:0;
     }
-    END_MASTER(threading)
+    END_LOCKED_MASTER(threading)
       //　At the bottom, clover_oo_inv is constructed using avg shift but tm_term is applied separately for each rhs(not HAVE_MULT_TM)???? may need fixing!!!!
       // clover_oo_inv in oe_op_PRECISION is used if g.method<4
 #ifdef HAVE_MULT_TM
@@ -915,12 +914,12 @@ void tm_term_PRECISION_setup( double mu, double *even, double odd, double factor
     compute_core_start_end_custom(0, l->num_inner_lattice_sites, &start, &end, l, threading, 1);
     int n = end-start;
     config_PRECISION tm_term = op->tm_term;
-    printf0("tm2 %d, %d %d %d %d nonzero %d\n",l->depth,g.in_setup,1,g.num_rhs_vect, nrt, op->is_even_shifted_mu_nonzero);
-    /****
+
+    /*
      * Under the current implementation, a chunk of num_loop vectors are processed together
      * To adapt to this, tm_term is ordered num_loop vectors in vector-fast index one after another
      */
-    int nr, jj, jjj;//, nrt = (g.in_setup&&g.method>0)?num_loop:g.num_rhs_vect;
+    int nr, jj, jjj;
     config_PRECISION  odd_proj   = op->odd_proj;
     complex_PRECISION shift      = (complex_PRECISION) I*factor*mu;
     complex_PRECISION even_shift[nrt];
@@ -931,18 +930,18 @@ void tm_term_PRECISION_setup( double mu, double *even, double odd, double factor
       even_shift[nr] = (complex_PRECISION) (I*op->mu_even_shift[nr]);
       odd_factor[nr] = (complex_PRECISION) (odd_shift - even_shift[nr]);
     }
-    for(int s=0;s<nrt;s++)printf0("tm depth %d: mu %g odd %g even[%d]  %g\n",l->depth,op->mu, op->mu_odd_shift, s, op->mu_even_shift[s]);
+
     if( l->depth == 0 ) {
       int nv = l->num_inner_lattice_sites*12;
       complex_PRECISION tm_shift[nrt];
-      printf0("tm3 %d %d\n",nrt,g.num_rhs_vect);
+
       tm_term  += start*12*num_loop;
       odd_proj += start*12;
       
       for ( i=0; i<n; i++ ) {
 	// compute a shifted mu for each rhs
 	for( nr=0; nr<nrt; nr++ ) {
-	  if( cimag(even_shift[nr]) == 0. && cimag(odd_shift) == 0. )//{printf0("tm shift %g %g\n",cimag(even_shift[nr]), even_shift[nr]);
+	  if( cimag(even_shift[nr]) == 0. && cimag(odd_shift) == 0. )
 	    tm_shift[nr] = shift;
 	  else
 	    tm_shift[nr] = shift + even_shift[nr] + odd_proj[0]*odd_factor[nr]; // odd_proj[0]=0 at even sites and 1 otherwise
@@ -953,7 +952,7 @@ void tm_term_PRECISION_setup( double mu, double *even, double odd, double factor
 	FOR6( VECTOR_LOOP( jj, nrt, jjj, tm_term[jj*nv+jjj] =   tm_shift[jj+jjj];) tm_term+=num_loop; )
 	odd_proj += 12;
       }
-    } else {printf0("tm4 %d %d\n",nrt,g.num_rhs_vect);
+    } else {
       int k, m     = l->num_parent_eig_vect;
       int tm_size  = m*(m+1);// there are 2 m-by-m upper triangular block matrices for each aggregate
       int tm_vsize = l->num_inner_lattice_sites*tm_size;
@@ -962,7 +961,6 @@ void tm_term_PRECISION_setup( double mu, double *even, double odd, double factor
       odd_proj += start*tm_size;
       
       if( factor*g.even_shifted == 0. && cimag(odd_shift) == 0. ) {
-	printf0("tm no even shift\n");
 	// note: approximated eigenvectors consisting P is aggregate-wise orthonormalized.
 	
         for ( i=0; i<n; i++ ) { // for each site

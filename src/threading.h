@@ -25,11 +25,12 @@
    #define THREADING_H
 /**********
  * Note:
- *   thread: hyperthread; core:thread
- *   hyperthreading is not impremented
- *   dynamic memory allocation is done only in the master, and 
+ *   - thread: hyperthread; core:thread
+ *   - hyperthreading is not supported so that a thread corresponds to a core
+ *   - dynamic memory allocation is done only in the master, and 
  *     when using PUBLIC_MALLOC no_threading should be used 
  *********/
+
 struct level_struct;
 
 
@@ -42,25 +43,26 @@ struct common_thread_data
     char *workspace;
 };
 
-// holds information relevant for specific core/thread
 typedef struct Thread
 {
+  /* 
+   * This holds information relevant for specific core/thread
+   * Inner lattice sites are split among cores
+   * A slice of a vector changes from a level to another
+   * Assume: g.num_levels < 5
+   */
+  
   int core;     // core id
   int n_core;   // total # cores
   // for SMT/hyperthreading: threads per core (1-4 on KNC)
   int thread;   // thread id
   int n_thread; // total # threads
 
-  /* level_struct.num_inner_lattice_sites is split among cores
-     These variables define start and end site for this specific *core* (not thread)
-     but num_inner_lattice_sites depends on the level.
-     Use level_struct.depth as index 
-     If g.num_levels > 4, this will fail.
-  */
+  // split sites
   int start_site[4];
   int end_site[4];
   int n_site[4];
-  // index = site*num_lattice_site_var = inner_vector_size
+  // split index: (site) x (internal d.o.f.)
   int start_index[4];
   int end_index[4];
   int n_index[4];
@@ -70,13 +72,14 @@ typedef struct Thread
   void *thread_barrier_data;
   
   // *common* workspace for *all* threads
-  // sometimes threads need to exchange data, they can use this
+  // sometimes threads need to exchange data, they can use this space
   char *workspace;
 } Thread;
 
 
-/* flat omp: does not distinguish between threads over cores and hyperthreads within a core */
+/*  Barriers  */
 #ifdef FLAT_OMP 
+/* flat omp: does not distinguish between threads over cores and hyperthreads within a core */
 
 #define CORE_BARRIER(threading) \
     do { \
@@ -90,8 +93,8 @@ typedef struct Thread
     threading->thread_barrier(threading->thread_barrier_data, threading->core/60); \
     } while(0)
 
-/* nested omp: first splits into cores.  Then, each core splits into hyperthreads (like DD preconditioner) */
 #else
+/* nested omp: first splits into cores.  Then, each core splits into hyperthreads (like DD preconditioner) */
 
 #define CORE_BARRIER(threading) \
     do { \
@@ -104,9 +107,26 @@ typedef struct Thread
 
 #endif
 
+/*  Synchronization  */
+#define SYNC_MASTER_TO_ALL(threading) \
+    if(threading->thread == 0) \
+        CORE_BARRIER(threading); \
+    HYPERTHREAD_BARRIER(threading);
+    
+#define SYNC_CORES(threading) \
+    if(threading->thread == 0) \
+        CORE_BARRIER(threading);
+#define SYNC_HYPERTHREADS(threading) \
+    HYPERTHREAD_BARRIER(threading);
 
-// used within a function; returns to the calling pt if not master hyperthread after passing through the barrier
-// master execute the section of the code and bumps into the barrier
+/*  Hyperthread Locking: single section  */
+#define START_NO_HYPERTHREADS(threading) \
+    if(threading->thread == 0) {
+#define END_NO_HYPERTHREADS(threading) \
+    }
+
+/*  Thread Locking: single section  */
+//  single function
 #define START_UNTHREADED_FUNCTION(threading) \
     if(threading->thread != 0) \
         return; \
@@ -119,6 +139,7 @@ typedef struct Thread
 #define END_UNTHREADED_FUNCTION(threading) \
     CORE_BARRIER(threading);
 
+//  single section w/t synchronization
 #define MASTER(threading) \
     if(threading->core + threading->thread == 0)
 #define START_MASTER(threading) \
@@ -126,25 +147,7 @@ typedef struct Thread
 #define END_MASTER(threading) \
     }
 
-#define SYNC_MASTER_TO_ALL(threading) \
-    if(threading->thread == 0) \
-        CORE_BARRIER(threading); \
-    HYPERTHREAD_BARRIER(threading);
-    
-#define SYNC_CORES(threading) \
-    if(threading->thread == 0) \
-        CORE_BARRIER(threading);
-#define SYNC_HYPERTHREADS(threading) \
-    HYPERTHREAD_BARRIER(threading);
-
-#define START_NO_HYPERTHREADS(threading) \
-    if(threading->thread == 0) {
-#define END_NO_HYPERTHREADS(threading) \
-    }
-
-/* Only one thread (master) will execute the code section between
-   START_LOCKED_MASTER and END_LOCKED_MASTER, and it is protected by barriers
-   among cores to prevent data races */
+//  single section w/ core synchronization but not thread synchronization
 #define START_LOCKED_MASTER(threading) \
     if(threading->thread == 0) \
         CORE_BARRIER(threading); \
@@ -153,7 +156,7 @@ typedef struct Thread
     } \
     if(threading->thread == 0) \
         CORE_BARRIER(threading);\
-    SYNC_HYPERTHREADS(threading)
+
 
 #ifdef OPENMP
 #include <omp.h>
@@ -174,16 +177,16 @@ void init_common_thread_data(struct common_thread_data *common);
 void setup_threading(struct Thread *threading, struct common_thread_data *common, struct level_struct *l);
 /* external means the caller gives us all info about threads, and is responsible to later set a proper barrier */
 void setup_threading_external(struct Thread *threading, struct common_thread_data *common, struct level_struct *l,
-        int n_core, int n_thread, int core, int thread);
+			      int n_core, int n_thread, int core, int thread);
 void update_threading(struct Thread *threading, struct level_struct *l);
 void setup_no_threading(struct Thread *no_threading, struct level_struct *l);
 
 /* computes start and end indices for a core inside an array
    puts zero for other hyperthreads */
 void compute_core_start_end(int start, int end, int *core_start, int *core_end,
-        struct level_struct *l, struct Thread *threading);
+			    struct level_struct *l, struct Thread *threading);
 void compute_core_start_end_custom(int start, int end, int *core_start, int *core_end,
-        struct level_struct *l, struct Thread *threading, int granularity);
+				   struct level_struct *l, struct Thread *threading, int granularity);
 
 void finalize_common_thread_data( struct common_thread_data *common );
 

@@ -23,8 +23,9 @@
 
 /*
   Hyperthreading is not impremented.
-  * core: thread
-  * thread: hyperthread
+  In what follows:
+    * core:   thread
+    * thread: hyperthread
  */
 
 #include "main.h"
@@ -192,14 +193,18 @@ void compute_core_start_end_custom(int start, int end, int *core_start, int *cor
   else if(threading->core == cores)
     *core_end += remainder;
 #else
-  int per_core = floor(((double)length/min_per_core)/threading->n_core)*min_per_core;
-  int n_core_rem = (length-per_core*threading->n_core)/min_per_core;
+  int per_core  = floor(((double)length/min_per_core)/threading->n_core)*min_per_core;
+  int reminder  = length-per_core*threading->n_core;
+  int ext_cores = reminder/min_per_core;
   //  printf0("%d: %d %d %d %d %d\n",threading->core,length,per_core,threading->n_core,n_core_rem, min_per_core);
-  if( threading->core < n_core_rem ) {
+  if( threading->core*min_per_core < reminder ) {
     *core_start += (per_core+min_per_core)*threading->core;
-    *core_end = *core_start+per_core+min_per_core;
+    *core_end = *core_start + per_core+min_per_core;
+  } else if ( threading->core == threading->n_core-1 ) {
+    *core_start += per_core*threading->core + min_per_core*ext_cores;
+    *core_end = *core_start + per_core + reminder%min_per_core;
   } else {
-    *core_start += min_per_core*n_core_rem+per_core*threading->core;
+    *core_start += per_core*threading->core + min_per_core*ext_cores;
     *core_end = *core_start+per_core;
   }
   //  printf0("%d: %d %d %d %d %d %d\n",threading->core,length,per_core,threading->n_core, start, *core_start, *core_end);

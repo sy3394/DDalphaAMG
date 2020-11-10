@@ -48,12 +48,12 @@ void test_routine( level_struct *l, struct Thread *threading ) {
 
     if ( g.mixed_precision ) {
       operator_float_test_routine( &(l->s_float.op), l, threading );
-      if ( g.method > 0 && g.method < 5 ) schwarz_float_mvm_testfun( &(l->s_float), l, threading );
-      if ( g.method > 0 && g.method < 5 && g.odd_even ) block_oddeven_float_test( l, threading );
+      if ( g.method > 0 && g.method < 4 ) schwarz_float_mvm_testfun( &(l->s_float), l, threading );
+      if ( g.method > 0 && g.method < 4 && g.odd_even ) block_oddeven_float_test( l, threading );
     } else {
       operator_double_test_routine( &(l->s_double.op), l, threading );
-      if ( g.method > 0 && g.method < 5 ) schwarz_double_mvm_testfun( &(l->s_double), l, threading );
-      if ( g.method > 0 && g.method < 5 && g.odd_even ) block_oddeven_double_test( l, threading );
+      if ( g.method > 0 && g.method < 4 ) schwarz_double_mvm_testfun( &(l->s_double), l, threading );
+      if ( g.method > 0 && g.method < 4 && g.odd_even ) block_oddeven_double_test( l, threading );
     }
 
 #if 1
