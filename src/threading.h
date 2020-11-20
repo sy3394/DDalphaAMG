@@ -16,9 +16,6 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * checked:11/30/2019
- * not changed from sbacchio
- * glanced over: 12/08/2019
  */
 
 #ifndef THREADING_H
@@ -26,7 +23,8 @@
 /**********
  * Note:
  *   - thread: hyperthread; core:thread
- *   - hyperthreading is not supported so that a thread corresponds to a core
+ *   - hyperthreading support here means optimization of work sharing 
+ *     when hyperthreading is enabled by exploiting shared cache etc. (<- nested omp: NOT IMPLEMENTED)
  *   - dynamic memory allocation is done only in the master, and 
  *     when using PUBLIC_MALLOC no_threading should be used 
  *********/

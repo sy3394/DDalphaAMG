@@ -85,7 +85,7 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
    *********************************************************************************/
 
   int mu, nu, its = 1, its_boundary, nls, clover_site_size, coupling_site_size;
-  printf("op alloc %d %d\n",l->depth,type);
+
   //------------- allocate memory for op->D & op->clover
   if ( l->depth == 0 ) {
     clover_site_size = 42;    // clover term is Hermitian and Gamma_5 symmetric => (d.o.f.)=21*2 
@@ -117,7 +117,7 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
 
   //------------- allocate memory for decomposition matrices for the sum of self-coupling terms
   if ( type == _SCHWARZ && l->depth == 0 && g.odd_even ) {
-    if( g.csw ) {printf0("op alloc inv %d\n",l->depth);
+    if( g.csw ) {
 #ifdef HAVE_TM //we use LU here
 #ifdef HAVE_MULT_TM
       MALLOC( op->clover_oo_inv, complex_PRECISION, g.num_rhs_vect*72*(l->num_inner_lattice_sites/2+1) );//#even sites????
@@ -190,7 +190,7 @@ void operator_PRECISION_free( operator_PRECISION_struct *op, const int type, lev
     clover_site_size = (l->num_lattice_site_var*(l->num_lattice_site_var+1))/2;
     coupling_site_size = 4*l->num_lattice_site_var*l->num_lattice_site_var;
   }
-  //  printf0("op free %d %g %d\n",l->depth,op->tm_term[1],type );
+
   int its_boundary;
   if ( type ==_SCHWARZ ) {
     its_boundary = 2;
@@ -211,7 +211,7 @@ void operator_PRECISION_free( operator_PRECISION_struct *op, const int type, lev
   FREE( op->mu_even_shift, double, g.num_rhs_vect );
   FREE( op->diff_mu_eo, double, g.num_rhs_vect );
 #ifdef HAVE_MULT_TM
-  FREE( op->tm_term, complex_PRECISION, g.num_rhs_vect*block_site_size*l->num_inner_lattice_sites );printf0("op free %d %d\n",l->depth,type );
+  FREE( op->tm_term, complex_PRECISION, g.num_rhs_vect*block_site_size*l->num_inner_lattice_sites );
 #endif
 #endif
   if ( type == _SCHWARZ && l->depth == 0 && g.odd_even ) {
@@ -270,7 +270,7 @@ void operator_PRECISION_free( operator_PRECISION_struct *op, const int type, lev
 static void operator_PRECISION_alloc_projection_buffers( operator_PRECISION_struct *op, level_struct *l ) {//!!!!!!!!
 
   // when used as preconditioner we usually do not need the projection buffers, unless
-  // g.method >= 5: then oddeven_setup_float() is called in init.c, method_setup(). ???????
+  // g.method >= 4: then oddeven_setup_float() is called in init.c, method_setup(). ???????
   int n_vect = num_loop;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!g.num_rhs_vect
   if ( l->depth == 0 ) {
     int its = (l->num_lattice_site_var/2)*l->num_lattice_sites*n_vect; // half of spinor d.o.f. projected out

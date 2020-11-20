@@ -82,6 +82,7 @@
 #endif
   } operator_PRECISION_struct;
 
+#ifdef HAVE_FABULOUS
   typedef struct {
     int dim, nrhs, ldb, ldx, k;
     vector_PRECISION B, X, B0, X0, C0;
@@ -90,6 +91,7 @@
     struct level_struct *l;
     struct Thread *threading;
   } fabulous_PRECISION_struct;
+#endif
 
   typedef struct {
     vector_PRECISION x, b, r, w, *V, *Z;

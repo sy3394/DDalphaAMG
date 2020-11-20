@@ -655,7 +655,6 @@ void schwarz_PRECISION_setup( schwarz_PRECISION_struct *s, operator_double_struc
   }
 
 #ifdef HAVE_TM
-  printf0("schwarz_PRECISION_setup: depth %d, mu factor %g, %d, setup? %d\n",l->depth,g.mu_factor[l->depth], g.num_rhs_vect, g.in_setup);
   tm_term_PRECISION_setup( op_in->mu, op_in->mu_even_shift, op_in->mu_odd_shift, 1, &(s->op), l, no_threading );
 #endif  
 

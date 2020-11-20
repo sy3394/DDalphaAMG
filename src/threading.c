@@ -22,7 +22,7 @@
  */
 
 /*
-  Hyperthreading is not impremented.
+  Nested OpenMP along hyperthreading is not impremented.
   In what follows:
     * core:   thread
     * thread: hyperthread
@@ -149,7 +149,7 @@ void finalize_no_threading( struct Thread *no_threading ) {
 void compute_core_start_end(int start, int end, int *core_start, int *core_end,
         struct level_struct *l, struct Thread *threading) {
   // due to loop unrolling in low level functions, we set minimum entries per core
-  int min_per_core = 1;//num_loop;!!!!!
+  int min_per_core = 1;//this may be obsolete; Check the usage of FOR?? and see what's needed!!!!!!
   compute_core_start_end_custom(start, end, core_start, core_end, l, threading, min_per_core);
 }
 
@@ -177,37 +177,19 @@ void compute_core_start_end_custom(int start, int end, int *core_start, int *cor
   int min_per_core = granularity; // why did you redefine????
   
   int length   = end-start;
-#if 0
-  int per_core = ceil(((double)length/min_per_core)/threading->n_core)*min_per_core;
-  int cores;  // #cores to which per_core entries are assigned; there could be one extra core for taking care of reminder
-  if(per_core != 0)
-    cores = length/per_core;
-  else
-    cores = 0;
-  int remainder = length - cores*per_core;
-  
-  *core_start += per_core*threading->core;
-  *core_end = *core_start;
-  if(threading->core < cores)
-    *core_end += per_core;
-  else if(threading->core == cores)
-    *core_end += remainder;
-#else
   int per_core  = floor(((double)length/min_per_core)/threading->n_core)*min_per_core;
   int reminder  = length-per_core*threading->n_core;
   int ext_cores = reminder/min_per_core;
-  //  printf0("%d: %d %d %d %d %d\n",threading->core,length,per_core,threading->n_core,n_core_rem, min_per_core);
-  if( threading->core*min_per_core < reminder ) {
+
+  if( threading->core*min_per_core < reminder && (threading->core+1)*min_per_core <= reminder) {// we assign extra min_per_core items
     *core_start += (per_core+min_per_core)*threading->core;
     *core_end = *core_start + per_core+min_per_core;
-  } else if ( threading->core == threading->n_core-1 ) {
+  } else if ( threading->core == threading->n_core-1 ) {// remaining reminder%min_per_core elements put in the last thread
     *core_start += per_core*threading->core + min_per_core*ext_cores;
     *core_end = *core_start + per_core + reminder%min_per_core;
   } else {
     *core_start += per_core*threading->core + min_per_core*ext_cores;
     *core_end = *core_start+per_core;
   }
-  //  printf0("%d: %d %d %d %d %d %d\n",threading->core,length,per_core,threading->n_core, start, *core_start, *core_end);
-#endif
 }
 

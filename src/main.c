@@ -80,7 +80,7 @@ int main( int argc, char **argv ) {
   FREE( hopp, complex_double, 3*l.inner_vector_size );
 
   THREADED(g.num_openmp_processes)
-    {printf0("nop %d, ni %d\n", omp_get_num_threads(), omp_get_thread_num());
+  {
     //------------------ allocate memory and set up for multigrid solver
     struct Thread threading;
     setup_threading(&threading, commonthreaddata, &l);

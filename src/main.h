@@ -30,7 +30,9 @@
 #include <math.h>
 #include <time.h>
 #include <stdarg.h>
+#ifdef HAVE_FABULOUS
 #include <fabulous.h>
+#endif
 
 #ifndef MAIN_HEADER
   #define MAIN_HEADER
@@ -41,7 +43,7 @@
   #define EPS_double 1E-14
 
   #define HAVE_TM       // flag for enable twisted mass
-#define HAVE_MULT_TM
+//#define HAVE_MULT_TM
   //#define HAVE_TM1p1    // flag for enable doublet for twisted mass; unless g.n_flavours==2, Dirac matrix is degenerate, and each part is inverted individually, although the size of the memoery is doubled
   #define INIT_ONE_PREC // flag undef for enabling additional features in the lib
 
@@ -598,8 +600,10 @@ static inline void printfv_double ( vector_double *v ) {
 #include "main_post_def_double.h"
 #include "vector_float.h"
 #include "vector_double.h"
+#ifdef HAVE_FABULOUS
 #include "fabulous_float.h"
 #include "fabulous_double.h"
+#endif
 #ifdef HAVE_LIME
 #include <lime.h>
 #include <lime_config.h>

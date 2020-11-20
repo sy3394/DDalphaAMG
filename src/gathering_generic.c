@@ -279,7 +279,7 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
   out->mu_odd_shift  = in->mu_odd_shift;
   out->odd_shifted_mu = in->odd_shifted_mu;
   for ( int i=0; i<g.num_rhs_vect; i++ ) out->diff_mu_eo[i] = in->diff_mu_eo[i];
-  out->even_shift_avg = out->even_shift_avg;
+  out->even_shift_avg = in->even_shift_avg;
   out->is_even_shifted_mu_nonzero = in->is_even_shifted_mu_nonzero;
 #endif
   out->m0 = in->m0;
@@ -312,9 +312,9 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
 #endif
 #ifdef HAVE_MULT_TM
     MPI_Wait( &tm_req, MPI_STATUS_IGNORE );
-    MPI_Wait( &odd_req, MPI_STATUS_IGNORE );
     FREE( tm_send_buffer, complex_PRECISION, nrt*send_size_block );
-#endif
+#endif    
+    MPI_Wait( &odd_req, MPI_STATUS_IGNORE );
     MPI_Wait( &req, MPI_STATUS_IGNORE );
   } else {
     int i, j, n=l->gs_PRECISION.gather_list_length, s=l->num_inner_lattice_sites,
@@ -396,8 +396,7 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
       MPI_Wait( &(tm_term_reqs[i]), MPI_STATUS_IGNORE );
     PROF_PRECISION_STOP( _GD_IDLE, n-1 );
 
-    t = (send_size_block*n)/s;//==internal d.o.f.
-    printf0("gather conf %d %d\n",t, (l->num_lattice_site_var/2*(l->num_lattice_site_var/2+1)));
+    t = (send_size_block*n)/s;//==internal d.o.f. = l->num_lattice_site_var/2*(l->num_lattice_site_var/2+1)
     for ( i=0; i<s; i++ )
       for ( j=0; j<t; j++ )
 	VECTOR_LOOP(jj, nrt, jjj, out->tm_term[ (t*pi[i] + j)*num_loop+send_size_block*jj+jjj ] = buffer_tm_term[ (t*i + j)*nrt+jj+jjj ];)

@@ -576,9 +576,11 @@ void coarse_gamma5_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, int 
   phi_pt = phi->vector_buffer + start*nvec_phi;
   eta_pt = eta->vector_buffer + start*nvec_eta;
 
+#ifdef DEBUG
   if( nvec_phi != nvec_eta )
     error0("coarse_gamma5_PRECISION: #vec eta should be #vec phi\n");
-
+#endif
+  
   if ( eta_pt != phi_pt ) {
     while ( eta_pt < eta_end ) {
       for ( j=0; j<k; j++ ) {
@@ -810,9 +812,9 @@ void coarse_operator_PRECISION_test_routine( level_struct *l, struct Thread *thr
 #else
       diag = l->s_PRECISION.op.odd_proj;
 #endif
-      printf0("test chunk:%d %g\n",g.n_chunk, diag[1]);
-      for( int i =0;i<g.num_rhs_vect;i++)printf0("mu %g %g\n",l->s_PRECISION.op.mu+l->s_PRECISION.op.mu_even_shift[i],l->s_PRECISION.op.diff_mu_eo[i]);
-      for( int i =0;i<g.num_rhs_vect;i++)printf0("mu %g %g %g\n",l->next_level->s_PRECISION.op.mu+l->next_level->s_PRECISION.op.mu_even_shift[i],l->next_level->s_PRECISION.op.diff_mu_eo[i], g.mu_factor[l->next_level->depth]/g.mu_factor[l->depth]);
+      //printf0("test chunk:%d %g\n",g.n_chunk, diag[1]);
+      //for( int i =0;i<g.num_rhs_vect;i++)printf0("mu %g %g\n",l->s_PRECISION.op.mu+l->s_PRECISION.op.mu_even_shift[i],l->s_PRECISION.op.diff_mu_eo[i]);
+      //for( int i =0;i<g.num_rhs_vect;i++)printf0("mu %g %g %g\n",l->next_level->s_PRECISION.op.mu+l->next_level->s_PRECISION.op.mu_even_shift[i],l->next_level->s_PRECISION.op.diff_mu_eo[i], g.mu_factor[l->next_level->depth]/g.mu_factor[l->depth]);
       vector_PRECISION_define( &vp[1], 0, 0, ivs, l );
       if (l->depth==0) 
         set_diag_PRECISION( vp[1].vector_buffer, vp[0].vector_buffer, NULL, diag, &(l->s_PRECISION.op), n_vect, vp[1].num_vect, vp[0].num_vect, ivs/l->num_lattice_site_var );
@@ -855,6 +857,10 @@ void coarse_operator_PRECISION_test_routine( level_struct *l, struct Thread *thr
 
     if ( l->level > 0 ) {
       START_LOCKED_MASTER(threading)
+#ifndef HAVE_MULT_TM
+      if (g.odd_even) printf0("The following test works correctly only for the first vector due to the usage of a single D_oo for all rhs\n");
+#endif
+
       interpolate3_PRECISION( &vp[0], &vc[0], l, no_threading );
       apply_operator_PRECISION( &vp[1], &vp[0], &(l->p_PRECISION), l, no_threading );      //l==0=>d_plus_clover
       
@@ -913,6 +919,9 @@ void coarse_operator_PRECISION_test_routine( level_struct *l, struct Thread *thr
       END_LOCKED_MASTER(threading)
 
       if(threading->n_core>1) {
+#ifndef HAVE_MULT_TM
+	if (g.odd_even && threading->core==0) printf0("The following test works correctly only for the first vector due to the usage of a single D_oo for all rhs\n");
+#endif
         if ( !l->next_level->idle ) {
           if ( l->level==1 && g.odd_even )
             coarse_odd_even_PRECISION_test( &vc[2], &vc[0], l->next_level, threading );
@@ -924,7 +933,7 @@ void coarse_operator_PRECISION_test_routine( level_struct *l, struct Thread *thr
           vector_PRECISION_minus( &vc[2], &vc[1], &vc[2], 0, civs, l->next_level );
           global_norm_PRECISION( diff1, &vc[2], 0, civs, l->next_level, no_threading );
           global_norm_PRECISION( diff2, &vc[1], 0, civs, l->next_level, no_threading );
-          if ( l->level==1 && g.odd_even ) { //TODO: this test doesn't work without SSE!!
+          if ( l->level==1 && g.odd_even ) {
             for(int i=0; i<n_vect; i++)
               test0_PRECISION("depth: %d, correctness of odd even preconditioned ( P* D P - D_c ) phi_c with D_c threaded: %le\n", l->depth, diff1[i]/diff2[i] );
           } else {
@@ -964,7 +973,7 @@ void coarse_operator_PRECISION_test_routine( level_struct *l, struct Thread *thr
 
     END_LOCKED_MASTER(threading)    
 #endif
-
+      //      error0("STOP");
     for(int i=0; i<4; i++)
       vector_PRECISION_free( &vp[i], l, threading );
     for(int i=0; i<3; i++)

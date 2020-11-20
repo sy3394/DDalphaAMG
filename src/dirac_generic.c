@@ -871,23 +871,26 @@ void m0_update_PRECISION( PRECISION m0, operator_PRECISION_struct *op, level_str
 
 void tm_term_PRECISION_setup( double mu, double *even, double odd, double factor, operator_PRECISION_struct *op,
                               level_struct *l, struct Thread *threading ) {
-
+  /* Description:
+   *   - Setup meta-data for tm term (and tm_term itself if HAVE_MULT_TM)
+   *   - For now, we assume only multi-shifts on even sites but a single shift on odd sites
+   *   - tm term is single shifted in setup phase and multi-shifted in the solver phase
+   *   - If HAVE_MULT_TM is switched on, 
+   *       - tm term is computed separately for each rhs and put into tm_term
+   *       - clover_oo_inv is also computed separately for each rhs for g.odd_even
+   *   - If not,
+   *       - tm term is computed on the fly
+   *       - a single clover_oo_inv at the coarsest level is computed using the smallest even shift
+   *       - only a single clover_oo_inv is required at the top if g.method<4 as all rhs has the same shift on odd sites
+   *       - when g.method>=4, usage of the smallest even shift to construct clover_oo_inv for all rhs might lead to a loss of precision and slowing down the solver
+   * Note:
+   *  clover_oo_inv in oe_op_PRECISION is used if g.method<4
+   */
+  
 #ifdef HAVE_TM
   if(threading->thread != 0)
     return;
-  // tm_term should be single shifted in setup phase and multi-shifted in the solver phase
   
-  /* SEE BELOW FOR THE ORIGINAL VERSION
-   * different shifts on each rhs require separate tm_term
-   * If only for simple application of tm term, if we compute the contribution on the fly, we don't need multiple tm_term or even tm_term itself
-   * in case of even-odd prec, we need LU decompositions at all levels if g.method>=4 or if at the bottom
-   * On the top level, computation of multiple tm_term can be avoided if we consider only different shfits on even sites
-   * However, even tm terms and odd tm terms mix at the coarse levels so that even only with shifts on even sites, we need multiple LU decomposition
-   * we avoid this by using average shifts on even sites if g.method>4 or if at the bottom
-   * g.method>=4 cases need to be modified.
-   * We also set odd_shifted_mu = mu + mu_odd and diff_mu_oe[i] = mu_odd - mu_even[i]
-   */
-
   if ( op->diff_mu_eo != NULL) {
     //--- Set meta fields related to tm term
     int nrt = (g.in_setup && g.method>0)?num_loop:g.num_rhs_vect;
@@ -905,20 +908,20 @@ void tm_term_PRECISION_setup( double mu, double *even, double odd, double factor
       op->is_even_shifted_mu_nonzero += (factor*mu + op->mu_even_shift[i]!=0.0)?1:0;
     }
     END_LOCKED_MASTER(threading)
-      //　At the bottom, clover_oo_inv is constructed using avg shift but tm_term is applied separately for each rhs(not HAVE_MULT_TM)???? may need fixing!!!!
-      // clover_oo_inv in oe_op_PRECISION is used if g.method<4
+
 #ifdef HAVE_MULT_TM
     //--- Compute tm_term
+    /*      g.num_rhs_vect many rhs are grouped into chunks of the size num_loop.
+     *      Each of these chunks is processed together simultaneously.
+     *      To adapt to this, tm_term is ordered num_loop vectors in vector-fast index one after another.
+     */
+      
     int i, j;
     int start, end;
     compute_core_start_end_custom(0, l->num_inner_lattice_sites, &start, &end, l, threading, 1);
     int n = end-start;
     config_PRECISION tm_term = op->tm_term;
 
-    /*
-     * Under the current implementation, a chunk of num_loop vectors are processed together
-     * To adapt to this, tm_term is ordered num_loop vectors in vector-fast index one after another
-     */
     int nr, jj, jjj;
     config_PRECISION  odd_proj   = op->odd_proj;
     complex_PRECISION shift      = (complex_PRECISION) I*factor*mu;
@@ -1019,106 +1022,6 @@ void tm_term_PRECISION_setup( double mu, double *even, double odd, double factor
     }
 #endif
   }
-#if 0
-  config_PRECISION tm_term = op->tm_term;
-  if ( tm_term != NULL ) {
-    config_PRECISION  odd_proj   = op->odd_proj;
-    complex_PRECISION shift      = I*factor*mu;
-    complex_PRECISION even_shift = I*factor*even; //I*op->even_shift_avg; could be used 
-    complex_PRECISION odd_shift  = I*factor*odd;
-
-    START_MASTER(threading)
-    op->mu             = facotr*mu;
-    op->mu_even_shift  = factor*even;
-    op->mu_odd_shift   = factor*odd;
-    END_MASTER(threading)
-
-    int i, j;
-    int start, end;
-    compute_core_start_end_custom(0, l->num_inner_lattice_sites, &start, &end, l, threading, 1);
-    int n = end-start;
-          
-    if ( l->depth == 0 ) {
-      complex_PRECISION tm_shift;
-      tm_term += start*12;
-      odd_proj += start*12;
-      
-      for ( i=0; i<n; i++ ) {
-        if( cimag(even_shift) == 0. && cimag(odd_shift) == 0. )
-          tm_shift = shift;
-        else
-          tm_shift = shift + even_shift + odd_proj[0]*(odd_shift - even_shift); // odd_proj[0]=0 at even sites and 1 otherwise
-        FOR6( *tm_term = - tm_shift; tm_term++; )//spin indicies orderd in T,Z,Y,X?
-        FOR6( *tm_term = tm_shift; tm_term++; )
-        odd_proj += 12;
-      }
-    } else {
-      int k, m  = l->num_parent_eig_vect;
-      int tm_size = m*(m+1);// there are 2 m-by-m upper triangular block matrices for each aggregate
-      
-      tm_term += start*tm_size;
-      odd_proj += start*tm_size;
-      
-      if( cimag(even_shift) == 0. && cimag(odd_shift) == 0. ) {
-
-	// note: approximated eigenvectors consisting P is aggregate-wise orthonormalized.
-	
-        for ( i=0; i<n; i++ ) { // for each site
-          for ( j=0; j<m; j++ ) { // for each upper column
-            for ( k=0; k<j; k++ )
-              tm_term[k] = _COMPLEX_PRECISION_ZERO;
-            tm_term += j;
-            *tm_term = -1.* shift;
-            tm_term++;
-          }
-          
-          for ( j=0; j<m; j++ ) {
-            for ( k=0; k<j; k++ )
-              tm_term[k] = _COMPLEX_PRECISION_ZERO;
-            tm_term += j;
-            *tm_term = shift;
-            tm_term++;
-          }
-        }
-      } else {
-        complex_PRECISION odd_factor = odd_shift - even_shift;
-
-	/*
-	  For off-diagonal entries, we need TM_jk = mu_even_shift*(v_j(e)*v_k(e))+mu_odd_shift*(v_j(o)*v_k(o))
-	  Note: v_j(e)*v_k(e)+v_j(o)*v_k(o) = \delta_jk & odd_proj_jk = v_j(o)*v_k(o)
-	  So: TM_jk(j!=k) = mu_even_shift*(v_j(e)*v_k(e)+v_j(o)*v_k(o))+odd_factor*odd_proj_jk
-	  For diagonal entries, we use 1= v_j(e)*v_j(e)+v_j(o)*v_j(o)
-	  Diagonal entries: mu + mu_even_shift*(v_j(e)*v_j(e))+mu_odd_shift*(v_j(o)*v_j(o)) 
-	 */
-        for ( i=0; i<n; i++ ) { // for each site
-	  // for spin 0,1, i.e., T,Z
-          for ( j=0; j<m; j++ ) { // for each upper column 
-            for ( k=0; k<j; k++ ) // for off-diagonal entries
-              tm_term[k] = -1. * odd_factor * odd_proj[k]; 
-	    // for diagonal entry
-            tm_term += j;
-            odd_proj += j;
-            *tm_term = -1.* ( shift + even_shift + odd_factor * (*odd_proj));
-            tm_term++;
-            odd_proj++;
-          } 
-
-	  // for spin 2,3, i.e., Y,X
-          for ( j=0; j<m; j++ ) { // for each upper column 
-            for ( k=0; k<j; k++ ) // for off-diagonal entries  
-              tm_term[k] = odd_factor * odd_proj[k] ;
-	    // for diagonal entry
-            tm_term += j;
-            odd_proj += j;
-            *tm_term = ( shift + even_shift + odd_factor * (*odd_proj));
-            tm_term++;
-            odd_proj++;
-          } 
-        }
-      }
-    }  
-  }
-#endif // end commented out
 #endif
 }
 

@@ -51,7 +51,6 @@ void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct T
   int end   = threading->end_index[l->depth];
 
   if ( V == NULL ) { // if the initial test vectors are not supplied, compute them using smoothing
-    printf0("inter %d %d %d %d\n", l->depth,g.num_rhs_vect, l->level);
     if ( l->depth == 0) {
       tm_term_update( (complex_double)(g.setup_mu), l, threading ); // set (first num_loop) tm_term using a single shift for all rhs
       finalize_operator_update( l, threading ); // to update clover_oo_inv
@@ -237,7 +236,7 @@ void coarse_grid_correction_PRECISION_free( level_struct *l ) {
         if ( g.method >= 4 && g.odd_even ) {
           coarse_oddeven_free_PRECISION( l->next_level );
         }
-      } else {printf0("coasr free %d\n",l->depth);
+      } else {
         operator_PRECISION_free( &(l->next_level->s_PRECISION.op), _ORDINARY, l->next_level );
         interpolation_PRECISION_free( l->next_level );
         if ( g.odd_even )
@@ -447,7 +446,7 @@ static void inv_iter_inv_fcycle_PRECISION( int setup_iter, level_struct *l, stru
   if ( l->depth == 0 )
     set_kcycle_tol_PRECISION( g.coarse_tol, l );
   END_LOCKED_MASTER(threading)
-  SYNC_MASTER_TO_ALL(threading)
+    //  SYNC_MASTER_TO_ALL(threading)
 
   int nvec = l->num_eig_vect;
   l->p_PRECISION.x.num_vect_now = num_loop;

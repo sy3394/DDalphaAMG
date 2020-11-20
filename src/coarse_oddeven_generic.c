@@ -84,7 +84,6 @@ void coarse_oddeven_alloc_PRECISION( level_struct *l ) {
 #ifdef HAVE_TM1p1
   MALLOC( op->clover_doublet_oo_inv, complex_PRECISION, factor*SQUARE(4*nv)*op->num_odd_sites );
 #endif
-  printf0("co odd %d %d\n",op->num_odd_sites, l->num_inner_lattice_sites/2+1);  
   // define data layout
   eot = op->index_table;
   define_eot( eot, N, l );
@@ -197,11 +196,7 @@ void coarse_oddeven_setup_PRECISION( operator_PRECISION_struct *in, int reorder,
   op->m0 = in->m0;
 
 #ifdef HAVE_TM
-  for(int s=0;s<g.num_rhs_vect;s++)printf0("co odd setup %g\n",in->mu_even_shift[s]);
-  printf0("co odd setup %g\n",in->mu);
   tm_term_PRECISION_setup( in->mu, in->mu_even_shift, in->mu_odd_shift, 1, op, l, threading );
-  for(int s=0;s<g.num_rhs_vect;s++)printf0("after co odd setup %g\n",op->mu_even_shift[s]);
-  printf0("after co odd setup %g\n",op->mu);
 #endif  
 #ifdef HAVE_TM1p1
   epsbar_term_PRECISION_setup( in->epsbar, in->epsbar_ig5_even_shift, in->epsbar_ig5_odd_shift, op, l, threading );
@@ -212,7 +207,7 @@ void coarse_oddeven_setup_PRECISION( operator_PRECISION_struct *in, int reorder,
 }
 
 void coarse_oddeven_PRECISION_set_self_couplings( level_struct *l, struct Thread *threading ) {
-  printf0("coarse self updated\n");
+
   operator_PRECISION_struct *op = &(l->oe_op_PRECISION);
   int nv = l->num_parent_eig_vect, start, end;
 
@@ -287,7 +282,7 @@ static void coarse_selfcoupling_LU_decomposition_PRECISION( config_PRECISION out
   }
 
 #ifdef HAVE_TM // In this case, we compute tm_term using avg even shifts at coarsest & smallest shift at intermediate levels
-  double even = (l->level == 0 && 0)?op->even_shift_avg: op->mu_even_shift[0]; printf0("cor set self even %g\n",even);
+  double even = (l->level == 0 && 0)?op->even_shift_avg: op->mu_even_shift[0];
 #if 1 // In this case, we compute tm_term using avg even shifts at coarsest & smallest shift at intermediate levels
   complex_PRECISION mu_even = (complex_PRECISION) I*(op->mu+even);
   complex_PRECISION odd_factor = (complex_PRECISION) I*(op->mu_odd_shift - even);
@@ -948,7 +943,7 @@ void coarse_diag_oo_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operato
 #ifdef HAVE_MULT_TM
   fac *= num_loop;
 #endif
-  printf0("diag oo %d %d\n",g.n_chunk, fac);
+
   sc += oo_inv_size*start*fac;
   for ( s=start; s<end; s++ ) {
     coarse_LU_multiply_PRECISION( y_pt, x_pt, sc, nvec, nvec_y, nvec_x, l );
@@ -1050,7 +1045,7 @@ void coarse_odd_even_PRECISION_test( vector_PRECISION *out, vector_PRECISION *in
       vector_PRECISION_init( &buf[i] );
       vector_PRECISION_alloc( &buf[i], _ORDINARY, in->num_vect, l, threading );
       buf[i].num_vect_now = in->num_vect_now;
-    }printf0("co odd even tes\n");
+    }
     
     START_LOCKED_MASTER(threading)
     // transformation part

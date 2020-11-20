@@ -550,6 +550,9 @@ static void validate_parameters( int ls, level_struct *l ) {
   int i;
   int mu;
 
+#ifndef HAVE_FABULOUS
+  if ( 
+#endif
   if ( g.method > 3 ) {
     if( g.interpolation != 0 ) {
       warning0("Multigrid with GMRES/BiCGstab smoothing is not supported.\n         Switching to FGMRES preconditioned with GMRES/BiCGstab (g.interpolation=0).\n");
@@ -566,7 +569,7 @@ static void validate_parameters( int ls, level_struct *l ) {
   }
 
   ASSERT( ASCENDING( 0, g.rhs, 2 ) );
-  ASSERT( ASCENDING( -1, g.method, 6 ) );
+  ASSERT( ASCENDING( -1, g.method, 5 ) );
   if ( g.method < 1 ) {
     warning0("Multigrid is not supported.\n         Switching to the chosen method with no AMG (g.interpolation=0).\n");
     g.interpolation = 0;
