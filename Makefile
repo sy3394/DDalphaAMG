@@ -50,7 +50,7 @@ EFENCELIB= # -L${EFENCEDIR} -lefence
 
 # --- FLAGS FOR FABULOUS --------------------------------- 
 FABULOUSDIR=${HOME}/src/fabulous
-FABULOUSFLAGS=-DHAVE_FABULOUS -I${FABULOUSDIR}/src/api/include
+FABULOUSFLAGS= #-DHAVE_FABULOUS -I${FABULOUSDIR}/src/api/include
 FABULOUSLIB=-L${FABULOUSDIR}/build/src/api -lfabulous
 
 # --- FLAGS FOR LAPACK ---------------------------------

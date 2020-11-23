@@ -300,6 +300,14 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     if(g.epsbar_ig5_even_shift!=0.)
       printf0("|   ig5 epsbar even sites: %+9.6lf                       |\n", g.epsbar_ig5_even_shift );
 #endif
+
+    if( g.method < 4 ) {
+      printf0("|      use only FGMRES at setup: %-2d                    |\n", g.use_only_fgrmes_at_setup );
+#ifdef HAVE_FABULOUS
+      printf0("|      fabulous user data size for log: %-2d                              |\n", g.logger_user_data_size[i] );
+      printf0("|      fabulous silent run: %-2d                              |\n", g.quiet );
+#endif
+    }
     if ( g.method > 0 ) {
       printf0("+----------------------------------------------------------+\n");
       printf0("|%17s cycles: %-6d                          |\n", "preconditioner", l->n_cy );
@@ -313,8 +321,18 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
       printf0("|           local lattice: %-3d %-3d %-3d %-3d                 |\n", ll[0], ll[1], ll[2], ll[3] );
       if ( g.method > 0 ) {
         printf0("|           block lattice: %-3d %-3d %-3d %-3d                 |\n", bl[0], bl[1], bl[2], bl[3] );
-	if ( g.method == 2 )
+	if ( g.method < 4 ) {
 	  printf0("|             solver type: %-2d                              |\n", g.solver[i] );
+#ifdef HAVE_FABULOUS
+	  printf0("|      fabulous orthogonalization scheme: %-2d                              |\n", g.f_orthoscheme[i] );
+	  printf0("|      fabulous orthogonalization type: %-2d                              |\n", g.f_orthotype[i] );
+	  printf0("|      fabulous orthogonalization iter: %-2d                              |\n", g.f_ortho_iter[i] );
+	  printf0("|      fabulous max kept dir: %-2d                              |\n", g.max_kept_direction[i] );
+	  printf0("|      fabulous number of deflating eigenvectors for fabulous: %-2d                |\n", g.k[i] );
+	  printf0("|      max number of mat-vec products in fabulous solver: %-2d                |\n", g.max_mvp[i] );
+	  printf0("|      fabulous compute real residual: %-2d           |\n", g.real_residual[i] );
+#endif
+	}
         if ( i+1 < g.num_levels ) {
           printf0("|        post smooth iter: %-3d                             |\n", g.post_smooth_iter[i] );
           printf0("|     smoother inner iter: %-3d                             |\n", g.block_iter[i] );
@@ -601,6 +619,7 @@ void method_finalize( level_struct *l ) {
   FREE( g.setup_iter, int, ls );
   FREE( g.num_eig_vect, int, ls );
   FREE( g.solver, int, ls );
+#ifdef HAVE_FABULOUS
   FREE( g.f_orthoscheme, fabulous_orthoscheme, ls );
   FREE( g.f_orthotype, fabulous_orthotype, ls );
   FREE( g.ortho_iter, int, ls );
@@ -608,6 +627,7 @@ void method_finalize( level_struct *l ) {
   FREE( g.k, int, ls );
   FREE( g.max_mvp, int, ls );
   FREE( g.real_residual, int, ls) ;
+#endif
   cart_free( l );
   var_table_free( &(g.vt) );
   

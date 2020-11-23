@@ -98,7 +98,9 @@
     complex_PRECISION **H, *y, *gamma, *c, *s;
     config_PRECISION *D, *clover;
     operator_PRECISION_struct *op;
+#ifdef HAVE_FABULOUS
     fabulous_PRECISION_struct fab;
+#endif
     PRECISION tol;
     int num_restart, restart_length, timing, print, kind,
       initial_guess_zero, layout, v_start, v_end, num_vect;

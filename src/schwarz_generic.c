@@ -418,6 +418,10 @@ void schwarz_layout_PRECISION_define( schwarz_PRECISION_struct *s, level_struct 
 		  // are indexed in x->...->t(fast->slow) within a block
 		  // The result is stored in it[lex_index]
 		  // Start with inner sites
+		  // TODO: the first site of each block is always counted as even in the convention below.
+		  //       However, it can be globally odd.
+		  //       To apply mu-shift consistenly in the case of non HAVE_MULT_TM,
+		  //       we need to use the same odd-even convention as the global lattice.
                   if ( l->depth == 0 && g.odd_even ) {
                     // odd even on the blocks: even sites first, then odd sites
                     // even sites

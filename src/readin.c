@@ -392,6 +392,7 @@ static void read_geometry_data( FILE *in, int ls ) {
     save_pt = &(g.solver[i]); g.solver[i] = _FGMRES;
     read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
 
+#ifdef HAVE_FABULOUS
     sprintf( inputstr, "d%d fabulous orthogonalization scheme:", i );
     save_pt = &(g.f_orthoscheme[i]); g.f_orthoscheme[i] = FABULOUS_MGS;
     read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
@@ -419,7 +420,7 @@ static void read_geometry_data( FILE *in, int ls ) {
     sprintf( inputstr, "d%d fabulous compute real residual:", i );
     save_pt = &(g.real_residual[i]); g.real_residual[i] = 0;
     read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
-
+#endif
   }
 }
 
@@ -481,11 +482,12 @@ static void read_solver_parameters( FILE *in ) {
 
   save_pt = &(g.use_only_fgrmes_at_setup); g.use_only_fgrmes_at_setup = 0;
   read_parameter( &save_pt, "use only FGMRES at setup:", "%d", 1, in, _DEFAULT_SET );
+#ifdef HAVE_FABULOUS
   save_pt = &(g.logger_user_data_size); g.logger_user_data_size = 0;
   read_parameter( &save_pt, "fabulous user data size for log:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.quiet); g.quiet = 1;
   read_parameter( &save_pt, "fabulous silent run:", "%d", 1, in, _DEFAULT_SET );
-  
+#endif
   if ( g.randomize ) {
     srand( time( 0 ) + 1000*g.my_rank );
   } else 
@@ -550,9 +552,6 @@ static void validate_parameters( int ls, level_struct *l ) {
   int i;
   int mu;
 
-#ifndef HAVE_FABULOUS
-  if ( 
-#endif
   if ( g.method > 3 ) {
     if( g.interpolation != 0 ) {
       warning0("Multigrid with GMRES/BiCGstab smoothing is not supported.\n         Switching to FGMRES preconditioned with GMRES/BiCGstab (g.interpolation=0).\n");
@@ -580,15 +579,25 @@ static void validate_parameters( int ls, level_struct *l ) {
     warning0("Pure GMRES uses either mixed precision solver or double precision solver.\n         Switching to doule precision\n");
     g.mixed_precision = 0;
   }
-  
-  if ( g.method == 0 || g.method == 2 ) {
+
+  int solver = 0;
+  for ( i=0; i<g.num_levels; i++ ) solver += g.solver[i];
+#ifndef HAVE_FABULOUS
+  if ( solver != 0 )
+    error0("Non-zero solver options indicate fabulous solver, which is switched off by the user\n");
+  if ( g.use_only_fgrmes_at_setup != 0 ) {
+    warning0("As fabulous solvers are not available in the current parameter choice, we need to use FGMRES at the setup\n         Switching to FGMRES\n");
+    g.use_only_fgrmes_at_setup = 0;
+  }
+#else
+  if ( g.method < 0 || g.method > 3 ) {
     if ( g.mixed_precision == 2 && g.solver[0] ) {
-      warning0("Fabulous solver with AMG as preconditioner does not support mixed precision.\n         Switching to single precision.\n");
+      warning0("Fabulous solvers do not support mixed precision.\n         Switching to single precision.\n");
       g.mixed_precision = 1;
     }
     for ( i=0; i<g.num_levels; i++ ) {
       if ( i < g.num_levels-1  && g.solver[i] != _GCR && g.solver[0] != _FGMRES ) {
-	warning0("Fabulous solver using AMG as its right preconditioner needs to be flexible.\n         Switching to BGCR method at depth %d.\n", i);
+	warning0("The solver at the depth %d needs to be flexible to employ AMG as its right preconditioner.\n         Switching to fabulous BGCR method.\n", i);
 	g.solver[i] = _GCR;
       }
       if ( g.solver[i] == _GCR && g.f_orthotype[i] != FABULOUS_BLOCK ) {
@@ -596,8 +605,11 @@ static void validate_parameters( int ls, level_struct *l ) {
 	g.f_orthotype[i] = FABULOUS_BLOCK;
       }
     }
+  } else if ( solver != 0 ) {
+    // TODO: for g.method > 3, we can write fabulous version
+    error0("Fabulous solvers are not supported when g.method != 0, 1, 2, 3\n");
   }
-  
+#endif
   ASSERT( IMPLIES( g.vt.evaluation, g.rhs <= 2 ) );
 #ifdef _20TV
   ASSERT( g.num_eig_vect == 20 );
@@ -695,6 +707,7 @@ static void allocate_for_global_struct_after_read_global_info( int ls ) {
   MALLOC( g.setup_iter, int, ls );
   MALLOC( g.num_eig_vect, int, ls );
   MALLOC( g.solver, int, ls );
+#ifdef HAVE_FABULOUS
   MALLOC( g.f_orthoscheme, fabulous_orthoscheme, ls );
   MALLOC( g.f_orthotype, fabulous_orthotype, ls );
   MALLOC( g.ortho_iter, int, ls );
@@ -702,6 +715,7 @@ static void allocate_for_global_struct_after_read_global_info( int ls ) {
   MALLOC( g.k, int, ls );
   MALLOC( g.max_mvp, int, ls );
   MALLOC( g.real_residual, int, ls );
+#endif
   for ( i=1; i<ls; i++ ) {
     g.global_lattice[i] = g.global_lattice[0] + i*4;
     g.local_lattice[i] = g.local_lattice[0] + i*4;

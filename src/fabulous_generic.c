@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  */
 
+#ifdef HAVE_FABULOUS
 #include "main.h"
 
 static void vector_PRECISION_copy_fab( vector_PRECISION *z, vector_PRECISION *x, int vec_ind, int length, int dir, int start, int end, level_struct *l );
@@ -351,3 +352,4 @@ static void vector_PRECISION_copy_fab( vector_PRECISION *z, vector_PRECISION *x,
   }
   PROF_PRECISION_STOP( _FAB_COPY, (double)(end-start)/(double)l->inner_vector_size );
 }
+#endif

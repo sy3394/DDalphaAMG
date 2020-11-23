@@ -43,12 +43,12 @@ void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct 
   config_PRECISION tm_term = op->tm_term;
 #else
   // I decided to use the first even shift to define block clover_oo_inv
+  // This is temporary fix
   int n = g.n_chunk;
   double even = op->mu_even_shift[0];
   complex_double odd = I*(op->mu+op->mu_odd_shift);
   complex_double diff_eo[num_loop]; diff_eo[i] = I*op->diff_mu_eo[n*num_loop+i];
   config_PRECISION odd_proj = op->odd_proj;
-  //  printf0("odd even blcol: %g=%g %d\n",cimag(odd),op->odd_shifted_mu,factor);
 #endif
 #endif
   for ( mu=0; mu<4; mu++ ) {
@@ -110,7 +110,6 @@ void schwarz_PRECISION_oddeven_setup( schwarz_PRECISION_struct *s, level_struct 
 				for ( i=6; i<12; i++ )
 				  buffer[i] += odd+diff_eo[0]*(1-((complex_double)odd_proj[i]));
 			      }
-			    //for(i=0;i<12;i++)printf0("%g ",proj[i]);printf0("|");
 			      odd_proj += 12;
 #endif
                               selfcoupling_LU_decomposition_PRECISION( clover_oo_inv_pt, buffer, l );
@@ -1033,6 +1032,7 @@ void block_oddeven_PRECISION_test( level_struct *l, struct Thread *threading ) {
 
   vector_PRECISION_define_random( &b1, 0, vs, l );
 
+  // W/t HAVE_MULT_TM, this won't work except for the first rhs as clover_oo_inv withing a block as even within a lattice can be odd within a block
   for (int i = 0; i< s->num_blocks; i++ ) {//printf("block: %d %d\n",s->block[i].start,s->num_block_even_sites);
     block_diag_ee_PRECISION( &b2, &b1, s->block[i].start*l->num_lattice_site_var, s, l, no_threading );
     block_diag_oo_PRECISION( &b2, &b1, s->block[i].start*l->num_lattice_site_var, s, l, no_threading );

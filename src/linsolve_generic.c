@@ -44,7 +44,9 @@ void fgmres_PRECISION_struct_init( gmres_PRECISION_struct *p ) {
   p->s     = NULL;
   p->preconditioner = NULL;
   p->eval_operator  = NULL;
+#ifdef HAVE_FABULOUS
   fabulous_PRECISION_init( &(p->fab) );
+#endif
 }
 
 
@@ -103,8 +105,10 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
     p->v_start = 0;
     p->v_end = l->inner_vector_size;
     p->op = &(g.op_PRECISION);
+#ifdef HAVE_FABULOUS
     if ( g.solver[l->depth] )
-      setup_fabulous_PRECISION( p, vl_type, l, no_threading );//!!!!!!no_threaing->threading desireble 
+      setup_fabulous_PRECISION( p, vl_type, l, no_threading );//!!!!!!no_threaing->threading desireble
+#endif
   } else if ( type == _K_CYCLE ) {
     // these settings also work for GMRES as a smoother
     p->timing = 0;
@@ -113,8 +117,10 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
     p->v_start = 0;
     p->v_end = l->inner_vector_size;
     p->op = &(l->s_PRECISION.op);
+#ifdef HAVE_FABULOUS
     if ( g.solver[l->depth] )
-      setup_fabulous_PRECISION( p, vl_type, l, no_threading );//!!!!!!no_threaing->threading desireble 
+      setup_fabulous_PRECISION( p, vl_type, l, no_threading );//!!!!!!no_threaing->threading desireble
+#endif
   } else if ( type == _COARSE_SOLVER ) {
     p->timing = 0;
     p->print = 0;
@@ -126,8 +132,10 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
       p->op = &(l->oe_op_PRECISION);
     else  
       p->op = &(l->s_PRECISION.op);
+#ifdef HAVE_FABULOUS
     if ( g.solver[l->depth] )
       setup_fabulous_PRECISION( p, vl_type, l, no_threading );//!!!!!!no_threaing->threading desireble
+#endif
   } else {
     ASSERT( type < 6 );
   }
@@ -248,9 +256,11 @@ void fgmres_PRECISION_struct_free( gmres_PRECISION_struct *p, level_struct *l ) 
       FREE( p->Z, vector_PRECISION, k );
     }
   }
+#ifdef HAVE_FABULOUS
   if ( p->fab.handle != NULL ) {
     fabulous_PRECISION_free( &(p->fab), l, no_threading );
   }
+#endif
   
   p->D = NULL;
   p->clover = NULL;
@@ -267,11 +277,12 @@ int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   if ( l->depth > 0 ) p->timing = 1;
   END_LOCKED_MASTER(threading)
 
-  if ( p->fab.handle != NULL && !(g.use_only_fgrmes_at_setup && g.in_setup) ) {//need more generality if we are to use this as generic entry pt
+#ifdef HAVE_FABULOUS
+  if ( p->fab.handle != NULL && !(g.use_only_fgrmes_at_setup && g.in_setup) ) //need more generality if we are to use this as generic entry pt
     iter = fabulous_PRECISION( p, threading );
-  } else {
+  else
+#endif
     iter = fgmres_PRECISION( p, l, threading );
-  }
 
   START_LOCKED_MASTER(threading)
   g.iter_counts[l->depth] += iter;
@@ -519,9 +530,11 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
 //#define FAB_OPENMP
 int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
 
+  int iter = 0;
+#ifdef HAVE_FABULOUS
   fabulous_PRECISION_struct *fab = &(p->fab);
   level_struct * l = fab->l;
-  int iter = 0, even_size = p->op->num_even_sites*l->num_lattice_site_var;
+  int even_size = p->op->num_even_sites*l->num_lattice_site_var;
   PRECISION t0, t1;
   //printf0("begin PRECISION fab: solver %d depth %d: %d=%d? %d, sizes %d %d %d even sts %d\n", g.solver, l->depth, fab->nrhs,fab->B.num_vect,p->b.num_vect_now, p->b.size, fab->B.size, fab->dim, even_size);fflush(stdout);
     
@@ -580,8 +593,10 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
     global_norm_PRECISION( norm2, &(p->b), p->v_start, p->v_end, l, threading );
     VECTOR_LOOP(j, num_loop, jj, g.resids[j+jj] = norm[j+jj]/norm2[j+jj];)
   }
-      
+#endif
+  
   return iter;
+  
 }
 
 void bicgstab_PRECISION( gmres_PRECISION_struct *ps, level_struct *l, struct Thread *threading ) {

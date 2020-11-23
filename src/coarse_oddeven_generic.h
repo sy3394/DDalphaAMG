@@ -38,8 +38,6 @@
   void coarse_diag_oo_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
   int coarse_solve_odd_even_PRECISION( gmres_PRECISION_struct *p, operator_PRECISION_struct *op, level_struct *l, 
 					    struct Thread *threading );
-  void coarse_fabulous_solve_odd_even_PRECISION( fabulous_PRECISION_struct *fab, gmres_PRECISION_struct *p, struct Thread *threading );
-  
   void coarse_apply_schur_complement_PRECISION( vector_PRECISION *out, vector_PRECISION *in,
 						    operator_PRECISION_struct *op, level_struct *l, struct Thread *threading );
   void coarse_hopping_term_PRECISION( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op,
