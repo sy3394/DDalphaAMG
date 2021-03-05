@@ -194,6 +194,59 @@
     }
   }
 
+#ifdef HAVE_MULT_TM
+  // NOTE: the following two functions assumes n_vect = num_loop as D is defined for the chunk of num_loop
+  // eta += D*phi, D anti-hermitian in upper triangular form and stored columnwise packed
+  static inline void tm_pamvp_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
+					 const buffer_PRECISION phi, const register int n,
+					 const register int n_vect, const register int n_vect_eta, const register int n_vect_phi ) {
+    register int i, j, k, jj, jjj;
+
+#ifdef DEBUG
+    if ( n_vect != num_loop )
+      error0("tm_pamvp_PRECISION: assumptions are not met\n");
+#endif
+    // do mvp using Hermiticity by taking products of entries involving upper column and lower row meeting at each diagonal entry
+    VECTOR_LOOP( jj, n_vect, jjj, eta[jj+jjj] += D[jj+jjj]*phi[jj+jjj];)
+    for ( i=1, k=1; i<n; i++ ) {
+      VECTOR_LOOP( jj, n_vect, jjj, eta[i*n_vect_eta+jj+jjj] -= conj_PRECISION(D[k*num_loop+jj+jjj])*phi[jj+jjj];)
+      VECTOR_LOOP( jj, n_vect, jjj, eta[jj+jjj]              += D[k*num_loop+jj+jjj]*phi[i*n_vect_phi+jj+jjj];) 
+      k++;
+      for ( j=1; j<i; j++, k++ ) {
+        VECTOR_LOOP( jj, n_vect, jjj, eta[j*n_vect_eta+jj+jjj] += D[k*num_loop+jj+jjj]*phi[i*n_vect_phi+jj+jjj];)
+        VECTOR_LOOP( jj, n_vect, jjj, eta[i*n_vect_eta+jj+jjj] -= conj_PRECISION(D[k*num_loop+jj+jjj])*phi[j*n_vect_phi+jj+jjj];)
+      }
+      VECTOR_LOOP( jj, n_vect, jjj, eta[i*n_vect_eta+jj+jjj] += D[k*num_loop+jj+jjj]*phi[i*n_vect_phi+jj+jjj];) 
+      k++;
+    }
+  }
+
+  // eta -= D*phi, D anti-hermitian in upper triangular form and stored columnwise packed
+  static inline void tm_mamvp_PRECISION( const buffer_PRECISION eta, const complex_PRECISION *D,
+					 const buffer_PRECISION phi, const register int n,
+					 const register int n_vect, const register int n_vect_eta, const register int n_vect_phi ) {
+    register int i, j, k, jj, jjj;
+
+#ifdef DEBUG
+    if ( n_vect != num_loop )
+      error0("tm_mamvp_PRECISION: assumptions are not met\n");
+#endif
+    // do mvp using Hermiticity by taking products of entries involving upper column and lower row meeting at each diagonal entry 
+    VECTOR_LOOP( jj, n_vect, jjj, eta[jj+jjj] -= D[jj+jjj]*phi[jj+jjj];)
+    for ( i=1, k=1; i<n; i++ ) {
+      VECTOR_LOOP( jj, n_vect, jjj, eta[i*n_vect_eta+jj+jjj] += conj_PRECISION(D[k*num_loop+jj+jjj])*phi[jj+jjj];)
+      VECTOR_LOOP( jj, n_vect, jjj, eta[jj+jjj]              -= D[k*num_loop+jj+jjj]*phi[i*n_vect_phi+jj+jjj];) 
+      k++;
+      for ( j=1; j<i; j++, k++ ) {
+        VECTOR_LOOP( jj, n_vect, jjj, eta[j*n_vect_eta+jj+jjj] -= D[k*num_loop+jj+jjj]*phi[i*n_vect_phi+jj+jjj];)
+        VECTOR_LOOP( jj, n_vect, jjj, eta[i*n_vect_eta+jj+jjj] += conj_PRECISION(D[k*num_loop+jj+jjj])*phi[j*n_vect_phi+jj+jjj];)
+      }
+      VECTOR_LOOP( jj, n_vect, jjj, eta[i*n_vect_eta+jj+jjj] -= D[k*num_loop+jj+jjj]*phi[i*n_vect_phi+jj+jjj];) 
+      k++;
+    }
+  }
+#endif
+
   // eta = clover*phi
   static inline void coarse_self_couplings_clover_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 							     config_PRECISION clover, int start, int end, level_struct *l ) {
@@ -215,8 +268,8 @@
     config_PRECISION clover_pt = clover;
     buffer_PRECISION phi_pt = phi->vector_buffer+start*site_var*nvec_phi, eta_pt = eta->vector_buffer+start*site_var*nvec_eta,
       phi_end_pt = phi->vector_buffer+end*site_var*nvec_phi;
-  
-/*#ifdef HAVE_TM1p1
+
+/*#ifdef HAVE_TM1p1_old
     if( g.n_flavours == 2 ) {
       while ( phi_pt < phi_end_pt ) {
         // A
@@ -269,6 +322,7 @@
       }
   }
 
+  // used only in coarse_operator_PRECISION_test_routine
   static inline void coarse_add_block_diagonal_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 							  config_PRECISION block, int length, level_struct *l ) {
     
@@ -282,7 +336,7 @@
     config_PRECISION block_pt = block;
     buffer_PRECISION phi_pt = phi->vector_buffer, eta_pt = eta->vector_buffer, phi_end_pt = phi->vector_buffer+length*nvec_phi;
 
-/*#ifdef HAVE_TM1p1
+/*#ifdef HAVE_TM1p1_old
     if( g.n_flavours == 2 ) {
       while ( phi_pt < phi_end_pt ) {
         // A
@@ -307,8 +361,8 @@
         block_pt += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
       }
   }
-
-  // used only for tm_term
+#if 0
+  // not used now
   static inline void coarse_add_anti_block_diagonal_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
 							       config_PRECISION block, int length, level_struct *l ) {
     
@@ -347,8 +401,9 @@
         block_pt += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
       }
   }
-
+#endif
 #ifdef HAVE_TM
+// replacing coarse_add_anti_block_diagonal_PRECISION
   static inline void coarse_add_tm_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, operator_PRECISION_struct *op, 
 						   int start, int end, level_struct *l ) {
     
@@ -370,25 +425,38 @@
     buffer_PRECISION phi_pt = phi->vector_buffer+start*site_var*nvec_phi, eta_pt = eta->vector_buffer+start*site_var*nvec_eta;
     buffer_PRECISION phi_end_pt = phi->vector_buffer+end*site_var*nvec_phi;
 
-/*#ifdef HAVE_TM1p1
+#ifdef HAVE_TM1p1
+#ifdef DEBUG
+    if ( g.n_flavours == 2 && ( nvec_phi != nvec_eta || nvec_phi != nvec || nvec != 2*num_loop ) )
+      error0("coarse_add_tm_term_PRECISION: assumptions are not met\n");
+#endif
     if( g.n_flavours == 2 ) {
       while ( phi_pt < phi_end_pt ) {
+#ifdef HAVE_MULT_TM 
         // A
-        pamvp_PRECISION( eta_pt, block_pt, phi_pt, num_eig_vect );
-        eta_pt += num_eig_vect; phi_pt += num_eig_vect;
-        mamvp_PRECISION( eta_pt, block_pt, phi_pt, num_eig_vect );
-        block_pt += block_step_size; eta_pt += num_eig_vect; phi_pt += num_eig_vect;
+        tm_pamvp_PRECISION( eta_pt, diag, phi_pt, num_eig_vect, nvec/2, nvec_eta, nvec_phi );
+        tm_mamvp_PRECISION( eta_pt + nvec_eta/2, diag, phi_pt +nvec_phi/2, num_eig_vect, nvec/2, nvec_eta, nvec_phi );
+        diag += block_step_size*num_loop; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
         // D
-        pamvp_PRECISION( eta_pt, block_pt, phi_pt, num_eig_vect );
-        eta_pt += num_eig_vect; phi_pt += num_eig_vect;
-        mamvp_PRECISION( eta_pt, block_pt, phi_pt, num_eig_vect );
-        block_pt += block_step_size; eta_pt += num_eig_vect; phi_pt += num_eig_vect;
+        tm_pamvp_PRECISION( eta_pt, diag, phi_pt, num_eig_vect, nvec/2, nvec_eta, nvec_phi );
+	tm_mamvp_PRECISION( eta_pt + nvec_eta/2, diag, phi_pt + nvec_phi/2, num_eig_vect, nvec/2, nvec_eta, nvec_phi );
+        diag += block_step_size*num_loop; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
+#else
+	error0("coarse_add_tm_term_PRECISION for this case is not implemented\n");
+#endif
       }
-    } else
-#endif*/
+    } else {
+#endif
 
       while ( phi_pt < phi_end_pt ) {
 #ifdef HAVE_MULT_TM
+	// A
+	tm_pamvp_PRECISION( eta_pt, diag, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+	diag += block_step_size*num_loop; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
+	// D
+	tm_pamvp_PRECISION( eta_pt, diag, phi_pt, num_eig_vect, nvec, nvec_eta, nvec_phi );
+        diag += block_step_size*num_loop; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
+#if 0
 	// A
         VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj] += diag[jj+jjj]*phi_pt[jj+jjj];)
         for ( i=1, k=1; i<num_eig_vect; i++ ) {
@@ -417,6 +485,7 @@
           k++;
         }
         diag += block_step_size*num_loop; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
+#endif
 #else
 #if 1
 	complex_PRECISION even[num_loop];
@@ -452,7 +521,7 @@
           k++;
         }
         diag += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
-#else
+#else // imprecise
         // A
 	VECTOR_LOOP( jj, nvec, jjj, eta_pt[jj+jjj] += -(odd+d_mu_eo[jj+jjj]*(1-diag[0]))*phi_pt[jj+jjj];)
 	for ( i=1, k=1; i<num_eig_vect; i++ ) {
@@ -484,32 +553,40 @@
 #endif
 #endif
       }
+#ifdef HAVE_TM1p1
+    }
+#endif
   }
 #endif
 
-  // used only if HAVE_TM1p1
-  static inline void coarse_add_doublet_coupling_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
-                                                          config_PRECISION block, int length, level_struct *l ) {
+  static inline void coarse_add_doublet_coupling_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, config_PRECISION block, 
+							    int start, int end, level_struct *l ) {
     
 #ifdef HAVE_TM1p1
-    int num_eig_vect = l->num_parent_eig_vect,
-      block_step_size = (num_eig_vect * (num_eig_vect+1))/2;
+    int num_eig_vect = l->num_parent_eig_vect, block_step_size = (num_eig_vect * (num_eig_vect+1))/2, site_var = l->num_lattice_site_var;
+    int nvec = phi->num_vect_now, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
     config_PRECISION block_pt = block;
-    buffer_PRECISION phi_pt=phi->vector_buffer, eta_pt=eta->vector_buffer, phi_end_pt=phi->vector_buffer+length;
-    // U(x) = [ 0 A      , A=-A*, D=-D* diag. excluded
-    //          D 0 ]
+    buffer_PRECISION phi_pt=phi->vector_buffer + start*site_var*nvec_phi, eta_pt=eta->vector_buffer+start*site_var*nvec_eta,
+      phi_end_pt=phi->vector_buffer+end*site_var*nvec_phi;
+    // U(x) = [ 0   u(x)
+    //          u(x) 0   ]
+    // u(x) = [ A 0     , A=-A*, D=-D* diag. excluded
+    //          0 D ]
     // storage order: upper triangle of A, upper triangle of D, columnwise
     // diagonal coupling
-    
+#ifdef DEBUG
+    if ( g.n_flavours == 2 && ( nvec_phi != nvec_eta || nvec_phi != nvec || nvec != 2*num_loop ) )
+      error0("coarse_add_doublet_coupling_PRECISION: assumptions are not met\n");
+#endif
     while ( phi_pt < phi_end_pt ) {
       // A
-      pamvp_PRECISION( eta_pt, block_pt, phi_pt+num_eig_vect, num_eig_vect );
-      pamvp_PRECISION( eta_pt+num_eig_vect, block_pt, phi_pt, num_eig_vect );
-      block_pt += block_step_size; eta_pt += 2*num_eig_vect; phi_pt += 2*num_eig_vect;
+      pamvp_PRECISION( eta_pt, block_pt, phi_pt+nvec_phi/2, num_eig_vect, nvec/2, nvec_eta, nvec_phi );
+      pamvp_PRECISION( eta_pt+nvec_eta/2, block_pt, phi_pt, num_eig_vect, nvec/2, nvec_eta, nvec_phi );
+      block_pt += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
       // D
-      pamvp_PRECISION( eta_pt, block_pt, phi_pt+num_eig_vect, num_eig_vect );
-      pamvp_PRECISION( eta_pt+num_eig_vect, block_pt, phi_pt, num_eig_vect );
-      block_pt += block_step_size; eta_pt += 2*num_eig_vect; phi_pt += 2*num_eig_vect;
+      pamvp_PRECISION( eta_pt, block_pt, phi_pt+nvec_phi/2, num_eig_vect, nvec/2, nvec_eta, nvec_phi );
+      pamvp_PRECISION( eta_pt+nvec_eta/2, block_pt, phi_pt, num_eig_vect, nvec/2, nvec_eta, nvec_phi );
+      block_pt += block_step_size; eta_pt += num_eig_vect*nvec_eta; phi_pt += num_eig_vect*nvec_phi;
     }
 #else
     warning0("coarse_add_doublet_coupling_PRECISION called without HAVE_TM1p1 defined.\n");
@@ -518,7 +595,7 @@
 }
 
   static inline void coarse_hopp_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi,
-						config_PRECISION D, level_struct *l ) {
+					    config_PRECISION D, level_struct *l ) {
   
     int num_eig_vect  = l->num_parent_eig_vect;
     int num_eig_vect2 = SQUARE(l->num_parent_eig_vect);
@@ -530,7 +607,7 @@
     // storage order: A, C, B, D
     // note: minus sign of D = self_coupling - hopping_term is added here
 
-/*#ifdef HAVE_TM1p1
+/*#ifdef HAVE_TM1p1_old
     if( g.n_flavours == 2 ) {
       // A  
       nmv_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
@@ -597,7 +674,7 @@
     // storage order: A, C, B, D
     // note: minus sign of D = self_coupling - hopping_term is added here
 
-/*#ifdef HAVE_TM1p1
+/*#ifdef HAVE_TM1p1_old
     if( g.n_flavours == 2 ) {
       // A* 
       nmvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );
@@ -729,7 +806,7 @@
     // storage order: A, C, B, D
     // note: minus sign of D = self_coupling - hopping_term is added here
 
-/*#ifdef HAVE_TM1p1
+/*#ifdef HAVE_TM1p1_old
     if( g.n_flavours == 2 ) {
       // A* 
       mvh_PRECISION( eta_pt, D, phi_pt, num_eig_vect );

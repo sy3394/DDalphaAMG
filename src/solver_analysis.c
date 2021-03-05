@@ -41,7 +41,7 @@ void test_routine( level_struct *l, struct Thread *threading ) {
       printf0("\nRunning tests with D = Wilson operator:\n");
 #endif
     }
-    
+    MPI_Barrier(MPI_COMM_WORLD);
     END_MASTER(threading)
 
       //mul_test( l, threading);
@@ -55,7 +55,7 @@ void test_routine( level_struct *l, struct Thread *threading ) {
       if ( g.method > 0 && g.method < 4 ) schwarz_double_mvm_testfun( &(l->s_double), l, threading );
       if ( g.method > 0 && g.method < 4 && g.odd_even ) block_oddeven_double_test( l, threading );
     }
-
+MPI_Barrier(MPI_COMM_WORLD);
 #if 1
     //    START_LOCKED_MASTER(threading)
     if ( g.interpolation && g.method > 0 ) {
@@ -66,6 +66,7 @@ void test_routine( level_struct *l, struct Thread *threading ) {
     }
     //    END_LOCKED_MASTER(threading)
 #endif
+    MPI_Barrier(MPI_COMM_WORLD);
     START_MASTER(threading)
     if (g.test < 1e-5)
       printf0("TESTS passed, highest error %e < 1e-5\n", g.test);
@@ -75,10 +76,10 @@ void test_routine( level_struct *l, struct Thread *threading ) {
     END_MASTER(threading)
   }
   //            error0("STOP\n");
-/*
+
 #ifdef HAVE_TM1p1
   if( g.n_flavours==1 &&
-      (g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0) ) {
+      (g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 || g.force_2flavours) ) {
     
     if ( g.method >= 0 ) {
       START_MASTER(threading)
@@ -87,7 +88,7 @@ void test_routine( level_struct *l, struct Thread *threading ) {
       END_MASTER(threading)
 
       data_layout_n_flavours( 2, l, threading );
-      
+
       if ( g.mixed_precision ) 
         two_flavours_test_float( &(l->s_float.op), l, threading ); 
       else 
@@ -122,7 +123,7 @@ void test_routine( level_struct *l, struct Thread *threading ) {
     }
   }
 #endif
-*/
+
 #endif
 }
 

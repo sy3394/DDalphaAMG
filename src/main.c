@@ -19,6 +19,7 @@
  */
  
 #include "main.h"
+#include <unistd.h>
 
 global_struct g;
 #ifdef HAVE_HDF5
@@ -28,7 +29,16 @@ struct common_thread_data *commonthreaddata;
 struct Thread *no_threading; // no_threading is global both in serial and thread pralel region
 
 int main( int argc, char **argv ) {
-    
+#if 0
+  int ifl = 0;
+  char hostname[256];
+  gethostname(hostname, sizeof(hostname));
+  printf("PID %d on %s ready for attach\n", getpid(), hostname);
+  fflush(stdout);
+  while (0 == ifl)
+    sleep(5);
+  #endif
+ 
 #ifdef HAVE_HDF5
   h5info.filename=NULL;
   h5info.file_id=-1; 

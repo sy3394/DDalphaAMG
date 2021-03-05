@@ -62,18 +62,20 @@ void gathering_PRECISION_next_level_init( gathering_PRECISION_struct *gs, level_
 }
 
 void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l ) {
-  
-  // define data merging
-  // define data gathering permutation
-  int i, mu, current_rank, offset, offset_sum, nvect = num_loop;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//!!!!!!!!!
+  /*
+   * Define gathering_PRECISION_struct 
+   * Setup the permutation table for data gathering/distribution
+   *
+   */
+
+  int i, mu, current_rank, offset, offset_sum, nvect = num_loop;
   int process_coords[4] = {0,0,0,0}, parent_coords[4] = {0,0,0,0}, *process_list = NULL;
-  // for sites in the child processes
-  MALLOC( process_list, int, l->num_processes );
 #ifdef HAVE_TM1p1
-  MALLOC( gs->transfer_buffer.vector_buffer, complex_PRECISION, 2 * gs->dist_inner_lattice_sites * l->num_lattice_site_var * nvect );
-#else
+  nvect *= 2;
+#endif
+
+  MALLOC( process_list, int, l->num_processes );
   MALLOC( gs->transfer_buffer.vector_buffer, complex_PRECISION, gs->dist_inner_lattice_sites * l->num_lattice_site_var * nvect );
-#endif  
   gs->transfer_buffer.num_vect = nvect;
   gs->transfer_buffer.size = gs->dist_inner_lattice_sites * l->num_lattice_site_var;
 
@@ -114,21 +116,16 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
   MPI_Group_incl( g.global_comm_group, l->num_processes, process_list, &(gs->level_comm_group) );
   MPI_Comm_create( g.comm_cart, gs->level_comm_group, &(gs->level_comm) );
   FREE( process_list, int, l->num_processes );
-  
+
+  //---- define gs->permutation, gs->gather_list
   if ( !l->idle ) { // only parent performs the folowing setup
     int d0, c0, b0, a0, d1, c1, b1, a1, t, z, y, x, k, j, *field1=NULL, *field2=NULL, *count[4],
     merge[4], block_size[4], block_split[4], agg_split[4];
     MALLOC( gs->gather_list, int, gs->gather_list_length );
     MALLOC( gs->permutation, int, l->num_inner_lattice_sites );
     MALLOC( gs->reqs, MPI_Request, gs->gather_list_length );
-#ifdef HAVE_TM1p1
-    vector_PRECISION_alloc( &(gs->buffer), _INNER, 2*nvect, l, no_threading );
-#else
-    vector_PRECISION_alloc( &(gs->buffer), _INNER, 1*nvect, l, no_threading );
-#endif
-    gs->buffer.num_vect = nvect;
-
-    //---- define gs->permutation, gs->gather_list
+    vector_PRECISION_alloc( &(gs->buffer), _INNER, nvect, l, no_threading );
+    
     MALLOC( field1, int, l->num_inner_lattice_sites );
     MALLOC( field2, int, l->num_inner_lattice_sites );
     
@@ -246,9 +243,6 @@ void gathering_PRECISION_setup( gathering_PRECISION_struct *gs, level_struct *l 
 void gathering_PRECISION_free( gathering_PRECISION_struct *gs, level_struct *l ) {
   
   int nvec = gs->transfer_buffer.num_vect;
-#ifdef HAVE_TM1p1
-  nvec *= 2;
-#endif
 
   if ( !l->idle ) {
     FREE( gs->gather_list, int, gs->gather_list_length );
@@ -454,8 +448,6 @@ void conf_PRECISION_gather( operator_PRECISION_struct *out, operator_PRECISION_s
   l->dummy_p_PRECISION.eval_operator = apply_coarse_operator_PRECISION;
 }
 
-// when #process decreases in going deeper, gather entries needed to do restriction from other ranks to the parent, and parent hold phi_c entries
-// otherwise, simply gath <- dist after reordering
 void vector_PRECISION_gather( vector_PRECISION *gath, vector_PRECISION *dist, level_struct *l ) {
   /*************************
    * Description: gather values on the sites also belongin to the child processes to the parent process
@@ -464,14 +456,18 @@ void vector_PRECISION_gather( vector_PRECISION *gath, vector_PRECISION *dist, le
    * Output:
    *   vector_PRECISION *gath: a new local vector consisting of entries including the ones gathered from child/idle ranks
    * note: need to send all vectors in dist irrespective of how many are currently used as the data are consecutive
+   * comment: when #process decreases in going deeper, gather entries needed to do restriction from other ranks to the parent, and parent hold phi_c entries 
+   *          otherwise, simply gath <- dist after reordering
    ************************/
 
   int nvect = dist->num_vect_now, nvect_dist = dist->num_vect, nvect_gath = gath->num_vect;
   int send_size = l->gs_PRECISION.dist_inner_lattice_sites * l->num_lattice_site_var;
 
+#ifdef DEBUG
   if ( l->gs_PRECISION.buffer.num_vect < nvect_dist )
     error0("vector_PRECISION_gather: potential memory overflow\n");
-
+#endif
+  
   if ( g.my_rank != l->parent_rank ) {
     MPI_Send( dist->vector_buffer, send_size*nvect_dist, MPI_COMPLEX_PRECISION, l->parent_rank, g.my_rank, g.comm_cart );
   } else {
@@ -514,10 +510,12 @@ void vector_PRECISION_distribute( vector_PRECISION *dist, vector_PRECISION *gath
 
   int nvec = dist->num_vect_now, nvec_dist = dist->num_vect, nvec_gath = gath->num_vect;//nvec:tmp fix as dist contains MIN!!!!!!!
   int send_size = l->gs_PRECISION.dist_inner_lattice_sites * l->num_lattice_site_var;
-  
-  if ( l->gs_PRECISION.buffer.num_vect < nvec_dist || nvec_dist < nvec )//???????
-    error0("vector_PRECISION_gather: potential memory overflow\n");
 
+#ifdef DEBUG
+  if ( l->gs_PRECISION.buffer.num_vect < nvec_dist )
+    error0("vector_PRECISION_gather: potential memory overflow\n");
+#endif
+  
   if ( g.my_rank != l->parent_rank ) {// if I am a child 
     MPI_Recv( dist->vector_buffer, send_size*nvec_dist, MPI_COMPLEX_PRECISION, l->parent_rank, g.my_rank, g.comm_cart, MPI_STATUS_IGNORE );//!!!!
   } else { //if I am a parent

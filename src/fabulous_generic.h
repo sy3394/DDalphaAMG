@@ -22,17 +22,17 @@
 
   void fabulous_PRECISION_init( fabulous_PRECISION_struct *fab );
   void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_struct *l, struct Thread *threading );
+  void fabulous_PRECISION_free( fabulous_PRECISION_struct *fab, level_struct *l, struct Thread *threading );
+
 
   int64_t mvpf_PRECISION(  void *user_env, int N,
 			   const void *alpha, const void *XX, int ldx,
 			   const void *beta, void *BB, int ldb);
-
   int64_t dot_product_PRECISION(void *user_env,
 				int M, int N,
 				const void *A_, int lda,
 				const void *B_, int ldb,
 				void *C_, int ldc);
-
   int64_t fabulous_rightprecond_PRECISION(void *user_env, int N,
 					  const void *XX, int ldx,
 					  void *BB, int ldb);
@@ -42,6 +42,5 @@
 				const void *RR, int ldr,
 				fabulous_handle handle);
 
-  void fabulous_PRECISION_free( fabulous_PRECISION_struct *fab, level_struct *l, struct Thread *threading );
-
+  void reset_fab_nrhs_PRECISION( level_struct *l );
 #endif

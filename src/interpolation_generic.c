@@ -98,12 +98,14 @@ void interpolate_PRECISION( vector_PRECISION *phi, vector_PRECISION *phi_c, leve
   int num_eig_vect        = l->num_eig_vect;
   int num_parent_eig_vect = l->num_parent_eig_vect;
   int aggregate_sites     = l->num_inner_lattice_sites / num_aggregates;
-  int n_vect = MIN(phi->num_vect_now, phi_c->num_vect_now),  n_vect_phi = phi->num_vect, n_vect_phic = l->next_level->gs_PRECISION.transfer_buffer.num_vect;
+  int n_vect = phi_c->num_vect_now,  n_vect_phi = phi->num_vect, n_vect_phic = l->next_level->gs_PRECISION.transfer_buffer.num_vect;
   complex_PRECISION *operator, *phi_pt, *phi_c_pt;
 
-  if ( n_vect == 0 )
+#ifdef DEBUG
+  if ( n_vect == 0 || n_vect != phi->num_vect_now)
     error0("interpolate_PRECISION: assumptions are not met\n");
-
+#endif
+  
   l->next_level->gs_PRECISION.transfer_buffer.num_vect_now = n_vect;
   START_LOCKED_MASTER(threading)
   vector_PRECISION_distribute( &(l->next_level->gs_PRECISION.transfer_buffer), phi_c, l->next_level );
@@ -153,12 +155,14 @@ void interpolate3_PRECISION( vector_PRECISION *phi, vector_PRECISION *phi_c, lev
   int num_eig_vect        = l->num_eig_vect;
   int num_parent_eig_vect = l->num_parent_eig_vect; 
   int aggregate_sites     = l->num_inner_lattice_sites / num_aggregates;
-  int n_vect = MIN( phi->num_vect_now, phi_c->num_vect_now), n_vect_phi = phi->num_vect, n_vect_phic = l->next_level->gs_PRECISION.transfer_buffer.num_vect;
+  int n_vect = phi_c->num_vect_now, n_vect_phi = phi->num_vect, n_vect_phic = l->next_level->gs_PRECISION.transfer_buffer.num_vect;
   complex_PRECISION *operator, *phi_pt, *phi_c_pt;
 
-  if ( n_vect == 0 )
+#ifdef DEBUG
+  if ( n_vect == 0 || n_vect != phi->num_vect_now )
     error0("interpolate3_PRECISION: assumptions are not met\n");
-
+#endif
+  
   l->next_level->gs_PRECISION.transfer_buffer.num_vect_now = n_vect;
   START_LOCKED_MASTER(threading)
   vector_PRECISION_distribute( &(l->next_level->gs_PRECISION.transfer_buffer), phi_c, l->next_level );
@@ -203,8 +207,8 @@ void restrict_PRECISION( vector_PRECISION *phi_c, vector_PRECISION *phi, level_s
    *  restrict phi based on eigenvectors in l to get phi_c
    ***********************************************/
 
-  SYNC_CORES(threading)
-  SYNC_HYPERTHREADS(threading)
+  //SYNC_CORES(threading)//!!!!!!!
+  //SYNC_HYPERTHREADS(threading)
 
   PROF_PRECISION_START( _PR, threading );
   int i, j, k, k1, k2, jj, jjj, sign = 1;
@@ -212,12 +216,14 @@ void restrict_PRECISION( vector_PRECISION *phi_c, vector_PRECISION *phi, level_s
   int num_eig_vect        = l->num_eig_vect;
   int num_parent_eig_vect = l->num_parent_eig_vect;
   int aggregate_sites     = l->num_inner_lattice_sites / num_aggregates;
-  int n_vect = MIN(phi->num_vect_now, phi_c->num_vect_now), n_vect_phi = phi->num_vect, n_vect_phic = l->next_level->gs_PRECISION.transfer_buffer.num_vect;
+  int n_vect = phi->num_vect_now, n_vect_phi = phi->num_vect, n_vect_phic = l->next_level->gs_PRECISION.transfer_buffer.num_vect;
   complex_PRECISION *operator, *phi_pt, *phi_c_pt;
 
-  if ( n_vect == 0 )
+#ifdef DEBUG
+  if ( n_vect == 0 || n_vect != MAX(phi->num_vect_now, phi_c->num_vect_now) )
     error0("restrict_PRECISION: assumptions are not met\n");
-
+#endif
+  
   l->next_level->gs_PRECISION.transfer_buffer.num_vect_now = n_vect;
   for ( i=threading->n_thread*threading->core + threading->thread; i<num_aggregates; i+=threading->n_core*threading->n_thread ) {
     phi_pt   = phi->vector_buffer + i*aggregate_sites*2*num_parent_eig_vect*n_vect_phi;

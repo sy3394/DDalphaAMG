@@ -129,7 +129,11 @@ void operator_PRECISION_alloc( operator_PRECISION_struct *op, const int type, le
 #endif
     }
 #ifdef HAVE_TM1p1
+#ifdef HAVE_MULT_TM
+    MALLOC( op->clover_doublet_oo_inv, complex_PRECISION, g.num_rhs_vect*12*12*2*(l->num_inner_lattice_sites/2+1) );
+#else
     MALLOC( op->clover_doublet_oo_inv, complex_PRECISION, 12*12*2*(l->num_inner_lattice_sites/2+1) );
+#endif
 #endif
   }  
 
@@ -227,7 +231,11 @@ void operator_PRECISION_free( operator_PRECISION_struct *op, const int type, lev
 #endif
     }
 #ifdef HAVE_TM1p1
+#ifdef HAVE_MULT_TM
+    FREE( op->clover_doublet_oo_inv, complex_PRECISION, g.num_rhs_vect*12*12*2*(l->num_inner_lattice_sites/2+1) );
+#else
     FREE( op->clover_doublet_oo_inv, complex_PRECISION, 12*12*2*(l->num_inner_lattice_sites/2+1) );
+#endif
 #endif
   }  
 
@@ -267,16 +275,14 @@ void operator_PRECISION_free( operator_PRECISION_struct *op, const int type, lev
   }
 }
 
-static void operator_PRECISION_alloc_projection_buffers( operator_PRECISION_struct *op, level_struct *l ) {//!!!!!!!!
+static void operator_PRECISION_alloc_projection_buffers( operator_PRECISION_struct *op, level_struct *l ) {
 
-  // when used as preconditioner we usually do not need the projection buffers, unless
-  // g.method >= 4: then oddeven_setup_float() is called in init.c, method_setup(). ???????
-  int n_vect = num_loop;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//g.num_vect_now;//!!!!!!!g.num_rhs_vect
+  int n_vect = num_loop;
+#ifdef HAVE_TM1p1
+  n_vect *= 2;
+#endif
   if ( l->depth == 0 ) {
     int its = (l->num_lattice_site_var/2)*l->num_lattice_sites*n_vect; // half of spinor d.o.f. projected out
-#ifdef HAVE_TM1p1
-    its *= 2;
-#endif
     MALLOC( op->prnT, complex_PRECISION, its*8 );
     op->prnZ = op->prnT + its; op->prnY = op->prnZ + its; op->prnX = op->prnY + its;
     op->prpT = op->prnX + its; op->prpZ = op->prpT + its; op->prpY = op->prpZ + its; op->prpX = op->prpY + its;
@@ -289,9 +295,6 @@ static void operator_PRECISION_free_projection_buffers( operator_PRECISION_struc
   if ( l->depth == 0 ) {
     int n_vect = op->pr_num_vect;
     int its = (l->num_lattice_site_var/2)*l->num_lattice_sites*n_vect;
-#ifdef HAVE_TM1p1
-    its *= 2;
-#endif
     FREE( op->prnT, complex_PRECISION, its*8 );
   }
 }
@@ -316,7 +319,7 @@ void operator_PRECISION_define( operator_PRECISION_struct *op, level_struct *l )
   // Define index table: it[lex(site)] = local_lex_index
   // In the op array, sites are ordered from x(fastest) to t(slowest)
   // with inner cuboid first and then +T,+Z,+Y,+X boundaries
-  // lexicographic inner cuboid and //?????why inner???
+  // lexicographic inner cuboid and 
   // lexicographic +T,+Z,+Y,+X boundaries
   i=0;
   // inner hyper cuboid
@@ -363,11 +366,18 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
 * If enabled, also tests odd even preconditioning.
 *********************************************************************************/ 
 
-  int ivs = l->inner_vector_size, n_vect=num_loop;
-  double diff, diff1[n_vect], diff2[n_vect];
-  
+  int ivs = l->inner_vector_size, n_vect=num_loop, n_vectsf = num_loop;
   vector_double vd[4];
   vector_PRECISION vp[2];
+
+#ifdef HAVE_TM1p1
+  if ( g.n_flavours > 1) {
+    n_vect *= g.n_flavours;
+    if( ! (g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0))
+      n_vectsf *=  g.n_flavours;
+  }
+#endif
+  double diff, diff1[n_vect], diff2[n_vect];
 
   for(int i=0; i<4; i++){
     vector_double_init( &vd[i] );
@@ -394,7 +404,7 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
   global_norm_double( diff1, &vd[3], 0, ivs, l, no_threading );
   global_norm_double( diff2, &vd[2], 0, ivs, l, no_threading );
   
-  for(int i=0; i<n_vect; i++)
+  for(int i=0; i<n_vectsf; i++)
     test0_PRECISION("depth: %d, correctness of schwarz PRECISION Dirac operator: %le\n", l->depth, diff1[i]/diff2[i] );
   END_LOCKED_MASTER(threading)
 
@@ -411,7 +421,7 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
 
     if ( diff > EPS_PRECISION )
       printf0("\x1b[31m");
-    for(int i=0; i<n_vect; i++)
+    for(int i=0; i<n_vectsf; i++)
       printf0("depth: %d, correctness of schwarz PRECISION Dirac operator with threading: %le\n", l->depth, diff1[i]/diff2[i] );
     if ( diff > EPS_PRECISION )
       printf0("\x1b[0m");

@@ -26,28 +26,30 @@
 
 void ghost_alloc_PRECISION( int buffer_size, comm_PRECISION_struct *c, level_struct *l ) {
   
-  int mu, nu, factor=1, n_vect = num_loop;//(g.num_rhs_vect < l->num_eig_vect)? l->num_eig_vect:g.num_rhs_vect;//!!!!!!!
-  
+  int mu, nu, factor=1, n_vect = num_loop;
+
+  // offset is internal d.o.f. communicated.
   if ( l->depth > 0 ) {
+    // full internal d.o.f. is transferred
     c->offset = l->num_lattice_site_var;
   } else {
-    c->offset = l->num_lattice_site_var/2;//why divide by 2???? probably b/c only half of d.o.f are used; other half projected out
-    if ( g.method < 6 )
-      factor = 2;
+    // Only, half spinor (01 components) is transferred at the top, as the other half is projected out
+    c->offset = l->num_lattice_site_var/2;
+    if ( g.method < 5 )
+      factor = 2; // In ghost_update_PRECISION for smoother, we need full internal d.o.f.
   }
 
 #ifdef HAVE_TM1p1
-  factor *= 2;
   n_vect *= 2;
 #endif
 
-  //--- set c->comm_start,c->length, and c->max_length and allocate c->buffer
-  if ( buffer_size <= 0 ) {
+  //--- set c->comm_start, c->length, and c->max_length and allocate c->buffer
+  if ( buffer_size <= 0 ) { // default
     c->comm_start[0] = c->offset*l->num_inner_lattice_sites;
     c->comm_start[1] = c->offset*l->num_inner_lattice_sites;
     for ( mu=0; mu<4; mu++ ) {
       if ( mu > 0 ) {
-        c->comm_start[2*mu] = c->comm_start[2*(mu-1)] + buffer_size;
+        c->comm_start[2*mu]   = c->comm_start[2*(mu-1)]   + buffer_size;
         c->comm_start[2*mu+1] = c->comm_start[2*(mu-1)+1] + buffer_size;
       }
       buffer_size = c->offset;
@@ -56,15 +58,15 @@ void ghost_alloc_PRECISION( int buffer_size, comm_PRECISION_struct *c, level_str
           buffer_size *= l->local_lattice[nu];
         }
       }
-      c->length[2*mu]  = buffer_size;
+      c->length[2*mu]   = buffer_size;
       c->length[2*mu+1] = buffer_size;
       c->max_length[mu] = factor*buffer_size;
-      MALLOC( c->buffer[2*mu],   complex_PRECISION, factor*buffer_size*n_vect );
+      MALLOC( c->buffer[2*mu],   complex_PRECISION, factor*buffer_size*n_vect );//printf("ghot aloc(%d) %d: %d %d\n",l->depth,mu,factor*buffer_size,n_vect);
       MALLOC( c->buffer[2*mu+1], complex_PRECISION, factor*buffer_size*n_vect );
-      c->in_use[2*mu] = 0;
+      c->in_use[2*mu]   = 0;
       c->in_use[2*mu+1] = 0;
     }
-  } else {
+  } else { // used when reallocating the below fields in case of memory shortage in ghost_sendrecv_PRECISION
     for ( mu=0; mu<4; mu++ ) {
       c->max_length[mu] = buffer_size;
       MALLOC( c->buffer[2*mu],   complex_PRECISION, buffer_size*n_vect );
@@ -73,13 +75,14 @@ void ghost_alloc_PRECISION( int buffer_size, comm_PRECISION_struct *c, level_str
   }
 
   //--- allocate l->vbuf_PRECISION[4]
- if ( l->vbuf_PRECISION[4].vector_buffer == NULL ) {
-   // no_threading is not allocated yet
+  if ( l->vbuf_PRECISION[4].vector_buffer == NULL ) {
+    // no_threading is not allocated yet
     //vector_PRECISION_alloc( &(l->vbuf_PRECISION[4]), _ORDINARY, n_vect, l, no_threading);
     MALLOC( l->vbuf_PRECISION[4].vector_buffer, complex_PRECISION, l->vector_size*n_vect );
     l->vbuf_PRECISION[4].type = _ORDINARY;
     l->vbuf_PRECISION[4].size = l->vector_size;
-    l->vbuf_PRECISION[4].num_vect = n_vect; 
+    l->vbuf_PRECISION[4].num_vect = n_vect;
+    l->vbuf_PRECISION[4].num_vect_now = n_vect;
     l->vbuf_PRECISION[4].l = l;
   }
   c->num_vect = n_vect;
@@ -96,13 +99,6 @@ void ghost_free_PRECISION( comm_PRECISION_struct *c, level_struct *l ) {
   if ( l->vbuf_PRECISION[4].vector_buffer != NULL ){
     //vector_PRECISION_free( &(l->vbuf_PRECISION[4]), l, no_threading);
     FREE(l->vbuf_PRECISION[4].vector_buffer, complex_PRECISION, l->vector_size*n_vect);
-    /*
-#ifdef HAVE_TM1p1		
-     FREE( l->vbuf_PRECISION[4].vector_buffer, complex_PRECISION, 2*l->vector_size );		
- #else		
-     FREE( l->vbuf_PRECISION[4].vector_buffer, complex_PRECISION, l->vector_size );		
- #endif
-    */
    }
 }
 
@@ -135,8 +131,8 @@ void ghost_sendrecv_PRECISION( buffer_PRECISION phi, const int mu, const int dir
     int i, j, jj, jjj, *table=NULL, mu_dir = 2*mu-MIN(dir,0), offset = c->offset, length[2] = {0,0}, comm_start = 0, table_start = 0;
     int nvec = g.num_vect_pass1, nvec_phi = g.num_vect_pass2, nvec_com=c->num_vect;//temp fix!!!!!!!!
     buffer_PRECISION buffer, phi_pt;
-    //    printf0("sd re: %d %d %d %d\n", nvec, nvec_phi, nvec_com, offset);    
-    // offset is internal d.o.f. if at the top and half of that if not
+
+    // offset = (internal d.o.f.)/2 if at the top; offset = (internal d.o.f.) if not.
     if ( amount == _FULL_SYSTEM ) {
       length[0]   = (c->num_boundary_sites[2*mu])*offset;   // #inner boundary sites on the positive mu dir x offset
       length[1]   = (c->num_boundary_sites[2*mu+1])*offset; // #inner boundary sites on the negative mu dir x offset
@@ -154,15 +150,6 @@ void ghost_sendrecv_PRECISION( buffer_PRECISION phi, const int mu, const int dir
       table_start = c->num_even_boundary_sites[mu_dir];
     }
 
-/*#ifdef HAVE_TM1p1
-    if ( g.n_flavours == 2 ) {
-      length[0] *= 2;
-      length[1] *= 2;
-      comm_start *= 2;
-      offset *= 2;
-    }
-#endif*/
-
     ASSERT( c->in_use[mu_dir] == 0 );
     c->in_use[mu_dir] = 1;
 
@@ -173,9 +160,8 @@ void ghost_sendrecv_PRECISION( buffer_PRECISION phi, const int mu, const int dir
     }
     
     buffer = (buffer_PRECISION)c->buffer[mu_dir];
-
     // dir = senddir
-    if ( dir == 1 ) {
+    if ( dir == 1 ) {//printf0("send 1: %d, %d %d\n",c->max_length[mu],length[1],nvec_phi);fflush(stdout);
       // data to be communicated is stored serially in the vector phi
       // recv target is a buffer
       // afterwards (in ghost_wait) the data has to be distributed onto the correct sites
@@ -214,7 +200,7 @@ void ghost_sendrecv_PRECISION( buffer_PRECISION phi, const int mu, const int dir
       }
       buffer = (buffer_PRECISION)c->buffer[mu_dir];//move back to the head
       phi_pt = phi + comm_start*nvec_phi;// move to the end of inner vector
-      
+
       if ( length[0] > 0 ) {
         PROF_PRECISION_START( _OP_COMM );
         MPI_Irecv( phi_pt, length[0]*nvec_phi, MPI_COMPLEX_PRECISION,
@@ -232,30 +218,26 @@ void ghost_sendrecv_PRECISION( buffer_PRECISION phi, const int mu, const int dir
   }
 }
 
-// if dir is positive, wait (make sure to recieve the data) and update the ghost cells
-// if dir is negative, just wait
 void ghost_wait_PRECISION( buffer_PRECISION phi, const int mu, const int dir,
                            comm_PRECISION_struct *c, const int amount, level_struct *l ) {
   
   /*
    * dir
-   *   if +1: wait and set neg mu inner boundary sites from buffer
+   *   if +1: wait for incoming data arriving into buffer and set neg mu inner boundary sites from buffer
    *   if -1: wait
    */
+  
   if( l->global_splitting[mu] > 1 ) {    
     int mu_dir = 2*mu-MIN(dir,0);
     int i, j, jj, jjj, *table, offset = c->offset, length[2]={0,0}, table_start = 0;
     int nvec = g.num_vect_pass1 ,nvec_phi=g.num_vect_pass2, nvec_com = c->num_vect;
     buffer_PRECISION buffer, phi_pt;
 
-/*#ifdef HAVE_TM1p1
-    if ( g.n_flavours == 2 )
-      offset *= 2;
-#endif*/
-      
+#ifdef DEBUG
     if ( nvec_com < nvec )
       error0("ghost_wait_PRECISION_: potential memory overflow (%d %d)\n", nvec_com,nvec);
-
+#endif
+    
     if ( amount == _FULL_SYSTEM ) {
       length[0] = (c->num_boundary_sites[2*mu])*offset;
       length[1] = (c->num_boundary_sites[2*mu+1])*offset;
@@ -293,19 +275,15 @@ void ghost_wait_PRECISION( buffer_PRECISION phi, const int mu, const int dir,
       if ( l->depth == 0 ) {
         for ( j=0; j<num_boundary_sites; j++ ) {
           phi_pt = phi + table[j]*offset*nvec_phi;
-          
-          for ( i=0; i<offset; i++ )
+	  for ( i=0; i<offset; i++ )
             VECTOR_LOOP( jj, nvec, jjj, phi_pt[i*nvec_phi+jj+jjj] = buffer[i*nvec_phi+jj+jjj];)
-          
           buffer += offset*nvec_phi;
         }
       } else {
         for ( j=0; j<num_boundary_sites; j++ ) {
           phi_pt = phi + table[j]*offset*nvec_phi;
-          
           for ( i=0; i<offset; i++ )
             VECTOR_LOOP( jj, nvec, jjj, phi_pt[i*nvec_phi+jj+jjj] += buffer[i*nvec_phi+jj+jjj];)
-          
           buffer += offset*nvec_phi;
         }
       }
@@ -321,26 +299,32 @@ void ghost_wait_PRECISION( buffer_PRECISION phi, const int mu, const int dir,
         MPI_Wait( &(c->rreqs[2*mu+1]), MPI_STATUS_IGNORE );
         PROF_PRECISION_STOP( _OP_IDLE, 1 );
       }
-      
     } else ASSERT( dir == 1 || dir == -1 );
     
     c->in_use[mu_dir] = 0;
   }
 }
 
-// used only in Schwarz method: update the full ghost shell
-// assume: phi is of size _SCHWARZ
 void ghost_update_PRECISION( vector_PRECISION *phi, const int mu, const int dir, comm_PRECISION_struct *c, level_struct *l ) {
-
+  /*
+   * updates the full ghost shell
+   *
+   * Assume: phi is of size _SCHWARZ
+   * dir == -1: updates negative ghost shell
+   * dir == +1: updates positive ghost shell
+   * Comment: used only in Schwarz method
+   */
   if( l->global_splitting[mu] > 1 ) {
     int i, j, jj, jjj, mu_dir = 2*mu-MIN(dir,0), nu, inv_mu_dir = 2*mu+1+MIN(dir,0), length, *table=NULL,
       comm_start, num_boundary_sites, site_var;
     int nvec_phi = phi->num_vect, nvec_com=c->num_vect;
     buffer_PRECISION buffer, recv_pt, phi_pt;
-    
+
+#ifdef DEBUG
     if ( nvec_com < nvec_phi )
       error0("ghost_update_PRECISION: potential memory overflow\n");
-
+#endif
+    
     site_var = l->num_lattice_site_var;
     length = c->num_boundary_sites[mu_dir]*l->num_lattice_site_var*nvec_phi;
     num_boundary_sites = c->num_boundary_sites[mu_dir];
@@ -401,8 +385,6 @@ void ghost_update_wait_PRECISION( vector_PRECISION *phi, const int mu, const int
   }
 }
 
-// send inner boundary sites on the negative mu boundary in the negative mu dir and
-// recieve inner boundary sites from rank in the positive mu dir and store the associated ghost cells
 void negative_sendrecv_PRECISION( vector_PRECISION *phi, const int mu, comm_PRECISION_struct *c, level_struct *l ) {
   /**************************
    * dir = -1
@@ -417,8 +399,10 @@ void negative_sendrecv_PRECISION( vector_PRECISION *phi, const int mu, comm_PREC
     int n                  = l->num_lattice_site_var;
     int nvec = phi->num_vect;
 
+#ifdef DEBUG
     if ( l->vbuf_PRECISION[4].num_vect < nvec )
       error0("negative_sendrecv_PRECISION: potential memory overflow\n");
+#endif
     
     buffer_PRECISION buffer, tmp_pt, buffer_pt;
 
@@ -426,10 +410,8 @@ void negative_sendrecv_PRECISION( vector_PRECISION *phi, const int mu, comm_PREC
     for ( i=0; i<mu; i++ )
       boundary_start += c->num_boundary_sites[2*i]; // starting index of ghost cells of the negative mu boundary
 
-    //printf("negative_sendrecv_PRECISION %d %d %d %d %d\n",nvec, l->vbuf_PRECISION[8].num_vect, l->vbuf_PRECISION[8].size,n*(boundary_start-l->num_inner_lattice_sites),n*num_boundary_sites);fflush(stdout);
     buffer    = l->vbuf_PRECISION[4].vector_buffer+n*(boundary_start-l->num_inner_lattice_sites)*nvec;
     buffer_pt = buffer;
-    
     // for each site on the negative mu inner boundary, set buffer_pt, i.e., buffer, to the value of phi at the site 
     for ( i=0; i<num_boundary_sites; i++ ) {
       tmp_pt = phi->vector_buffer + n*boundary_table[i]*nvec;

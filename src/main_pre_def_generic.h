@@ -31,11 +31,10 @@
   typedef struct {
     buffer_PRECISION vector_buffer;
     int num_vect;
-    int num_vect_now;//may not be needed
+    int num_vect_now;
     int layout;
     int type;
     int size;
-    int start, end;//not needed!!!!!!
     struct level_struct *l;
   } vector_PRECISION;
 
@@ -68,7 +67,7 @@
         *neighbor_table, *translation_table, table_dim[4],
         *backward_neighbor_table,
         table_mod_dim[4], *config_boundary_table[4];
-    vector_PRECISION *buffer;
+    vector_PRECISION *buffer; // used in computing schur_complement
     buffer_PRECISION prnT, prnZ, prnY, prnX, prpT, prpZ, prpY, prpX;
     comm_PRECISION_struct c;
 #ifdef HAVE_TM
@@ -84,7 +83,7 @@
 
 #ifdef HAVE_FABULOUS
   typedef struct {
-    int dim, nrhs, ldb, ldx, k;
+    int nrhs, dim, ldb, ldx, k;
     vector_PRECISION B, X, B0, X0, C0;
     void *eigvals;  
     fabulous_handle handle;
@@ -113,7 +112,7 @@
     operator_PRECISION_struct op;
     vector_PRECISION buf[5];
     vector_PRECISION oe_buf[4];
-    buffer_PRECISION local_minres_buffer[3];
+    vector_PRECISION local_minres_buffer[3];
     int block_oe_offset, *index[4],  dir_length[4], num_blocks, //# blocks within a local lattice
       num_colors, // # colors used to color/partition the local lattice in SAP
         dir_length_even[4], dir_length_odd[4], *oe_index[4],
@@ -127,8 +126,8 @@
   typedef struct {
     int num_agg, *agg_index[4], agg_length[4], *agg_boundary_index[4],
         *agg_boundary_neighbor[4], agg_boundary_length[4], num_bootstrap_vect;
-    vector_PRECISION *bootstrap_vector, tmp, test_vector_vec, interpolation_vec;//*test_vector, *interpolatio
-    complex_PRECISION *operator, *eigenvalues, *bootstrap_eigenvalues;
+    vector_PRECISION test_vector_vec, interpolation_vec;//*test_vector, *interpolatio *bootstrap_vector, tmp,
+    complex_PRECISION *operator, *eigenvalues; //, *bootstrap_eigenvalues;
   } interpolation_PRECISION_struct;
 
   typedef struct {

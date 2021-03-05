@@ -69,30 +69,13 @@
     if ( nvec != phi->num_vect_now )
       error0("add_diagonal_PRECISION: assumptions are not met\n");
 #endif
-/*#ifdef HAVE_TM1p1
-    if(g.n_flavours == 2)
-      while ( eta_pt < eta_end ) {
-        FOR6( *eta_pt += (*phi_pt)*(*diag_pt); eta_pt++; phi_pt++; diag_pt++; )
-        diag_pt -= 6;
-        FOR6( *eta_pt -= (*phi_pt)*(*diag_pt); eta_pt++; phi_pt++; diag_pt++; )
-        FOR6( *eta_pt += (*phi_pt)*(*diag_pt); eta_pt++; phi_pt++; diag_pt++; )
-        diag_pt -= 6;
-        FOR6( *eta_pt -= (*phi_pt)*(*diag_pt); eta_pt++; phi_pt++; diag_pt++; )
-      }
-       while ( eta_pt < eta_end )
-	 FOR6( VECTOR_LOOP(j, n_vect, jj, *eta_pt += (*phi_pt)*(*diag_pt); eta_pt++; phi_pt++;) 
-	       eta_pt += eta->num_vect - n_vect_eta; phi_pt += phi->num_vect -n_vect_phi;
-	       diag_pt++;)
-	   diag -= 6;
-       ...
-     else
-#endif*/
+    
     while ( eta_pt < eta_end )
       FOR12( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] += phi_pt[j+jj]*(*diag_pt);)
 	     eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt++;)
   }
 
-#ifdef HAVE_TM1p1
+#ifdef oldHAVE_TM1p1
   static inline void apply_doublet_coupling_PRECISION( const vector_PRECISION *eta, const vector_PRECISION *phi,
              const config_PRECISION diag, const int length ) {
     config_PRECISION diag_pt = diag;
@@ -107,6 +90,24 @@
     }
   }
 #endif
+#ifdef HAVE_TM1p1
+  // used only in test routine in coarse_operator_generic.c for applyng eps term
+  static inline void apply_doublet_coupling_PRECISION( const vector_PRECISION *eta, const vector_PRECISION *phi, const config_PRECISION diag,
+						       const int start, const int end ) {
+    int j, jj, nvec = eta->num_vect_now/2, nvec_phi = phi->num_vect, nvec_eta = eta->num_vect;
+    config_PRECISION diag_pt = diag;
+    buffer_PRECISION phi_pt = phi->vector_buffer+start*nvec_phi, eta_pt = eta->vector_buffer+start*nvec_eta, eta_end = eta->vector_buffer + end*nvec_eta;
+
+#ifdef DEBUG
+    if ( nvec*2 != nvec_phi || nvec_eta != nvec_phi || g.n_flavours != 2 )
+      error0("apply_doublet_coupling_PRECISION: assumptions are not met\n");
+#endif
+    while ( eta_pt < eta_end )
+      FOR12( VECTOR_LOOP( j, nvec, jj, eta_pt[j+jj] += phi_pt[j+jj+nvec]*(*diag_pt);)
+	     VECTOR_LOOP( j, nvec, jj, eta_pt[j+jj+nvec] += phi_pt[j+jj]*(*diag_pt);)
+	     eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt++;)
+  }
+#endif
 #ifdef HAVE_TM
   static inline void set_diag_PRECISION( const buffer_PRECISION eta, const buffer_PRECISION phi, const config_PRECISION clover, const config_PRECISION diag,
 					 operator_PRECISION_struct *op, const int nvec, const int nvec_eta, const int nvec_phi, const int length ) {
@@ -117,39 +118,111 @@
      * else diag = odd_proj, and tm terms are computed on the fly.
      **********************/
 
-    register int i, j, jj, n = g.n_chunk;
+    register int i, j, jj;
 #ifndef HAVE_MULT_TM
+    int n = g.n_chunk;
     register complex_PRECISION odd = (complex_PRECISION) I*op->odd_shifted_mu;
     complex_PRECISION d_mu_eo[num_loop]; for( i=0; i<num_loop; i++) d_mu_eo[i] = (complex_PRECISION) I*op->diff_mu_eo[n*num_loop+i];
 #endif
     buffer_PRECISION eta_pt = eta, phi_pt = phi;
     config_PRECISION clover_pt = clover, diag_pt = diag;
+
     
-    if ( clover != NULL ) {
-      for ( i=0; i<length; i++ ) {
-#ifdef HAVE_MULT_TM
-	FOR12( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)+diag_pt[j+jj]);)
-	       eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt += num_loop; clover_pt++; )
-#else
-	FOR6( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)-(odd+d_mu_eo[j+jj]*(1-(*diag_pt))));)
-	      eta_pt += nvec_eta; phi_pt += nvec_phi; clover_pt++; diag_pt++; )
-	FOR6( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)+(odd+d_mu_eo[j+jj]*(1-(*diag_pt))));)
-	      eta_pt += nvec_eta; phi_pt += nvec_phi; clover_pt++; diag_pt++; )
+#ifdef HAVE_TM1p1 /**********************  two flavor version  ******************/
+    if( g.n_flavours == 2 ) {
+#ifdef DEBUG
+      if ( nvec != nvec_phi || 2*num_loop != nvec )
+	error0("set_diag_PRECISION: assumptions are not met: %d %d %d\n", nvec, nvec_phi, 2*num_loop);
 #endif
+
+      if ( clover != NULL ) {
+	for ( i=0; i<length; i++ ) {
+#ifdef HAVE_MULT_TM
+	  /*
+	  FOR12( VECTOR_LOOP2(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)+offset[(j+jj)%2]*diag_pt[j+jj]);)
+		 eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt += num_loop; clover_pt++; )
+	  */
+	  FOR12( VECTOR_LOOP(j, nvec/2, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)+diag_pt[j+jj]);)
+		 eta_pt += nvec_eta/2; phi_pt += nvec_phi/2;
+		 VECTOR_LOOP(j, nvec/2, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)-diag_pt[j+jj]);)
+		 eta_pt += nvec_eta/2; phi_pt += nvec_phi/2;
+		 diag_pt += num_loop; clover_pt++;)
+
+#else
+	    /*
+	  FOR6( VECTOR_LOOP2(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)-offset[(j+jj)%2]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt))));)
+		eta_pt += nvec_eta; phi_pt += nvec_phi; clover_pt++; diag_pt++; )
+	  FOR6( VECTOR_LOOP2(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)+offset[(j+jj)%2]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt))));)
+	  eta_pt += nvec_eta; phi_pt += nvec_phi; clover_pt++; diag_pt++; )*/
+	  FOR6( VECTOR_LOOP(j, nvec/2, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)-(odd+d_mu_eo[j+jj]*(1-(*diag_pt))));)
+                eta_pt += nvec_eta/2; phi_pt += nvec_phi/2;
+		VECTOR_LOOP(j, nvec/2, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)+(odd+d_mu_eo[j+jj]*(1-(*diag_pt))));)
+		eta_pt += nvec_eta/2; phi_pt += nvec_phi/2; clover_pt++; diag_pt++;)
+	  FOR6( VECTOR_LOOP(j, nvec/2, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)+(odd+d_mu_eo[j+jj]*(1-(*diag_pt))));)
+		eta_pt += nvec_eta/2; phi_pt += nvec_phi/2;
+                VECTOR_LOOP(j, nvec/2, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)-(odd+d_mu_eo[j+jj]*(1-(*diag_pt))));)
+                eta_pt += nvec_eta/2; phi_pt += nvec_phi/2; clover_pt++; diag_pt++;)
+#endif
+	}
+      } else {
+	for ( i=0; i<length; i++ ) {
+#ifdef HAVE_MULT_TM
+	  /*
+	  FOR12( VECTOR_LOOP2(j, nvec, jj, eta_pt[j+jj] += offset[(j+jj)%2]*phi_pt[j+jj]*diag_pt[j+jj];)
+		 eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt += num_loop; )
+	  */
+	  FOR12( VECTOR_LOOP(j, nvec/2, jj, eta_pt[j+jj] += phi_pt[j+jj]*diag_pt[j+jj];)
+		 eta_pt += nvec_eta/2; phi_pt += nvec_phi/2;
+		 VECTOR_LOOP(j, nvec/2, jj, eta_pt[j+jj] -= phi_pt[j+jj]*diag_pt[j+jj];)
+		 eta_pt += nvec_eta/2; phi_pt += nvec_phi/2; diag_pt += num_loop;)
+#else
+	  FOR6( VECTOR_LOOP(j, nvec/2, jj, eta_pt[j+jj] -= phi_pt[j+jj]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt)));)
+                eta_pt += nvec_eta/2; phi_pt += nvec_phi/2;
+                VECTOR_LOOP(j, nvec/2, jj, eta_pt[j+jj] += phi_pt[j+jj]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt)));)
+                eta_pt += nvec_eta/2; phi_pt += nvec_phi/2; diag_pt++;)
+          FOR6( VECTOR_LOOP(j, nvec/2, jj, eta_pt[j+jj] += phi_pt[j+jj]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt)));)
+                eta_pt += nvec_eta/2; phi_pt += nvec_phi/2;
+                VECTOR_LOOP(j, nvec/2, jj, eta_pt[j+jj] -= phi_pt[j+jj]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt)));)
+                eta_pt += nvec_eta/2; phi_pt += nvec_phi/2; diag_pt++;)
+	    /*
+	  FOR6( VECTOR_LOOP2(j, nvec, jj, eta_pt[j+jj] += -offset[(j+jj)%2]*phi_pt[j+jj]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt)));)
+		eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt++; )
+	  FOR6( VECTOR_LOOP2(j, nvec, jj, eta_pt[j+jj] +=  offset[(j+jj)%2]*phi_pt[j+jj]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt)));)
+		eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt++; )
+	    */
+#endif
+	}
       }
     } else {
-      for ( i=0; i<length; i++ ) {
+#endif /**********************  single flavor version  ******************/
+      if ( clover != NULL ) {
+	for ( i=0; i<length; i++ ) {
 #ifdef HAVE_MULT_TM
-	FOR12( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] += phi_pt[j+jj]*diag_pt[j+jj];)
-	       eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt += num_loop; )
+	  FOR12( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)+diag_pt[j+jj]);)
+		 eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt += num_loop; clover_pt++; )
 #else
-	FOR6( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] += -phi_pt[j+jj]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt)));)
-	      eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt++; )
-	FOR6( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] +=  phi_pt[j+jj]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt)));)
-	      eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt++; )
+	  FOR6( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)-(odd+d_mu_eo[j+jj]*(1-(*diag_pt))));)
+		eta_pt += nvec_eta; phi_pt += nvec_phi; clover_pt++; diag_pt++; )
+	  FOR6( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] = phi_pt[j+jj]*((*clover_pt)+(odd+d_mu_eo[j+jj]*(1-(*diag_pt))));)
+		eta_pt += nvec_eta; phi_pt += nvec_phi; clover_pt++; diag_pt++; )
 #endif
+	    }
+      } else {
+	for ( i=0; i<length; i++ ) {
+#ifdef HAVE_MULT_TM
+	  FOR12( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] += phi_pt[j+jj]*diag_pt[j+jj];)
+		 eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt += num_loop; )
+#else
+	  FOR6( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] += -phi_pt[j+jj]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt)));)
+		eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt++; )
+	  FOR6( VECTOR_LOOP(j, nvec, jj, eta_pt[j+jj] +=  phi_pt[j+jj]*(odd+d_mu_eo[j+jj]*(1-(*diag_pt)));)
+		eta_pt += nvec_eta; phi_pt += nvec_phi; diag_pt++; )
+#endif
+	}
       }
+#ifdef HAVE_TM1p1
     }
+#endif
   }
 #endif
   // eta = D*phi
@@ -433,7 +506,7 @@
   }
 
 /***************************  TM1p1   ********************************************/
-#ifdef HAVE_TM1p1
+#ifdef HAVE_TM1p10 // not needed!!!!!!
 
 //#define flav_gamma(k) ((k)>1?((k)*3+6):((k)*3))
 #define flav_gamma(k) (3*(k)+6*((k)/2))
@@ -792,7 +865,157 @@
     l_pt[22] -= GAMMA_X_SPIN3_VAL*prn_su3_pt[flav_gamma(GAMMA_X_SPIN3_CO)+7];
     l_pt[23] -= GAMMA_X_SPIN3_VAL*prn_su3_pt[flav_gamma(GAMMA_X_SPIN3_CO)+8];
   }
-
+  static inline void doublet_site_clover_PRECISION( const buffer_PRECISION eta, const buffer_PRECISION phi, const config_PRECISION clover ) {
+    // diagonal
+    eta[ 0] = clover[ 0]*phi[ 0];
+    eta[ 1] = clover[ 1]*phi[ 1];
+    eta[ 2] = clover[ 2]*phi[ 2];
+    eta[ 3] = clover[ 3]*phi[ 3];
+    eta[ 4] = clover[ 4]*phi[ 4];
+    eta[ 5] = clover[ 5]*phi[ 5];
+    eta[ 6] = clover[ 0]*phi[ 6];
+    eta[ 7] = clover[ 1]*phi[ 7];
+    eta[ 8] = clover[ 2]*phi[ 8];
+    eta[ 9] = clover[ 3]*phi[ 9];
+    eta[10] = clover[ 4]*phi[10];
+    eta[11] = clover[ 5]*phi[11];
+    eta[12] = clover[ 6]*phi[12];
+    eta[13] = clover[ 7]*phi[13];
+    eta[14] = clover[ 8]*phi[14];
+    eta[15] = clover[ 9]*phi[15];
+    eta[16] = clover[10]*phi[16];
+    eta[17] = clover[11]*phi[17];
+    eta[18] = clover[ 6]*phi[18];
+    eta[19] = clover[ 7]*phi[19];
+    eta[20] = clover[ 8]*phi[20];
+    eta[21] = clover[ 9]*phi[21];
+    eta[22] = clover[10]*phi[22];
+    eta[23] = clover[11]*phi[23];
+    // spin 0 and 1 flav 1
+    eta[0] += clover[12]*phi[1];
+    eta[0] += clover[13]*phi[2];
+    eta[0] += clover[14]*phi[3];
+    eta[0] += clover[15]*phi[4];
+    eta[0] += clover[16]*phi[5];
+    eta[1] += clover[17]*phi[2];
+    eta[1] += clover[18]*phi[3];
+    eta[1] += clover[19]*phi[4];
+    eta[1] += clover[20]*phi[5];
+    eta[2] += clover[21]*phi[3];
+    eta[2] += clover[22]*phi[4];
+    eta[2] += clover[23]*phi[5];
+    eta[3] += clover[24]*phi[4];
+    eta[3] += clover[25]*phi[5];
+    eta[4] += clover[26]*phi[5];
+    eta[1] += conj_PRECISION(clover[12])*phi[0];
+    eta[2] += conj_PRECISION(clover[13])*phi[0];
+    eta[3] += conj_PRECISION(clover[14])*phi[0];
+    eta[4] += conj_PRECISION(clover[15])*phi[0];
+    eta[5] += conj_PRECISION(clover[16])*phi[0];
+    eta[2] += conj_PRECISION(clover[17])*phi[1];
+    eta[3] += conj_PRECISION(clover[18])*phi[1];
+    eta[4] += conj_PRECISION(clover[19])*phi[1];
+    eta[5] += conj_PRECISION(clover[20])*phi[1];
+    eta[3] += conj_PRECISION(clover[21])*phi[2];
+    eta[4] += conj_PRECISION(clover[22])*phi[2];
+    eta[5] += conj_PRECISION(clover[23])*phi[2];
+    eta[4] += conj_PRECISION(clover[24])*phi[3];
+    eta[5] += conj_PRECISION(clover[25])*phi[3];
+    eta[5] += conj_PRECISION(clover[26])*phi[4];
+    // spin 0 and 1 flav 2
+    eta[ 6] += clover[12]*phi[ 7];
+    eta[ 6] += clover[13]*phi[ 8];
+    eta[ 6] += clover[14]*phi[ 9];
+    eta[ 6] += clover[15]*phi[10];
+    eta[ 6] += clover[16]*phi[11];
+    eta[ 7] += clover[17]*phi[ 8];
+    eta[ 7] += clover[18]*phi[ 9];
+    eta[ 7] += clover[19]*phi[10];
+    eta[ 7] += clover[20]*phi[11];
+    eta[ 8] += clover[21]*phi[ 9];
+    eta[ 8] += clover[22]*phi[10];
+    eta[ 8] += clover[23]*phi[11];
+    eta[ 9] += clover[24]*phi[10];
+    eta[ 9] += clover[25]*phi[11];
+    eta[10] += clover[26]*phi[11];
+    eta[ 7] += conj_PRECISION(clover[12])*phi[ 6];
+    eta[ 8] += conj_PRECISION(clover[13])*phi[ 6];
+    eta[ 9] += conj_PRECISION(clover[14])*phi[ 6];
+    eta[10] += conj_PRECISION(clover[15])*phi[ 6];
+    eta[11] += conj_PRECISION(clover[16])*phi[ 6];
+    eta[ 8] += conj_PRECISION(clover[17])*phi[ 7];
+    eta[ 9] += conj_PRECISION(clover[18])*phi[ 7];
+    eta[10] += conj_PRECISION(clover[19])*phi[ 7];
+    eta[11] += conj_PRECISION(clover[20])*phi[ 7];
+    eta[ 9] += conj_PRECISION(clover[21])*phi[ 8];
+    eta[10] += conj_PRECISION(clover[22])*phi[ 8];
+    eta[11] += conj_PRECISION(clover[23])*phi[ 8];
+    eta[10] += conj_PRECISION(clover[24])*phi[ 9];
+    eta[11] += conj_PRECISION(clover[25])*phi[ 9];
+    eta[11] += conj_PRECISION(clover[26])*phi[10];
+    // spin 2 and 3 flav 1
+    eta[12] += clover[28]*phi[14];
+    eta[12] += clover[27]*phi[13];
+    eta[12] += clover[29]*phi[15];
+    eta[12] += clover[30]*phi[16];
+    eta[12] += clover[31]*phi[17];
+    eta[13] += clover[32]*phi[14];
+    eta[13] += clover[33]*phi[15];
+    eta[13] += clover[34]*phi[16];
+    eta[13] += clover[35]*phi[17];
+    eta[14] += clover[36]*phi[15];
+    eta[14] += clover[37]*phi[16];
+    eta[14] += clover[38]*phi[17];
+    eta[15] += clover[39]*phi[16];
+    eta[15] += clover[40]*phi[17];
+    eta[16] += clover[41]*phi[17];
+    eta[13] += conj_PRECISION(clover[27])*phi[12];
+    eta[14] += conj_PRECISION(clover[28])*phi[12];
+    eta[15] += conj_PRECISION(clover[29])*phi[12];
+    eta[16] += conj_PRECISION(clover[30])*phi[12];
+    eta[17] += conj_PRECISION(clover[31])*phi[12];
+    eta[14] += conj_PRECISION(clover[32])*phi[13];
+    eta[15] += conj_PRECISION(clover[33])*phi[13];
+    eta[16] += conj_PRECISION(clover[34])*phi[13];
+    eta[17] += conj_PRECISION(clover[35])*phi[13];
+    eta[15] += conj_PRECISION(clover[36])*phi[14];
+    eta[16] += conj_PRECISION(clover[37])*phi[14];
+    eta[17] += conj_PRECISION(clover[38])*phi[14];
+    eta[16] += conj_PRECISION(clover[39])*phi[15];
+    eta[17] += conj_PRECISION(clover[40])*phi[15];
+    eta[17] += conj_PRECISION(clover[41])*phi[16];
+    // spin 2 and 3 flav 2
+    eta[18] += clover[28]*phi[20];
+    eta[18] += clover[27]*phi[19];
+    eta[18] += clover[29]*phi[21];
+    eta[18] += clover[30]*phi[22];
+    eta[18] += clover[31]*phi[23];
+    eta[19] += clover[32]*phi[20];
+    eta[19] += clover[33]*phi[21];
+    eta[19] += clover[34]*phi[22];
+    eta[19] += clover[35]*phi[23];
+    eta[20] += clover[36]*phi[21];
+    eta[20] += clover[37]*phi[22];
+    eta[20] += clover[38]*phi[23];
+    eta[21] += clover[39]*phi[22];
+    eta[21] += clover[40]*phi[23];
+    eta[22] += clover[41]*phi[23];
+    eta[19] += conj_PRECISION(clover[27])*phi[18];
+    eta[20] += conj_PRECISION(clover[28])*phi[18];
+    eta[21] += conj_PRECISION(clover[29])*phi[18];
+    eta[22] += conj_PRECISION(clover[30])*phi[18];
+    eta[23] += conj_PRECISION(clover[31])*phi[18];
+    eta[20] += conj_PRECISION(clover[32])*phi[19];
+    eta[21] += conj_PRECISION(clover[33])*phi[19];
+    eta[22] += conj_PRECISION(clover[34])*phi[19];
+    eta[23] += conj_PRECISION(clover[35])*phi[19];
+    eta[21] += conj_PRECISION(clover[36])*phi[20];
+    eta[22] += conj_PRECISION(clover[37])*phi[20];
+    eta[23] += conj_PRECISION(clover[38])*phi[20];
+    eta[22] += conj_PRECISION(clover[39])*phi[21];
+    eta[23] += conj_PRECISION(clover[40])*phi[21];
+    eta[23] += conj_PRECISION(clover[41])*phi[22];
+  }
 #endif
 /************************************* END  **********************************************/
 
@@ -1132,158 +1355,6 @@
                                 out_spin2and3[11*n_vect23+j+jj] -= in[11*n_vect_in+j+jj];)
   }
 
-// for TM1p1
-  static inline void doublet_site_clover_PRECISION( const buffer_PRECISION eta, const buffer_PRECISION phi, const config_PRECISION clover ) {
-    // diagonal
-    eta[ 0] = clover[ 0]*phi[ 0];
-    eta[ 1] = clover[ 1]*phi[ 1];
-    eta[ 2] = clover[ 2]*phi[ 2];
-    eta[ 3] = clover[ 3]*phi[ 3];
-    eta[ 4] = clover[ 4]*phi[ 4];
-    eta[ 5] = clover[ 5]*phi[ 5];
-    eta[ 6] = clover[ 0]*phi[ 6];
-    eta[ 7] = clover[ 1]*phi[ 7];
-    eta[ 8] = clover[ 2]*phi[ 8];
-    eta[ 9] = clover[ 3]*phi[ 9];
-    eta[10] = clover[ 4]*phi[10];
-    eta[11] = clover[ 5]*phi[11];
-    eta[12] = clover[ 6]*phi[12];
-    eta[13] = clover[ 7]*phi[13];
-    eta[14] = clover[ 8]*phi[14];
-    eta[15] = clover[ 9]*phi[15];
-    eta[16] = clover[10]*phi[16];
-    eta[17] = clover[11]*phi[17];
-    eta[18] = clover[ 6]*phi[18];
-    eta[19] = clover[ 7]*phi[19];
-    eta[20] = clover[ 8]*phi[20];
-    eta[21] = clover[ 9]*phi[21];
-    eta[22] = clover[10]*phi[22];
-    eta[23] = clover[11]*phi[23];
-    // spin 0 and 1 flav 1
-    eta[0] += clover[12]*phi[1];
-    eta[0] += clover[13]*phi[2];
-    eta[0] += clover[14]*phi[3];
-    eta[0] += clover[15]*phi[4];
-    eta[0] += clover[16]*phi[5];
-    eta[1] += clover[17]*phi[2];
-    eta[1] += clover[18]*phi[3];
-    eta[1] += clover[19]*phi[4];
-    eta[1] += clover[20]*phi[5];
-    eta[2] += clover[21]*phi[3];
-    eta[2] += clover[22]*phi[4];
-    eta[2] += clover[23]*phi[5];
-    eta[3] += clover[24]*phi[4];
-    eta[3] += clover[25]*phi[5];
-    eta[4] += clover[26]*phi[5];
-    eta[1] += conj_PRECISION(clover[12])*phi[0];
-    eta[2] += conj_PRECISION(clover[13])*phi[0];
-    eta[3] += conj_PRECISION(clover[14])*phi[0];
-    eta[4] += conj_PRECISION(clover[15])*phi[0];
-    eta[5] += conj_PRECISION(clover[16])*phi[0];
-    eta[2] += conj_PRECISION(clover[17])*phi[1];
-    eta[3] += conj_PRECISION(clover[18])*phi[1];
-    eta[4] += conj_PRECISION(clover[19])*phi[1];
-    eta[5] += conj_PRECISION(clover[20])*phi[1];
-    eta[3] += conj_PRECISION(clover[21])*phi[2];
-    eta[4] += conj_PRECISION(clover[22])*phi[2];
-    eta[5] += conj_PRECISION(clover[23])*phi[2];
-    eta[4] += conj_PRECISION(clover[24])*phi[3];
-    eta[5] += conj_PRECISION(clover[25])*phi[3];
-    eta[5] += conj_PRECISION(clover[26])*phi[4];
-    // spin 0 and 1 flav 2
-    eta[ 6] += clover[12]*phi[ 7];
-    eta[ 6] += clover[13]*phi[ 8];
-    eta[ 6] += clover[14]*phi[ 9];
-    eta[ 6] += clover[15]*phi[10];
-    eta[ 6] += clover[16]*phi[11];
-    eta[ 7] += clover[17]*phi[ 8];
-    eta[ 7] += clover[18]*phi[ 9];
-    eta[ 7] += clover[19]*phi[10];
-    eta[ 7] += clover[20]*phi[11];
-    eta[ 8] += clover[21]*phi[ 9];
-    eta[ 8] += clover[22]*phi[10];
-    eta[ 8] += clover[23]*phi[11];
-    eta[ 9] += clover[24]*phi[10];
-    eta[ 9] += clover[25]*phi[11];
-    eta[10] += clover[26]*phi[11];
-    eta[ 7] += conj_PRECISION(clover[12])*phi[ 6];
-    eta[ 8] += conj_PRECISION(clover[13])*phi[ 6];
-    eta[ 9] += conj_PRECISION(clover[14])*phi[ 6];
-    eta[10] += conj_PRECISION(clover[15])*phi[ 6];
-    eta[11] += conj_PRECISION(clover[16])*phi[ 6];
-    eta[ 8] += conj_PRECISION(clover[17])*phi[ 7];
-    eta[ 9] += conj_PRECISION(clover[18])*phi[ 7];
-    eta[10] += conj_PRECISION(clover[19])*phi[ 7];
-    eta[11] += conj_PRECISION(clover[20])*phi[ 7];
-    eta[ 9] += conj_PRECISION(clover[21])*phi[ 8];
-    eta[10] += conj_PRECISION(clover[22])*phi[ 8];
-    eta[11] += conj_PRECISION(clover[23])*phi[ 8];
-    eta[10] += conj_PRECISION(clover[24])*phi[ 9];
-    eta[11] += conj_PRECISION(clover[25])*phi[ 9];
-    eta[11] += conj_PRECISION(clover[26])*phi[10];
-    // spin 2 and 3 flav 1
-    eta[12] += clover[28]*phi[14];
-    eta[12] += clover[27]*phi[13];
-    eta[12] += clover[29]*phi[15];
-    eta[12] += clover[30]*phi[16];
-    eta[12] += clover[31]*phi[17];
-    eta[13] += clover[32]*phi[14];
-    eta[13] += clover[33]*phi[15];
-    eta[13] += clover[34]*phi[16];
-    eta[13] += clover[35]*phi[17];
-    eta[14] += clover[36]*phi[15];
-    eta[14] += clover[37]*phi[16];
-    eta[14] += clover[38]*phi[17];
-    eta[15] += clover[39]*phi[16];
-    eta[15] += clover[40]*phi[17];
-    eta[16] += clover[41]*phi[17];
-    eta[13] += conj_PRECISION(clover[27])*phi[12];
-    eta[14] += conj_PRECISION(clover[28])*phi[12];
-    eta[15] += conj_PRECISION(clover[29])*phi[12];
-    eta[16] += conj_PRECISION(clover[30])*phi[12];
-    eta[17] += conj_PRECISION(clover[31])*phi[12];
-    eta[14] += conj_PRECISION(clover[32])*phi[13];
-    eta[15] += conj_PRECISION(clover[33])*phi[13];
-    eta[16] += conj_PRECISION(clover[34])*phi[13];
-    eta[17] += conj_PRECISION(clover[35])*phi[13];
-    eta[15] += conj_PRECISION(clover[36])*phi[14];
-    eta[16] += conj_PRECISION(clover[37])*phi[14];
-    eta[17] += conj_PRECISION(clover[38])*phi[14];
-    eta[16] += conj_PRECISION(clover[39])*phi[15];
-    eta[17] += conj_PRECISION(clover[40])*phi[15];
-    eta[17] += conj_PRECISION(clover[41])*phi[16];
-    // spin 2 and 3 flav 2
-    eta[18] += clover[28]*phi[20];
-    eta[18] += clover[27]*phi[19];
-    eta[18] += clover[29]*phi[21];
-    eta[18] += clover[30]*phi[22];
-    eta[18] += clover[31]*phi[23];
-    eta[19] += clover[32]*phi[20];
-    eta[19] += clover[33]*phi[21];
-    eta[19] += clover[34]*phi[22];
-    eta[19] += clover[35]*phi[23];
-    eta[20] += clover[36]*phi[21];
-    eta[20] += clover[37]*phi[22];
-    eta[20] += clover[38]*phi[23];
-    eta[21] += clover[39]*phi[22];
-    eta[21] += clover[40]*phi[23];
-    eta[22] += clover[41]*phi[23];
-    eta[19] += conj_PRECISION(clover[27])*phi[18];
-    eta[20] += conj_PRECISION(clover[28])*phi[18];
-    eta[21] += conj_PRECISION(clover[29])*phi[18];
-    eta[22] += conj_PRECISION(clover[30])*phi[18];
-    eta[23] += conj_PRECISION(clover[31])*phi[18];
-    eta[20] += conj_PRECISION(clover[32])*phi[19];
-    eta[21] += conj_PRECISION(clover[33])*phi[19];
-    eta[22] += conj_PRECISION(clover[34])*phi[19];
-    eta[23] += conj_PRECISION(clover[35])*phi[19];
-    eta[21] += conj_PRECISION(clover[36])*phi[20];
-    eta[22] += conj_PRECISION(clover[37])*phi[20];
-    eta[23] += conj_PRECISION(clover[38])*phi[20];
-    eta[22] += conj_PRECISION(clover[39])*phi[21];
-    eta[23] += conj_PRECISION(clover[40])*phi[21];
-    eta[23] += conj_PRECISION(clover[41])*phi[22];
-  }
 
   static inline void spin0and1_site_clover_PRECISION( const buffer_PRECISION eta, const buffer_PRECISION phi, const config_PRECISION clover, const int n_vect, const int n_vect_eta, const int n_vect_phi ) {
     int j, jj;

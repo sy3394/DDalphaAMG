@@ -27,7 +27,15 @@
 
 void global_norm_PRECISION( PRECISION *res, vector_PRECISION *x, int start, int end, level_struct *l, struct Thread *threading ) {
 
-  int i, j, jj, nvec = x->num_vect_now;
+  int i, j, jj, nvec = x->num_vect_now, nvecmf = x->num_vect_now;
+#ifdef HAVE_TM1p1
+#ifdef DEBUG
+  if ( g.n_flavours == 2 && nvec != 2*num_loop )
+    error0("global_norm_PRECISION: doublet error\n");
+#endif
+  if ( g.n_flavours == 2 && ( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) )
+    nvec /= g.n_flavours;
+#endif
   int thread = omp_get_thread_num();
   PRECISION global_alpha[nvec];
 
@@ -41,9 +49,11 @@ void global_norm_PRECISION( PRECISION *res, vector_PRECISION *x, int start, int 
   VECTOR_LOOP(j, nvec, jj, res[j+jj]=0;)
 
     //SYNC_CORES(threading)//????necessary? in the original   
-  for( i=core_start; i<core_end; i++)
-    VECTOR_LOOP(j, nvec, jj, res[j+jj] += NORM_SQUARE_PRECISION(x->vector_buffer[i*x->num_vect+j+jj]);)
-
+  for( i=core_start; i<core_end; i++) {
+    VECTOR_LOOP(j, nvecmf, jj, res[(j+jj)%nvec] += NORM_SQUARE_PRECISION(x->vector_buffer[i*x->num_vect+j+jj]);)
+    //for ( int f = 0; f<g.n_flavours-1; f++)VECTOR_LOOP(j, nvec, jj, res[j+jj] += NORM_SQUARE_PRECISION(x->vector_buffer[i*x->num_vect+j+jj]+f*nvec);)//expensive?
+  }
+  
   /////////////// communication -------------------------------------
   // sum over cores: be careful about overflow of workspace!!!!!!!! also potential problem using res directly
   START_NO_HYPERTHREADS(threading)
@@ -77,13 +87,23 @@ void global_norm_PRECISION( PRECISION *res, vector_PRECISION *x, int start, int 
 }
 
 void global_inner_product_PRECISION( complex_PRECISION *results, vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l, struct Thread *threading ) {
-  
+
+#ifdef DEBUG
   if ( phi->num_vect_now != psi->num_vect_now )
     error0("global_inner_product_PRECISION: phi->num_vect_now != psi->num_vect_now \n");
-
+#endif
+  
   PROF_PRECISION_START( _GIP, threading );
-  int i, j, jj, nvec = phi->num_vect_now;
-  complex_PRECISION local_alpha[nvec], global_alpha[nvec];//local_alpha not necessary!!!!
+  int i, j, jj, nvec = phi->num_vect_now, nvecmf = phi->num_vect_now;
+#ifdef HAVE_TM1p1
+#ifdef DEBUG
+  if ( g.n_flavours == 2 && nvec != 2*num_loop )
+    error0("global_inner_product_PRECISION: doublet error\n");
+#endif
+  if ( g.n_flavours == 2 && ( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) )
+    nvec /= g.n_flavours;
+#endif
+  complex_PRECISION local_alpha[nvec], global_alpha[nvec];//local_alpha not necessary!!!! kept for readability
  
   VECTOR_LOOP( j, nvec, jj, local_alpha[j+jj]=0; global_alpha[j+jj]=0; )
 
@@ -93,15 +113,16 @@ void global_inner_product_PRECISION( complex_PRECISION *results, vector_PRECISIO
   
   //SYNC_CORES(threading)
   for( i=thread_start; i<thread_end; i++){
-    VECTOR_LOOP( j, nvec, jj, local_alpha[j+jj] += conj_PRECISION(phi->vector_buffer[i*phi->num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj]; )
+    VECTOR_LOOP( j, nvecmf, jj, local_alpha[(j+jj)%nvec] += conj_PRECISION(phi->vector_buffer[i*phi->num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj]; )
   }
   
   /////////////// communication -----------------------------------
   // sum over cores
+  //// copy the results into threading->workspace 
   START_NO_HYPERTHREADS(threading)
   VECTOR_LOOP( j, nvec, jj, ((complex_PRECISION *)threading->workspace)[threading->core*nvec+j+jj] = local_alpha[j+jj];)
   END_NO_HYPERTHREADS(threading)
-  // master sums up all results
+  //// master sums up all results
   SYNC_CORES(threading)
   START_MASTER(threading)
   for( i=1; i<threading->n_core; i++)
@@ -109,7 +130,7 @@ void global_inner_product_PRECISION( complex_PRECISION *results, vector_PRECISIO
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
   VECTOR_LOOP( j, nvec, jj, results[j+jj] = ((complex_PRECISION *)threading->workspace)[0*nvec+j+jj];)
-  
+  // sum over ranks
   if ( g.num_processes > 1 ) {
     START_MASTER(threading)
     PROF_PRECISION_START( _ALLR );
@@ -147,18 +168,29 @@ void process_multi_inner_product_PRECISION( int count, complex_PRECISION *result
     PROF_PRECISION_START( _PIP, threading );
 
   //SYNC_CORES(threading)//????necessary? in the original  
-  int i, c, j, jj, nvec = psi->num_vect_now;
+  int i, c, j, jj, nvec = psi->num_vect_now, nvecmf = psi->num_vect_now;
+#ifdef HAVE_TM1p1
+#ifdef DEBUG
+  if ( g.n_flavours == 2 && nvec != 2*num_loop )
+    error0("process_multi_inner_product_PRECISION: doublet error\n");
+#endif
+  if ( g.n_flavours == 2 && ( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) )
+    nvec /= g.n_flavours;
+#endif
   VECTOR_LOOP(j, count*nvec, jj, results[j+jj] = 0.0;)
-
+    //printf0("mul inn: %d %d %d\n",count,nvec,nvecmf);
   for( c = 0; c<count; c++ ){
+#ifdef DEBUG
     if ( phi[c].num_vect_now != psi->num_vect_now )
       error0("process_multi_inner_product_PRECISION: phi->num_vect_now(%d) != psi->num_vect_now(%d) \n",phi[c].num_vect_now,psi->num_vect_now);
+#endif
     for ( i=core_start; i<core_end; i++ )
-      VECTOR_LOOP(j, nvec, jj, results[c*nvec+j+jj] += conj_PRECISION(phi[c].vector_buffer[i*phi[c].num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj];)
+      VECTOR_LOOP(j, nvecmf, jj, results[c*nvec+(j+jj)%nvec] += conj_PRECISION(phi[c].vector_buffer[i*phi[c].num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj];)//if(!g.in_setup)printf0("mul in: %g ",conj_PRECISION(phi[c].vector_buffer[i*phi[c].num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj]);)
   }
 
+  // copy results into threading->workspace
   START_NO_HYPERTHREADS(threading)
-  VECTOR_LOOP( j, count*nvec, jj,((complex_PRECISION *)threading->workspace)[threading->core*count*nvec+j+jj] = results[j+jj];)
+    VECTOR_LOOP( j, count*nvec, jj,((complex_PRECISION *)threading->workspace)[threading->core*count*nvec+j+jj] = results[j+jj];)//printf0("mul inn: %g\n",creal_PRECISION(results[j+jj]));)
   END_NO_HYPERTHREADS(threading)
   // master sums up all results
   SYNC_CORES(threading)
@@ -175,26 +207,38 @@ void process_multi_inner_product_PRECISION( int count, complex_PRECISION *result
 }
 
 // res <- <phi,psi>/<phi,phi> with each vector sliced from start to end
+// used only in local_minres_PRECISION, which assumes, for the moment, res to be of size, num_vect_now
 void local_xy_over_xx_PRECISION( complex_PRECISION *res, vector_PRECISION *phi, vector_PRECISION *psi, int start, int end, level_struct *l  ) {
-  
+
+#ifdef DEBUG
   if ( phi->num_vect_now != psi->num_vect_now )
     error0("local_xy_over_xx_PRECISION: phi->num_vect_now != psi->num_vect_now \n");
-
-  int nvec = phi->num_vect_now, i, j, jj;
+#endif
+  
+  int nvec = phi->num_vect_now, i, j, jj, nvecmf = phi->num_vect_now;
+#ifdef HAVE_TM1p1
+#ifdef DEBUG
+  if ( g.n_flavours == 2 && nvec != 2*num_loop )
+    error0("process_multi_inner_product_PRECISION: doublet error\n");
+#endif
+  if ( g.n_flavours == 2 && ( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) )
+    nvec /= g.n_flavours;
+#endif
   complex_PRECISION numerator[nvec]; PRECISION denominator[nvec], total_den=0.0;
   VECTOR_LOOP(j, nvec, jj, numerator[j+jj]=0.0; denominator[j+jj]=0.0;)
   
   for( i=start; i<end; i++ )
-    VECTOR_LOOP(j, nvec, jj, numerator[j+jj] += conj_PRECISION(phi->vector_buffer[i*phi->num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj]; 
-		denominator[j+jj] += NORM_SQUARE_PRECISION(phi->vector_buffer[i*phi->num_vect+j+jj]);)
+    VECTOR_LOOP(j, nvecmf, jj,
+		numerator[(j+jj)%nvec] += conj_PRECISION(phi->vector_buffer[i*phi->num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj]; 
+		denominator[(j+jj)%nvec] += NORM_SQUARE_PRECISION(phi->vector_buffer[i*phi->num_vect+j+jj]);)
 
   VECTOR_LOOP(j, nvec, jj, total_den += denominator[j+jj];)
-  if ( abs_PRECISION(total_den) < nvec*EPS_PRECISION ) {
-    VECTOR_LOOP(j, nvec, jj, res[j+jj] = 0.0;)
+  if ( abs_PRECISION(total_den) < nvecmf*EPS_PRECISION ) {
+    VECTOR_LOOP(j, nvecmf, jj, res[j+jj] = 0.0;)
     return;
   }
   
-  VECTOR_LOOP(j, nvec, jj, res[j+jj] = numerator[j+jj]/denominator[j+jj];)
+  VECTOR_LOOP(j, nvecmf, jj, res[j+jj] = numerator[(j+jj)%nvec]/denominator[(j+jj)%nvec];)
 }
 
 void gram_schmidt_PRECISION( vector_PRECISION *V, const int nvec, level_struct *l, struct Thread *threading ) {
@@ -202,6 +246,7 @@ void gram_schmidt_PRECISION( vector_PRECISION *V, const int nvec, level_struct *
    * a set of vectors in V are orthonormalized
    * nvec: #first vectors in the set to be orthonormalized
    * NOTE: only thread safe, if "buffer" is the same buffer for all threads belonging to a common MPI process
+   * NOTE: used only in setting up interpolation op
    *****************************/
 
   START_MASTER(threading)
@@ -215,22 +260,25 @@ void gram_schmidt_PRECISION( vector_PRECISION *V, const int nvec, level_struct *
   
   compute_core_start_end_custom(0, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );
 
+#ifdef DEBUG
   if ( V->layout != _NVEC_INNER )
     error0("gram_schmidt_PRECISION: assumptions are not met\n");
-
+#endif
+  
   for ( i=0; i<nvec; i++ ) {
     for ( j=0; j<i; j++ ) {
       //take inner product <i,j>
-      SYNC_CORES(threading)
+      //SYNC_CORES(threading)//changed!!!!!
       local_alpha = 0;
       for( k=start; k<end; k++) // for each core: do we need to divide into two parts like in aggregate version????????
 	local_alpha += conj_PRECISION(V->vector_buffer[k*V->num_vect+j])*V->vector_buffer[k*V->num_vect+i];//is this inefficient?????
       // communication  -----------------------------------
       // sum over cores
+      //// copy results into threading->workspace
       START_NO_HYPERTHREADS(threading)
       ((complex_PRECISION *)threading->workspace)[threading->core] = local_alpha;
       END_NO_HYPERTHREADS(threading)
-      // master sums up all results
+      //// master sums up all results
       SYNC_CORES(threading)
       START_MASTER(threading)
       for( k=1; k<threading->n_core; k++)
@@ -238,6 +286,7 @@ void gram_schmidt_PRECISION( vector_PRECISION *V, const int nvec, level_struct *
       END_MASTER(threading)
       SYNC_MASTER_TO_ALL(threading)
       local_alpha = ((complex_PRECISION *)threading->workspace)[0];
+      // sum over ranks
       if ( g.num_processes > 1 ) {
 	START_MASTER(threading)
 	PROF_PRECISION_START( _ALLR );
@@ -264,10 +313,11 @@ void gram_schmidt_PRECISION( vector_PRECISION *V, const int nvec, level_struct *
     
     // communication  -----------------------------------
     // sum over cores
+    //// copy results into threading->workspace
     START_NO_HYPERTHREADS(threading)
     ((complex_PRECISION *)threading->workspace)[threading->core] = local_alpha;
     END_NO_HYPERTHREADS(threading)
-    // master sums up all results
+    //// master sums up all results
     SYNC_CORES(threading)
     START_MASTER(threading)
     for( k=1; k<threading->n_core; k++)
@@ -275,6 +325,7 @@ void gram_schmidt_PRECISION( vector_PRECISION *V, const int nvec, level_struct *
     END_MASTER(threading)
     SYNC_MASTER_TO_ALL(threading)
     local_alpha = ((complex_PRECISION *)threading->workspace)[0];
+    // sum over ranks
     if ( g.num_processes > 1 ) {
       START_MASTER(threading)
       PROF_PRECISION_START( _ALLR );
@@ -306,6 +357,7 @@ void gram_schmidt_on_aggregates_PRECISION( vector_PRECISION *phi, const int num_
    * vector_PRECISION *phi: a set of vectors to be orthogonalized 
    * num_vect: should be equal to phi->num_vect_now
    * note: aggregate lives in the process so that no communication is necessary
+   * note: used only in setting up interpolation op  
    ***********************************************/
 
   PROF_PRECISION_START( _GRAM_SCHMIDT_ON_AGGREGATES, threading );
@@ -319,9 +371,11 @@ void gram_schmidt_on_aggregates_PRECISION( vector_PRECISION *phi, const int num_
   complex_PRECISION alpha1, alpha2;
   PRECISION norm1, norm2;
 
+#ifdef DEBUG
   if ( num_vect != phi->num_vect_now )
     error0("gram_schmidt_on_aggregates_PRECISION: assumptions are not met\n");
-
+#endif
+  
   buffer_PRECISION phi_pt = phi->vector_buffer;
   for ( j=threading->n_thread*threading->core+threading->thread; j<num_aggregates; j+=threading->n_thread*threading->n_core ) {
     for ( k1=0; k1<num_vect; k1++ ) {

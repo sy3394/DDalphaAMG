@@ -30,6 +30,7 @@
   void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION tol, const int type, const int prec_kind,
                                       void (*precond)(), void (*eval_op)(), gmres_PRECISION_struct *p, level_struct *l );
   void fgmres_PRECISION_struct_free( gmres_PRECISION_struct *p, level_struct *l );
+  void change_to_n_flavours_PRECISION( gmres_PRECISION_struct *p, int nf, struct level_struct *l );
 
   int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );
   int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread *threading );

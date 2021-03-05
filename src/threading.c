@@ -166,9 +166,11 @@ void compute_core_start_end_custom(int start, int end, int *core_start, int *cor
         *core_end = 0;
         return;
     }
+#ifdef DEBUG
   if ( (end-start)%granularity != 0 )//could rise seg fault as error'0' is used.
     error0("compute_core_start_end_custom: each core needs multiple of %d entries\n", granularity);
-
+#endif
+  
   // compute start and end indices for vector functions depending on thread
   *core_start = start;
   *core_end   = end;
@@ -181,6 +183,15 @@ void compute_core_start_end_custom(int start, int end, int *core_start, int *cor
   int reminder  = length-per_core*threading->n_core;
   int ext_cores = reminder/min_per_core;
 
+  // TODO: allow for nonzero value for reminderr%min_per_core
+  // for that, we need to make a special case in loops such as for ( phi_pt=phi->vector_buffer+start*nvec_phi, end_pt=phi->vector_buffer+end*nvec_phi, D_pt = op->D+(start*3),
+  // nb_pt=neighbor+((start/12)*4); phi_pt<end_pt; phi_pt+=12*nvec_phi) in d_plus_clover_PRECISION
+  // Note: phi_pt is jumped by (inner d.o.f.) x nvec_phi assuming end-start%12==0 while compute_core_start_end_custom(0, nv*n, &start, &end, l, threading, nv )
+#ifdef DEBUG
+  if ( reminder%min_per_core != 0 )
+    error0("compute_core_start_end_custom: end-start=%d needs to be divisible by min_per_core (%d)\n", length, min_per_core );
+#endif
+  
   if( threading->core*min_per_core < reminder && (threading->core+1)*min_per_core <= reminder) {// we assign extra min_per_core items
     *core_start += (per_core+min_per_core)*threading->core;
     *core_end = *core_start + per_core+min_per_core;

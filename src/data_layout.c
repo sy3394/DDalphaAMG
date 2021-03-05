@@ -45,8 +45,52 @@ void data_layout_init( level_struct *l ) {
   l->schwarz_vector_size = 2*l->vector_size - l->inner_vector_size;
 }
 
+static void change_to_n_flavours( gmres_MP_struct *p, int nf ) {
+
+  int i, k;
+  if ( p->sp.preconditioner != NULL ) {
+    if ( p->sp.kind == _RIGHT ) {
+      k = p->dp.restart_length+1;
+    } else {
+      k = p->dp.restart_length;//m debug!!!originally 0
+    }
+  }
+
+  // single precision
+  p->sp.w.num_vect_now = nf*num_loop;
+  for ( i=0; i<p->dp.restart_length+1; i++ ) p->sp.V[i].num_vect_now = nf*num_loop;
+  if ( p->sp.Z != NULL ) 
+    for ( i=0; i<k; i++ ) p->sp.Z[i].num_vect_now = nf*num_loop;
+
+  // double precision
+  p->dp.x.num_vect_now = nf*num_loop;
+  p->dp.r.num_vect_now = nf*num_loop;
+  p->dp.b.num_vect_now = nf*num_loop;
+
+}
+
+/****
+ * To reduce memory requirement, except for interpolation vectors, solutions, and rhs,
+ * all vector fields have max duplicaiton of 2*num_loop if HAVE_TM1p1 and num_loop otherwise
+ * When HAVE_TM1p1, num_vect_now is set dynamically to g.n_flavours*num_loop
+ ****/
 void data_layout_n_flavours( int nf, level_struct *l, struct Thread *threading ) {
 
+  /*
+   * Description: Update inner d.o.f. and vector sizes to account for multiple flavours
+   * Note: flavour index is now the next fastest running index (fastest is vector index)
+   * Note: g.n_flavours's default value is 1 and changed on demand
+   *
+   * Case: HAVE_TM1p1
+   *   ASSERT(nf==1 or nf==2)
+   *   if g.n_flavours == 1: 
+   *     nothing needs to be done
+   *   if g.n_flavours == 2:
+   *     update inner d.o.f. in various structures
+   * Case: not HAVE_TM1p1 
+   *   n_flavours should be 1
+   *
+   */
   ASSERT(nf>0);
   ASSERT(l->depth == 0);
 
@@ -58,49 +102,66 @@ void data_layout_n_flavours( int nf, level_struct *l, struct Thread *threading )
   else {
     START_LOCKED_MASTER(threading)
     g.n_flavours = nf;
-
-    struct level_struct *l_tmp = l;
+    if ( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 )
+      g.num_indep_flav = 1;
+    else
+      g.num_indep_flav = nf;
     
+    // l->gs_PRECISION.buffer.num_vect_now is not used
+    // l->gs_PRECISION.transfer_buffer.num_vect_now is tmp field and so set on demand
+    // comm_PRECISION_struct does not use num_vect_now
+    // op->buffer[*].num_vect now is tmp field and so set on demand in (coarse_)apply_schur_complement_PRECISION
+    // only vector_buffer in l->x is used. 
+    
+    int i, k = 0;
+    struct level_struct *l_tmp = l;
     while(1) {
-      if(l_tmp->depth == 0)
-        l_tmp->num_lattice_site_var = nf * 12;
-      else
-        l_tmp->num_lattice_site_var = nf * 2 * l_tmp->num_parent_eig_vect;
-      
-      l_tmp->inner_vector_size = l_tmp->num_inner_lattice_sites * l_tmp->num_lattice_site_var;
-      
-      l_tmp->vector_size = l_tmp->num_lattice_sites * l_tmp->num_lattice_site_var;
-      l_tmp->schwarz_vector_size = 2*l_tmp->vector_size - l_tmp->inner_vector_size;
-      
-      if(l_tmp->depth == 0) {
-        g.p.v_end = l_tmp->inner_vector_size;
-        g.p_MP.sp.v_end = l_tmp->inner_vector_size;
-        g.p_MP.dp.v_end = l_tmp->inner_vector_size;
-      }
-      
-      if ( g.mixed_precision ) {
-        l_tmp->s_float.block_vector_size = l_tmp->s_float.num_block_sites*l_tmp->num_lattice_site_var;
-        l_tmp->p_float.v_end = l_tmp->inner_vector_size;
-        l_tmp->sp_float.v_end = l_tmp->inner_vector_size;
-        l_tmp->dummy_p_float.v_end = l_tmp->inner_vector_size;
-        if ( (g.method >= 5 && g.odd_even) || (!l_tmp->idle && l_tmp->level == 0 && g.odd_even) ) {
-          if ( l_tmp->level == 0 )
-            l_tmp->p_float.v_end = l_tmp->oe_op_float.num_even_sites*l_tmp->num_lattice_site_var;
-          else
-            l_tmp->sp_float.v_end = l_tmp->oe_op_float.num_even_sites*l_tmp->num_lattice_site_var;
+      if (l_tmp->depth == 0 ) {
+#ifdef INIT_ONE_PREC
+	if ( g.mixed_precision == 2 && g.method >= 0 ) {
+#else
+	if ( g.method >= 0 ) {
+#endif
+	  change_to_n_flavours( &(g.p_MP), nf );
+#if defined(INIT_ONE_PREC) && (defined (DEBUG) || defined (TEST_VECTOR_ANALYSIS))
+	  g.p.b.num_vect_now = nf*num_loop;
+	  g.p.x.num_vect_now = nf*num_loop;
+#endif
+#ifdef INIT_ONE_PREC
+	} else
+#else
         }
-        
+#endif
+	  change_to_n_flavours_double( &(g.p), nf, NULL );
+      }
+
+      if ( g.mixed_precision ) {
+	for ( i = 0; i<5; i++ ) l_tmp->s_float.buf[i].num_vect_now                 = nf*num_loop;
+	for ( i = 0; i<4; i++ ) l_tmp->s_float.oe_buf[i].num_vect_now              = nf*num_loop;
+	for ( i = 0; i<3; i++ ) l_tmp->s_float.local_minres_buffer[i].num_vect_now = nf*num_loop;
       } else {
-        l_tmp->s_double.block_vector_size = l_tmp->s_double.num_block_sites*l_tmp->num_lattice_site_var;
-        l_tmp->p_double.v_end = l_tmp->inner_vector_size;
-        l_tmp->sp_double.v_end = l_tmp->inner_vector_size;
-        l_tmp->dummy_p_double.v_end = l_tmp->inner_vector_size;
-        if ( (g.method >= 5  && g.odd_even) || (!l_tmp->idle && l_tmp->level == 0 && g.odd_even) ) {
-          if ( l_tmp->level == 0 )
-            l_tmp->p_double.v_end = l_tmp->oe_op_double.num_even_sites*l_tmp->num_lattice_site_var;
-          else
-            l_tmp->sp_double.v_end = l_tmp->oe_op_double.num_even_sites*l_tmp->num_lattice_site_var;
-        } 
+	for ( i = 0; i<5; i++ ) l_tmp->s_double.buf[i].num_vect_now                 = nf*num_loop;
+	for ( i = 0; i<4; i++ ) l_tmp->s_double.oe_buf[i].num_vect_now              = nf*num_loop;
+	for ( i = 0; i<3; i++ ) l_tmp->s_double.local_minres_buffer[i].num_vect_now = nf*num_loop;
+      }
+
+      if ( g.mixed_precision ) {
+	change_to_n_flavours_float( &(l_tmp->p_float), nf, l_tmp );
+	if ( g.method > 3 ) 
+	  change_to_n_flavours_float( &(l_tmp->sp_float), nf, l_tmp );
+      } else {
+	change_to_n_flavours_double( &(l_tmp->p_double), nf, l_tmp );
+        if ( g.method > 3 )
+          change_to_n_flavours_double( &(l_tmp->sp_double), nf, l_tmp );
+      }
+
+      //int n = (g.method != -1)?2:4;//does not hurt to change num_vect_now of unused buffers for vbuf_PRECISION
+      if ( g.mixed_precision ) {
+	for ( i = 0; i<5; i++ ) l_tmp->vbuf_float[i].num_vect_now = nf*num_loop;
+	for ( i = 0; i<2; i++ ) l_tmp->sbuf_float[i].num_vect_now = nf*num_loop;
+      } else {
+	for ( i = 0; i<5; i++ ) l_tmp->vbuf_double[i].num_vect_now = nf*num_loop;
+	for ( i = 0; i<2; i++ ) l_tmp->sbuf_double[i].num_vect_now = nf*num_loop;
       }
       
       if ( l->level == 0 || l_tmp->next_level == NULL )
@@ -108,12 +169,8 @@ void data_layout_n_flavours( int nf, level_struct *l, struct Thread *threading )
       
       l_tmp = l_tmp->next_level;
     }
-    
-    update_threading( no_threading, l);
     END_LOCKED_MASTER(threading)
   }
-
-  update_threading( threading, l);
 #else
   ASSERT(nf==1);
 #endif

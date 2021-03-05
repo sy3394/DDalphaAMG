@@ -57,16 +57,85 @@ static inline void coarse_perform_fwd_bwd_subs_PRECISION( const buffer_PRECISION
   int n2 = l->num_lattice_site_var;
   int oo_inv_size = SQUARE(n2);
 #if 0
-  int nvec = b->num_vect_now, nvec_x = x->num_vect, nvec_b = b->num_vect;
+  int nvec = b->num_vect_now, nvec_x = x->num_vect, nvec_b = b->num_vect, nvec_A = num_loop;
   config_PRECISION A = op->clover_oo_inv;
   buffer_PRECISION x_pt = x->vector_buffer+(op->num_even_sites+start)*n2*nvec_x, b_pt = b->vector_buffer+(op->num_even_sites+start)*n2*nvec_b;
 #endif
 #ifdef DEBUG
-  if( nvec_x < nvec && nvec==num_loop )
+  if( nvec_x < nvec )
     error0("coarse_perform_fwd_bwd_subs_PRECISION: assumptions are not met\n");
+#endif
+#ifdef HAVE_TM1p1
+  if ( g.n_flavours == 2 ) {
+#ifdef DEBUG
+    if( nvec != 2*num_loop )
+      error0("coarse_perform_fwd_bwd_subs_PRECISION (doublet): assumptions are not met\n");
+#endif
+    int n4 = 2*n2, hnvec = nvec/2;
+    oo_inv_size *= 4;
+#if defined(HAVE_MULT_TM)
+    //  A += oo_inv_size*start*num_loop;
+    int nc = g.n_chunk, nv = oo_inv_size*(l->num_inner_lattice_sites/2)*num_loop, si, sj;
+    //  for ( s=start; s<end; s++ ) {  
+    // solve x = U^(-1) L^(-1) b
+    // forward substitution with L
+    for ( i=0; i<n2; i++ ) 
+      VECTOR_LOOP( jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] = b_pt[i*nvec_b+jj+jjj];)
+    for ( i=0; i<n4; i++ ) {
+      si = i%2;
+      for ( j=0; j<i; j++ ) {
+	sj = j%2;
+	VECTOR_LOOP(jj, hnvec, jjj, x_pt[i/2*nvec_x+jj+jjj+hnvec*si] -= A[(i*n4+j)*num_loop+nc*nv+jj+jjj]*x_pt[j/2*nvec_x+jj+jjj+hnvec*sj];)
+      }
+    }
+    // backward substitution with U
+    for ( i=n4-1; i>=0; i-- ) {
+      si = i%2;
+      for ( j=i+1; j<n4; j++ ) {
+	sj = j%2;
+	VECTOR_LOOP(jj, hnvec, jjj, x_pt[i/2*nvec_x+jj+jjj+hnvec*si] -= A[(i*n4+j)*num_loop+nc*nv+jj+jjj]*x_pt[j/2*nvec_x+jj+jjj+hnvec*sj];)//printf("%g ",creal_PRECISION(A[i*n2+j]));)
+      }
+      VECTOR_LOOP( jj, hnvec, jjj, x_pt[i/2*nvec_x+jj+jjj+hnvec*si] /= A[i*(n4+1)*num_loop+nc*nv+jj+jjj];)//printf("%g ",creal_PRECISION(A[i*n2+j]));)
+    }
+    /*
+    x_pt += n2*nvec_x;
+    b_pt += n2*nvec_b;
+    A += oo_inv_size*num_loop;
+  }*/
+#else
+  //  A += oo_inv_size*start;
+    //  for ( s=start; s<end; s++ ) {  
+    // solve x = U^(-1) L^(-1) b
+    // forward substitution with L
+    for ( i=0; i<n2; i++ )
+      VECTOR_LOOP( jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] = b_pt[i*nvec_b+jj+jjj];)
+    for ( i=0; i<n4; i++ ) {
+      si = i%2;
+      for ( j=0; j<i; j++ ) {
+        sj = j%2;
+        VECTOR_LOOP(jj, hnvec, jjj, x_pt[i/2*nvec_x+jj+jjj+hnvec*si] -= A[(i*n4+j)]*x_pt[j/2*nvec_x+jj+jjj+hnvec*sj];)
+      }
+    }
+    // backward substitution with U
+    for ( i=n4-1; i>=0; i-- ) {
+      si = i%2;
+      for ( j=i+1; j<n4; j++ ) {
+        sj = j%2;
+        VECTOR_LOOP(jj, hnvec, jjj, x_pt[i/2*nvec_x+jj+jjj+hnvec*si] -= A[(i*n4+j)]*x_pt[j/2*nvec_x+jj+jjj+hnvec*sj];)
+      } 
+      VECTOR_LOOP( jj, hnvec, jjj, x_pt[i/2*nvec_x+jj+jjj+hnvec*si] /= A[i*(n4+1)];)
+    }
+    /*
+    x_pt += n2*nvec_x;
+    b_pt += n2*nvec_b;
+    A += oo_inv_size;
+    }*/
+#endif
+  } else {
 #endif
 
 #if defined(HAVE_MULT_TM)
+    //    printf0("fwd %d\n",nvec);
   //  A += oo_inv_size*start*num_loop;
   int nc = g.n_chunk, nv = oo_inv_size*(l->num_inner_lattice_sites/2)*num_loop;
   //  for ( s=start; s<end; s++ ) {  
@@ -96,12 +165,12 @@ static inline void coarse_perform_fwd_bwd_subs_PRECISION( const buffer_PRECISION
     for ( i=0; i<n2; i++ ) {
       VECTOR_LOOP( jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] = b_pt[i*nvec_b+jj+jjj];)
 	for ( j=0; j<i; j++ ) 
-	  VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= A[i*n2+j]*x_pt[j*nvec_x+jj+jjj];)
+	  VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= A[(i*n2+j)]*x_pt[j*nvec_x+jj+jjj];)
     }
     // backward substitution with U
     for ( i=n2-1; i>=0; i-- ) {
       for ( j=i+1; j<n2; j++ ) 
-	VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= A[i*n2+j]*x_pt[j*nvec_x+jj+jjj];)//printf("%g ",creal_PRECISION(A[i*n2+j]));)
+	VECTOR_LOOP(jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] -= A[(i*n2+j)]*x_pt[j*nvec_x+jj+jjj];)//printf("%g ",creal_PRECISION(A[i*n2+j]));)
       VECTOR_LOOP( jj, nvec, jjj, x_pt[i*nvec_x+jj+jjj] /= A[i*(n2+1)];)//printf("%g ",creal_PRECISION(A[i*n2+j]));)
     }
     /*
@@ -109,6 +178,9 @@ static inline void coarse_perform_fwd_bwd_subs_PRECISION( const buffer_PRECISION
     b_pt += n2*nvec_b;
     A += oo_inv_size;
     }*/
+#endif
+#ifdef HAVE_TM1p1
+  }
 #endif
 }
 
@@ -130,9 +202,70 @@ static inline void coarse_LU_multiply_PRECISION( const buffer_PRECISION y_pt, co
     error0("coarse_LU_multiply_PRECISION: assumptions are not met\n");
 #endif
 
+#ifdef HAVE_TM1p1
+  if ( g.n_flavours == 2 ) {
+    int n4 = 2*n2, hnvec = nvec/2;
+    oo_inv_size *= 4;
+#if defined(HAVE_MULT_TM)
+    //  A += oo_inv_size*start*num_loop;
+    int nc = g.n_chunk, nv = oo_inv_size*(l->num_inner_lattice_sites/2)*num_loop, si, sj;//#odd sits!!!!
+    //  for ( s=start; s<end; s++ ) { 
+    // y = Ax
+    // multiplication with U
+    for ( i=0; i<n4; i++ ) {
+      si = i%2;
+      VECTOR_LOOP( jj, hnvec, jjj, y_pt[i/2*nvec_y+jj+jjj+hnvec*si] = A[i*(n4+1)*num_loop+nc*nv+jj+jjj]*x_pt[i/2*nvec_x+jj+jjj+hnvec*si];)
+      for ( j=i+1; j<n4; j++ ) {
+	sj = j%2;
+	VECTOR_LOOP( jj, hnvec, jjj, y_pt[i/2*nvec_y+jj+jjj+hnvec*si] += A[(i*n4+j)*num_loop+nc*nv+jj+jjj]*x_pt[j/2*nvec_x+jj+jjj+hnvec*sj];)
+      }
+    }
+    // multiplication with L
+    for ( i=n4-1; i>0; i-- ) {
+      si = i%2;
+      for ( j=0; j<i; j++ ) {
+	sj = j%2;
+	VECTOR_LOOP(jj, hnvec, jjj, y_pt[i/2*nvec_y+jj+jjj+hnvec*si] += A[(i*n4+j)*num_loop+nc*nv+jj+jjj]*y_pt[j/2*nvec_y+jj+jjj+hnvec*sj];)
+      }
+    }
+	  /*
+	    x_pt += n2*nvec_x;
+	    y_pt += n2*nvec_y;
+	    A += oo_inv_size*num_loop;
+	    }*/
+#else
+    //  A += oo_inv_size*start;
+    //  for ( s=start; s<end; s++ ) {
+    
+    // y = Ax
+    // multiplication with U
+    for ( i=0; i<n4; i++ ) {
+      si = i%2;
+      VECTOR_LOOP( jj, hnvec, jjj, y_pt[i/2*nvec_y+jj+jjj+hnvec*si] = A[i*(n4+1)]*x_pt[i/2*nvec_x+jj+jjj+hnvec*si];)
+        for ( j=i+1; j<n2*2; j++ ) {
+          sj = j%2;
+          VECTOR_LOOP( jj, hnvec, jjj, y_pt[i/2*nvec_y+jj+jjj+hnvec*si] += A[(i*n4+j)]*x_pt[j/2*nvec_x+jj+jjj+hnvec*sj];)
+        }
+    }
+    // multiplication with L
+      for ( i=n4-1; i>0; i-- )
+      for ( j=0; j<i; j++ ) {
+        sj = j%2;
+        VECTOR_LOOP(jj, nvec, jjj, y_pt[i/2*nvec_y+jj+jjj+hnvec*si] += A[(i*n4+j)]*y_pt[j/2*nvec_y+jj+jjj+hnvec*sj];)
+      }
+    	  /*
+    x_pt += n2*nvec_x;
+    y_pt += n2*nvec_y;
+    A += oo_inv_size;
+    }*/
+#endif
+  } else {
+#else
+#endif
+  
 #if defined(HAVE_MULT_TM)
   //  A += oo_inv_size*start*num_loop;
-    int nc = g.n_chunk, nv = oo_inv_size*(l->num_inner_lattice_sites/2)*num_loop;//#odd sits!!!!
+  int nc = g.n_chunk, nv = oo_inv_size*(l->num_inner_lattice_sites/2)*num_loop;//#odd sits!!!!
   //  for ( s=start; s<end; s++ ) { 
     // y = Ax
     // multiplication with U
@@ -146,10 +279,10 @@ static inline void coarse_LU_multiply_PRECISION( const buffer_PRECISION y_pt, co
       for ( j=0; j<i; j++ )
 	VECTOR_LOOP(jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] += A[(i*n2+j)*num_loop+nc*nv+jj+jjj]*y_pt[j*nvec_y+jj+jjj];)
 	  /*
-    x_pt += n2*nvec_x;
-    y_pt += n2*nvec_y;
-    A += oo_inv_size*num_loop;
-      }*/
+	    x_pt += n2*nvec_x;
+	    y_pt += n2*nvec_y;
+	    A += oo_inv_size*num_loop;
+	    }*/
 #else
   //  A += oo_inv_size*start;
     //  for ( s=start; s<end; s++ ) { 
@@ -158,17 +291,20 @@ static inline void coarse_LU_multiply_PRECISION( const buffer_PRECISION y_pt, co
     for ( i=0; i<n2; i++ ) {
       VECTOR_LOOP( jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] = A[i*(n2+1)]*x_pt[i*nvec_x+jj+jjj];)
 	for ( j=i+1; j<n2; j++ )
-	  VECTOR_LOOP( jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] += A[i*n2+j]*x_pt[j*nvec_x+jj+jjj];)
+	  VECTOR_LOOP( jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] += A[(i*n2+j)]*x_pt[j*nvec_x+jj+jjj];)
     }
     // multiplication with L
     for ( i=n2-1; i>0; i-- )
       for ( j=0; j<i; j++ )
-	VECTOR_LOOP(jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] += A[i*n2+j]*y_pt[j*nvec_y+jj+jjj];)
+	VECTOR_LOOP(jj, nvec, jjj, y_pt[i*nvec_y+jj+jjj] += A[(i*n2+j)]*y_pt[j*nvec_y+jj+jjj];)
 	  /*
     x_pt += n2*nvec_x;
     y_pt += n2*nvec_y;
     A += oo_inv_size;
     }*/
+#endif
+#ifdef HAVE_TM1p1
+  }
 #endif
 }
   

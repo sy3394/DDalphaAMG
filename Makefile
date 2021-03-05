@@ -1,10 +1,16 @@
 # --- COMPILER ----------------------------------------
-CC = mpiicc 
+CMP=INTEL #GNU or INTEL
+#ifeq ( $(strip $CMP), INTEL ))
+CC = mpiicc
+#else ifeq ( $(strip $CMP), GNU )
+#CC = mpicc
+#endif
+#CC=mpiicc
 #intel mpiicc
 #gnu mpicc
 # --- CFLAGS -----------------------------------------
-CFLAGS_gnu = -std=gnu99 -Wall -pedantic -O3 -ffast-math -msse4.2  -fopenmp -g3
-CFLAGS_intel = -std=gnu99 -Wall -pedantic -O3 -xHost -qopenmp -g3 -fp-model fast=2 # -vec-report
+CFLAGS_gnu = -std=gnu99 -Wall -pedantic -O3 -ffast-math -ftree-vectorize -ffast-math -march=native -fopenmp -g3
+CFLAGS_intel = -std=gnu99 -Wall -pedantic -O2 -xHost -qopenmp -g3 -fp-model fast=2 # -vec-report
 CFLAGS = $(CFLAGS_intel)
 
 # --- DO NOT CHANGE -----------------------------------
@@ -50,22 +56,24 @@ EFENCELIB= # -L${EFENCEDIR} -lefence
 
 # --- FLAGS FOR FABULOUS --------------------------------- 
 FABULOUSDIR=${HOME}/src/fabulous
-FABULOUSFLAGS= #-DHAVE_FABULOUS -I${FABULOUSDIR}/src/api/include
+FABULOUSFLAGS=-DHAVE_FABULOUS -I${FABULOUSDIR}/src/api/include
 FABULOUSLIB=-L${FABULOUSDIR}/build/src/api -lfabulous
 
-# --- FLAGS FOR LAPACK ---------------------------------
+# --- FLAGS FOR LAPACK for intel compiler ---------------------------------
+#ifeq ( $(strip $CMP), INTEL )
 LAPACKDIR=/onyx/buildsets/noe190301/software/imkl/2018.1.163-iimpi-2018a/mkl
 #LAPACKDIR=/onyx/buildsets/noe190301/software/ScaLAPACK/2.0.2-gompi-2017b-OpenBLAS-0.2.20
 LAPACKFLAGS=-I${LAPACKDIR}/include
 #LAPACKLIB=-L${LAPACKDIR}/lib -l-lscalapack
 LAPACKLIB=-L${LAPACKDIR}/lib/intel64 -L${LAPACKDIR}/mkl/lib/intel64 -lmkl
+#endif
 
 # Available flags:
 # -DPARAMOUTPUT -DTRACK_RES -DFGMRES_RESTEST -DPROFILING
 # -DSINGLE_ALLREDUCE_ARNOLDI
 # -DCOARSE_RES -DSCHWARZ_RES -DTESTVECTOR_ANALYSIS -DDEBUG
 # -DOPTIMIZE -DSSE -DAVX -DAVX2 -DAVX512
-OPT_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) ${FABULOUSFLAGS} $(H5FLAGS) ${LAPACKFLAGS} ${EFENCEFLAGS} -DPARAMOUTPUT -DTRACK_RES -DOPENMP -DPROFILING -DDEBUG
+OPT_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) ${FABULOUSFLAGS} $(H5FLAGS) ${LAPACKFLAGS} ${EFENCEFLAGS} -DPARAMOUTPUT -DTRACK_RES -DOPENMP -DPROFILING  -DDEBUG
 DEVEL_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) ${FABULOUSFLAGS} ${LAPACKFLAGS} ${EFENCEFLAGS} -DDEBUG -DPARAMOUTPUT -DTRACK_RES -DFGMRES_RESTEST -DPROFILING -DCOARSE_RES -DSCHWARZ_RES -DTESTVECTOR_ANALYSIS -DOPENMP
 
 all: execs library exec-tests

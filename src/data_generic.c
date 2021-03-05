@@ -44,16 +44,34 @@ void buffer_PRECISION_define( complex_PRECISION *phi, complex_PRECISION value, i
     PROF_PRECISION_STOP( _SET, 1 );
 }
 
-// used only in schwarz_PRECISION_setup
+// used only in schwarz_PRECISION_setup & ic
 void buffer_PRECISION_copy( complex_PRECISION *z, complex_PRECISION *x, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();
   if(thread == 0 && start != end)
-  PROF_PRECISION_START( _CPY );
+    PROF_PRECISION_START( _CPY );
   
   VECTOR_FOR( int i=start, i<end, z[i] = x[i], i++, l );
   
   if(thread == 0 && start != end)
-  PROF_PRECISION_STOP( _CPY, (double)(end-start)/(double)l->inner_vector_size );
+    PROF_PRECISION_STOP( _CPY, (double)(end-start)/(double)l->inner_vector_size );
+}
+
+// used only in two_flavours_test_PRECISION in dirac_generic.c
+void buffer_PRECISION_real_scale( buffer_PRECISION z, buffer_PRECISION x, complex_PRECISION alpha,
+                                  int start, int end, level_struct *l ) {
+
+  PRECISION *r_z = (PRECISION*)z, *r_x = (PRECISION*)x, r_alpha = creal_PRECISION(alpha);
+  int r_start = 2*start, r_end = 2*end;
+
+  int thread = omp_get_thread_num();
+  if(thread == 0 && start != end)
+    PROF_PRECISION_START( _LA2 );
+
+  
+  REAL_VECTOR_FOR( int i=r_start, i<r_end, r_z[i] = r_alpha*r_x[i], i++, l );
+
+  if(thread == 0 && start != end)
+    PROF_PRECISION_STOP( _LA2, (double)(end-start)/(double)l->inner_vector_size );
 }
 

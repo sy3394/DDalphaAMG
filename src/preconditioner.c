@@ -34,14 +34,14 @@ void preconditioner( vector_double *phi, vector_double *Dphi, vector_double *eta
   else if ( g.method < 4 ) {
     // In this case, l->s_PRECISION.op is used as D so that reordering is necessary
     if ( g.mixed_precision ) {
-      for ( int i=0; i<2; i++ ) 
-	l->sbuf_float[i].num_vect_now = num_loop;//eta->num_vect_now;//g.num_vect_now;//!!!!!!!!!!!
+      //for ( int i=0; i<2; i++ ) 
+      //l->sbuf_float[i].num_vect_now = num_loop;//eta->num_vect_now;//g.num_vect_now;//!!!!!!!!!!!
       trans_float( &(l->sbuf_float[0]), eta, l->s_float.op.translation_table, l, threading );
       vcycle_float( &(l->sbuf_float[1]), NULL, &(l->sbuf_float[0]), res, l, threading );
       trans_back_float( phi, &(l->sbuf_float[1]), l->s_float.op.translation_table, l, threading );
     } else {
-      for ( int i=0; i<2; i++ ) 
-	l->sbuf_double[i].num_vect_now = num_loop;//eta->num_vect_now;//g.num_vect_now;//!!!!!!!!!!!
+      //for ( int i=0; i<2; i++ ) 
+      //l->sbuf_double[i].num_vect_now = num_loop;//eta->num_vect_now;//g.num_vect_now;//!!!!!!!!!!!
       trans_double( &(l->sbuf_double[0]), eta, l->s_double.op.translation_table, l, threading );
       vcycle_double( &(l->sbuf_double[1]), NULL, &(l->sbuf_double[0]), res, l, threading );
       trans_back_double( phi, &(l->sbuf_double[1]), l->s_double.op.translation_table, l, threading );
@@ -53,16 +53,16 @@ void preconditioner( vector_double *phi, vector_double *Dphi, vector_double *eta
     // 2) needs to work when g.method==4
     // 3) At present, g.mixed_precision==2 is incompatible with the choice of g.method==4,5
     if ( g.mixed_precision ) {
-      l->sp_float.x.num_vect_now = num_loop;//eta->num_vect_now;//!!!!!!!!
-      l->sp_float.b.num_vect_now = num_loop;//phi->num_vect_now;//!!!!!!!!
+      //l->sp_float.x.num_vect_now = num_loop;//eta->num_vect_now;//!!!!!!!!
+      //l->sp_float.b.num_vect_now = num_loop;//phi->num_vect_now;//!!!!!!!!
       l->sp_float.num_restart = l->n_cy;
       l->sp_float.initial_guess_zero = res;
       serial_to_oddeven_float( &(l->sp_float.b), eta, l, threading );
       solve_oddeven_float( &(l->sp_float), &(l->oe_op_float), l, threading );
       oddeven_to_serial_float( phi, &(l->sp_float.x), l, threading );
     } else {
-      l->sp_double.x.num_vect_now = num_loop;//eta->num_vect_now;//!!!!!!!!
-      l->sp_double.b.num_vect_now = num_loop;//phi->num_vect_now;//!!!!!!!!
+      //l->sp_double.x.num_vect_now = num_loop;//eta->num_vect_now;//!!!!!!!!
+      //l->sp_double.b.num_vect_now = num_loop;//phi->num_vect_now;//!!!!!!!!
       l->sp_double.num_restart = l->n_cy;
       l->sp_double.initial_guess_zero = res;
       serial_to_oddeven_double( &(l->sp_double.b), eta, l, threading );

@@ -27,5 +27,5 @@
   
   void buffer_PRECISION_define( complex_PRECISION *phi, complex_PRECISION value, int start, int end, level_struct *l );
   void buffer_PRECISION_copy( complex_PRECISION *z, complex_PRECISION *x, int start, int end, level_struct *l ); // z := x
-
+  void buffer_PRECISION_real_scale( buffer_PRECISION z, buffer_PRECISION x, complex_PRECISION alpha, int start, int end, level_struct *l );
 #endif

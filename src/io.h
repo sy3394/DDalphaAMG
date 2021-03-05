@@ -42,7 +42,7 @@
   void byteswap8( char *in );  
   void read_conf( double *input_data, char *input_name, double *conf_plaq, level_struct *l );
   void vector_io( double *phi, char *filename, const int mode, level_struct *l );
-  void vector_io_single_file( double *psi, double *lambda, char *filename, const int mode, int n, char *vector_type, level_struct *l );
+  void vector_io_single_file( vector_double *psi, double *lambda, char *filename, const int mode, int n, char *vector_type, level_struct *l );
   void d_dump( config_double D, level_struct *l );
   
   static inline int process_index( int t, int z, int y, int x, int ll[4] ) {

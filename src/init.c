@@ -63,6 +63,7 @@ void g_init(){
 #ifdef HAVE_TM1p1
   g.epsbar_factor = NULL;
   g.n_flavours = 1;
+  g.num_indep_flav = 1;
 #endif
   g.gamma = NULL;
   g.odd_even_table = NULL;
@@ -134,6 +135,7 @@ void method_init( int *argc, char ***argv, level_struct *l ) {
   
 }
 
+// setup phase
 void method_setup( vector_double *V, level_struct *l, struct Thread *threading ) {
   
   int nvec = num_loop;
@@ -304,7 +306,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
     if( g.method < 4 ) {
       printf0("|      use only FGMRES at setup: %-2d                    |\n", g.use_only_fgrmes_at_setup );
 #ifdef HAVE_FABULOUS
-      printf0("|      fabulous user data size for log: %-2d                              |\n", g.logger_user_data_size[i] );
+      printf0("|      fabulous user data size for log: %-2d                              |\n", g.logger_user_data_size );
       printf0("|      fabulous silent run: %-2d                              |\n", g.quiet );
 #endif
     }
@@ -326,7 +328,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 #ifdef HAVE_FABULOUS
 	  printf0("|      fabulous orthogonalization scheme: %-2d                              |\n", g.f_orthoscheme[i] );
 	  printf0("|      fabulous orthogonalization type: %-2d                              |\n", g.f_orthotype[i] );
-	  printf0("|      fabulous orthogonalization iter: %-2d                              |\n", g.f_ortho_iter[i] );
+	  printf0("|      fabulous orthogonalization iter: %-2d                              |\n", g.ortho_iter[i] );
 	  printf0("|      fabulous max kept dir: %-2d                              |\n", g.max_kept_direction[i] );
 	  printf0("|      fabulous number of deflating eigenvectors for fabulous: %-2d                |\n", g.k[i] );
 	  printf0("|      max number of mat-vec products in fabulous solver: %-2d                |\n", g.max_mvp[i] );
@@ -498,6 +500,12 @@ void method_iterative_setup( int setup_iter, level_struct *l, struct Thread *thr
       iterative_double_setup( setup_iter, l, threading );
 
     START_LOCKED_MASTER(threading)
+#ifdef HAVE_FABULOUS
+    if ( g.mixed_precision )
+      reset_fab_nrhs_float(l);
+    else
+      reset_fab_nrhs_double(l);
+#endif
     g.in_setup = 0;
     END_LOCKED_MASTER(threading)
     

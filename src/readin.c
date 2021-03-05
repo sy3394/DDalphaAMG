@@ -215,6 +215,8 @@ static void read_no_default_info( FILE *in ) {
 #ifdef HAVE_TM1p1
   save_pt = &(g.epsbar); g.epsbar = 0;
   read_parameter( &save_pt, "epsbar:", "%lf", 1, in, _DEFAULT_SET );
+  save_pt = &(g.force_2flavours); g.force_2flavours = 0;
+  read_parameter( &save_pt, "force_2flavours:", "%d", 1, in, _DEFAULT_SET );
 #endif
 }
 
@@ -590,7 +592,7 @@ static void validate_parameters( int ls, level_struct *l ) {
     g.use_only_fgrmes_at_setup = 0;
   }
 #else
-  if ( g.method < 0 || g.method > 3 ) {
+  if ( g.method > 0 && g.method < 3 ) {
     if ( g.mixed_precision == 2 && g.solver[0] ) {
       warning0("Fabulous solvers do not support mixed precision.\n         Switching to single precision.\n");
       g.mixed_precision = 1;
@@ -610,10 +612,9 @@ static void validate_parameters( int ls, level_struct *l ) {
     error0("Fabulous solvers are not supported when g.method != 0, 1, 2, 3\n");
   }
 #endif
+
   ASSERT( IMPLIES( g.vt.evaluation, g.rhs <= 2 ) );
-#ifdef _20TV
-  ASSERT( g.num_eig_vect == 20 );
-#endif
+
   for ( i=0; i<g.num_levels-1; i++ )
     ASSERT( DIVIDES( num_loop, g.num_eig_vect[i] ) );
 
@@ -662,7 +663,16 @@ static void validate_parameters( int ls, level_struct *l ) {
   ASSERT( IMPLIES( g.kcycle && g.method > 0, g.kcycle_max_restart > 0 ) );
   ASSERT( IMPLIES( g.kcycle && g.method > 0, 0 < g.kcycle_tol && g.kcycle_tol < 1 ) );
   
-
+#ifdef HAVE_TM1p1
+  if ( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) {
+    warning0("force_2flavours is set to 0 when eps term is non-zero to aovid confusion\n");
+    g.force_2flavours = 0;
+#ifdef HAVE_FABULOUS
+    warning0("With non-zero eps term, fabulous is used only during the solver phase\n         Switching use_only_fgrmes_at_setup to true\n");
+    g.use_only_fgrmes_at_setup = 1;
+#endif
+  }
+#endif
   //LIST OF CASES WHICH SHOULD WORK, BUT DO NOT (TODO)
 
   //TODO: Could work without, but you need to fix the setup phase.    
@@ -673,10 +683,6 @@ static void validate_parameters( int ls, level_struct *l ) {
   if ( g.num_levels>2 && g.interpolation )
     ASSERT( g.mixed_precision );
 
-#ifdef HAVE_TM1p1
-  //TODO: method = 6 not supported with HAVE_TM1p1. To fix all the g5D functions
-  ASSERT( g.method !=6 );
-#endif
 }
 
 static void allocate_for_global_struct_after_read_global_info( int ls ) {

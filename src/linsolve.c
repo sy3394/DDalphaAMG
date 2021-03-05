@@ -52,13 +52,16 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
 *********************************************************************************/  
 
   long int total=0; 
-  int i, k=0, nvec=num_loop;
+  int i, k=0, nvec = num_loop;
+#ifdef HAVE_TM1p1
+  nvec*=2;
+#endif
 
   // double                                       // single
   p->dp.restart_length = m;                       p->sp.restart_length = m;           
   p->dp.num_restart = n;                          p->sp.num_restart = n;
   p->dp.preconditioner = NULL;                    p->sp.preconditioner = precond;
-  p->dp.eval_operator = d_plus_clover_double; p->sp.eval_operator = d_plus_clover_float;
+  p->dp.eval_operator = d_plus_clover_double;     p->sp.eval_operator = d_plus_clover_float;
 
   p->dp.tol = tol;                                p->sp.tol = MAX(tol,1E-5);
   p->dp.kind = _NOTHING;                          p->sp.kind = prec_kind;
@@ -74,10 +77,6 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
   //g.p.op = &(g.op_double);//this showed up in method_init too??????? ony when INIT_PREC is not enabled
   //g.p.eval_operator = d_plus_clover_double;//why here????? ony when INIT_PREC is not enabled
   
-#ifdef HAVE_TM1p1
-  nvec*=2;
-#endif
-
   //--------------------------- double precision part
   p->dp.num_vect = nvec;
   total = 0;
@@ -149,7 +148,7 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
 }  
    
    
-void fgmres_MP_struct_free( gmres_MP_struct *p, level_struct *l ) {
+void fgmres_MP_struct_free( gmres_MP_struct *p, level_struct *l ) { 
 
   int i, k;  
   if ( p->sp.preconditioner != NULL ) {
@@ -177,7 +176,7 @@ void fgmres_MP_struct_free( gmres_MP_struct *p, level_struct *l ) {
   vector_double_free( &(p->dp.b), l, no_threading );
 } 
     
-int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
+int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) { // called only from top_level.c
   
   /*********************************************************************************
    * Uses FGMRES to solve the system D x = b, where b is taken from p->b and x is 
@@ -190,21 +189,33 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   int start;
   int end;
   
-  int i,jj, j=-1, finish=0, iter=0, il, ol, n_vect=num_loop;//g.num_vect_now;//!!!!!!!
+  int i,jj, j=-1, finish=0, iter=0, il, ol, n_vect = p->dp.b.num_vect_now, n_vectmf = p->dp.b.num_vect_now;
+#ifdef HAVE_TM1p1
+#ifdef DEBUG
+  if ( g.n_flavours == 2 && n_vect != 2*num_loop )
+    error0("fgmres_PRECISION: doublet error\n");
+#endif
+  // When we have two active flavours and eps term is non-zero, we need to regard two vectors for two flavours
+  // as a single vector
+  if ( g.n_flavours == 2 && ( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) )
+    n_vect /= g.n_flavours;
+#endif
   double beta[n_vect];
 
   double t0=0, t1=0;
   double norm_r0[n_vect], gamma_jp1[n_vect], gamma0_real[n_vect], gamma_max, gamma_max2, H_tot;
-  complex_float gamma_float[n_vect];
+  complex_float gamma_float[n_vectmf];
 
+#ifdef DEBUG
   if ( p->sp.num_vect < num_loop )
     error0("fgmres: memory corruption\n");
-
+#endif
+  /*
   p->dp.w.num_vect_now = n_vect; p->dp.x.num_vect_now = n_vect; p->dp.r.num_vect_now = n_vect; p->dp.b.num_vect_now = n_vect;
   p->sp.w.num_vect_now = n_vect; p->sp.x.num_vect_now = n_vect; p->sp.r.num_vect_now = n_vect; p->sp.b.num_vect_now = n_vect;
   //p->sp.Z[0].num_vect_now = n_vect;p->sp.V[0].num_vect_now = n_vect;//!!!!!!!
   p->sp.V[0].num_vect_now = n_vect;
-
+  */
   VECTOR_LOOP(i, n_vect, jj, norm_r0[i+jj]=1;
                              gamma_jp1[i+jj]=1;)
   
@@ -231,14 +242,15 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
     //------- iniital setup: Compute r_0 = b − Dx_0 , β := ||r_0||_2 , and v_1 := r_0 /β
     if( ol == 0 && p->dp.initial_guess_zero ) {
       vector_double_copy( &(p->dp.r), &(p->dp.b), start, end, l );
-    } else { 
+    } else {
+      //      printf0("mp %d %d %d %d %d %d\n",n_vect, p->dp.x.num_vect_now, p->sp.w.num_vect_now,  p->dp.r.num_vect_now, p->dp.b.num_vect_now, p->sp.V[0].num_vect_now);
       // if the initial guess is not zero, need to compute b_l-D_l phi_i 
       apply_operator_double( &(p->dp.r), &(p->dp.x), &(p->dp), l, threading );     // compute r <- D*x
       vector_double_minus( &(p->dp.r), &(p->dp.b), &(p->dp.r), start, end, l );// compute r <- b - r = b - D*x
     }
     global_norm_double( gamma0_real, &(p->dp.r), p->dp.v_start, p->dp.v_end, l, threading );// gamma_0 = norm(r)
     START_MASTER(threading)
-    VECTOR_LOOP(i, n_vect, jj, p->dp.gamma[i+jj] = (complex_double) gamma0_real[i+jj];)
+    VECTOR_LOOP(i, n_vectmf, jj, p->dp.gamma[i+jj] = (complex_double) gamma0_real[(i+jj)%n_vect];)
     END_MASTER(threading)
       
     // report
@@ -268,7 +280,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
 #endif
     // turn into float
     trans_float( &(p->sp.V[0]), &(p->dp.r), l->s_float.op.translation_table, l, threading );
-    VECTOR_LOOP(i, n_vect, jj, gamma_float[i+jj]= (complex_float) p->dp.gamma[0*n_vect+i+jj];)
+    VECTOR_LOOP(i, n_vectmf, jj, gamma_float[i+jj]= (complex_float) p->dp.gamma[0*n_vectmf+i+jj];)
     vector_float_real_scale( &(p->sp.V[0]), &(p->sp.V[0]), gamma_float, 0, 1, start, end, l ); // V[0] <- r / gamma_0
 
     // inner loop in single precision
@@ -280,10 +292,10 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
 
       // perhaps need to change here!!!!!
       H_tot=0;
-      VECTOR_LOOP(i, n_vect, jj, H_tot += cabs( p->dp.H[j][(j+1)*n_vect+i+jj] );)//????what is this for????
+      VECTOR_LOOP(i, n_vect, jj, H_tot += cabs( p->dp.H[j][(j+1)*n_vectmf+i+jj] );)//????what is this for????
       if ( H_tot > n_vect*1E-15 ) {
         qr_update_double( p->dp.H, p->dp.s, p->dp.c, p->dp.gamma, j, l, threading );
-        VECTOR_LOOP(i, n_vect, jj, gamma_jp1[i+jj] = cabs( p->dp.gamma[(j+1)*n_vect+i+jj] );)
+        VECTOR_LOOP(i, n_vect, jj, gamma_jp1[i+jj] = cabs( p->dp.gamma[(j+1)*n_vectmf+i+jj] );)
 
         if ( iter%10 == 0 || p->sp.preconditioner != NULL || l->depth > 0 ) {
 #if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
@@ -342,7 +354,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
     printf0("+----------------------------------------------------------+\n");
     printf0("|              Final Relative Residuals                    |\n");
     for( i=0; i<n_vect; i++ )
-      printf0("| exact relative residual, %d: ||r||/||b|| = %e   |\n",i, beta[i]/norm_r0[i] );
+      printf0("| exact relative residual, %d_%d: ||r||/||b|| = %e   |\n", i%num_loop, i/num_loop, beta[i]/norm_r0[i] );
     printf0("+----------------------------------------------------------+\n");
     printf0("|                   Solver Statistics                      |\n");
     printf0("|    FGMRES MP iterations: %-6d coarse average: %-6.2lf   |\n", iter,
@@ -387,7 +399,15 @@ void arnoldi_step_MP( vector_float *V, vector_float *Z, vector_float *w,
                       complex_double **H, complex_double* buffer, int j, void (*prec)(),
                       gmres_float_struct *p, level_struct *l, struct Thread *threading ) {
 
-  int i, jj, n, n_vect = w->num_vect_now;//g.num_vect_now, n, jj;//!!!!!!!
+  int i, jj, n, n_vect = w->num_vect_now, n_vectsf = w->num_vect_now;
+#ifdef HAVE_TM1p1
+#ifdef DEBUG
+  if ( g.n_flavours == 2 && n_vect != 2*num_loop )
+    error0("arnoldi_step_MP: doublet error\n");
+#endif
+  if ( g.n_flavours == 2 && ( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) )
+    n_vectsf /= g.n_flavours;
+#endif
   double H_tot;
   complex_float H_float[n_vect];
   // start and end indices for vector functions depending on thread
@@ -397,11 +417,11 @@ void arnoldi_step_MP( vector_float *V, vector_float *Z, vector_float *w,
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
   compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var);
 
-  V[j].num_vect_now = n_vect; V[j+1].num_vect_now = n_vect;//can move to fgmres????   
-
+  //V[j].num_vect_now = n_vect; V[j+1].num_vect_now = n_vect;//can move to fgmres????   
+  //  printf0("a mp %d %d %d %d\n",n_vect,V[j].num_vect_now,V[j+1].num_vect_now ,Z[j].num_vect_now);
   //--- apply D (and preconditioner) to V[j]
   if ( prec != NULL ) {
-    Z[j].num_vect_now = n_vect;
+    //    Z[j].num_vect_now = n_vect;
     if ( p->kind == _LEFT ) {
       apply_operator_float( &Z[0], &V[j], p, l, threading );
       prec( w, NULL, &Z[0], _NO_RES, l, threading );
@@ -421,7 +441,7 @@ void arnoldi_step_MP( vector_float *V, vector_float *Z, vector_float *w,
   process_multi_inner_product_MP( j+1, tmp, V, w, p->v_start, p->v_end, l, threading );
   START_MASTER(threading)
   for( i=0; i<=j; i++ )
-    VECTOR_LOOP(n, n_vect, jj, buffer[i*n_vect+n+jj] = tmp[i*n_vect+n+jj];)
+    VECTOR_LOOP(n, n_vect, jj, buffer[i*n_vect+n+jj] = tmp[i*n_vectsf+(n+jj)%n_vectsf];)
 
   if ( g.num_processes > 1 ) {
     PROF_double_START( _ALLR );
@@ -441,13 +461,13 @@ void arnoldi_step_MP( vector_float *V, vector_float *Z, vector_float *w,
   vector_float_multi_saxpy( w, V, alpha, -1, j+1, start, end, l, threading );
 
   // V_j+1 = w / H_j+1,j
-  double tmp2[n_vect];
+  double tmp2[n_vectsf];
   global_norm_MP( tmp2, w, p->v_start, p->v_end, l, threading );
   START_MASTER(threading)
-  VECTOR_LOOP(n, n_vect, jj, H[j][(j+1)*n_vect+n+jj] = tmp2[n+jj];)
+  VECTOR_LOOP(n, n_vect, jj, H[j][(j+1)*n_vect+n+jj] = tmp2[(n+jj)%n_vectsf];)
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
-  VECTOR_LOOP(n, n_vect, jj,  H_float[n+jj] = ( cabs_double( H[j][(j+1)*n_vect+n+jj] ) > 1e-15 )?(float)tmp2[n+jj]:1;)
+  VECTOR_LOOP(n, n_vect, jj,  H_float[n+jj] = ( cabs_double( H[j][(j+1)*n_vect+n+jj] ) > 1e-15 )?(float)tmp2[(n+jj)%n_vectsf]:1;)
   vector_float_real_scale( &V[j+1], w, H_float, 0, 1, start, end, l );
 }
 
@@ -455,7 +475,12 @@ void compute_solution_MP( vector_float *x, vector_float *V, complex_double *y,
                           complex_double *gamma, complex_double **H, int j,
                           gmres_float_struct *p, level_struct *l, struct Thread *threading ) {
   
-  int i, k, n, jj, n_vect=num_loop;//g.num_vect_now;
+  int i, k, n, jj, n_vect = num_loop;//g.num_vect_now;
+#ifdef HAVE_TM1p1
+  if ( g.n_flavours > 1 )
+    n_vect *= g.n_flavours;
+#endif
+  //  printf0("sol mp %d\n",n_vect);
   complex_float y_float[n_vect];
   // start and end indices for vector functions depending on thread
   int start;

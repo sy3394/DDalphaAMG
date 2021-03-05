@@ -29,36 +29,41 @@ static void solve( vector_double *solution, vector_double *source, level_struct 
 
 
 void solve_driver( level_struct *l, struct Thread *threading ) {
-  
-  vector_double solution, source;
-  double minus_twisted_bc[4], norm[g.num_rhs_vect];
 
-  vector_double_init( &solution ); 
-  vector_double_init( &source );   
-  vector_double_alloc( &solution, _INNER, g.num_rhs_vect, l, threading ); solution.num_vect_now = g.num_rhs_vect;
-  vector_double_alloc( &source, _INNER, g.num_rhs_vect, l, threading );   source.num_vect_now   = g.num_rhs_vect;
+  int nvec_tot = g.num_rhs_vect, nvecsf = g.num_rhs_vect;
 
-  rhs_define( &source, l, threading ); 
- 
-  if(g.bc==2)
-    for ( int i=0; i<4; i++ )
-      minus_twisted_bc[i] = -1*g.twisted_bc[i];
-  
 #ifdef HAVE_TM1p1
-  if( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) { 
+  if( g.force_2flavours || g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) {
     data_layout_n_flavours( 2, l, threading );
+    nvec_tot *= g.n_flavours;
+    if ( g.epsbar == 0 && g.epsbar_ig5_odd_shift == 0 && g.epsbar_ig5_odd_shift == 0 )
+      nvecsf *= g.n_flavours;
     printf0("inverting doublet operator\n");
   }
 #endif
 
+  vector_double solution, source;
+  double minus_twisted_bc[4], norm[nvecsf];
+
+  vector_double_init( &solution ); 
+  vector_double_init( &source );   
+  vector_double_alloc( &solution, _INNER, nvec_tot, l, threading ); solution.num_vect_now = nvec_tot;
+  vector_double_alloc( &source, _INNER, nvec_tot, l, threading );   source.num_vect_now   = nvec_tot;
+
+  rhs_define( &source, l, threading ); 
+ 
+  if(g.bc==2)
+    for ( int i=0; i<4; i++ ) // 4 = x,y,z,t
+      minus_twisted_bc[i] = -1*g.twisted_bc[i];
+  
   START_LOCKED_MASTER(threading)//my addition
   if(g.bc==2)
-      apply_twisted_bc_to_vector_double( &source, &source, g.twisted_bc, l);
+    apply_twisted_bc_to_vector_double( &source, &source, g.twisted_bc, l);
   END_LOCKED_MASTER(threading)
 
   global_norm_double( norm, &source, 0, l->inner_vector_size, l, threading );
   START_MASTER(threading)
-  for( int i=0; i<g.num_rhs_vect; i++ )
+  for( int i=0; i<nvecsf; i++ )
     printf0("source vector %d norm: %le\n",i,norm[i]);
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
@@ -71,21 +76,29 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
       if(g.downprop) {
 	SYNC_MASTER_TO_ALL(threading)      
 	START_MASTER(threading)  
-	  printf0("\n\n+--------------------------- up ---------------------------+\n\n");
+	printf0("\n\n+--------------------------- up ---------------------------+\n\n");
 	END_MASTER(threading)
 
-	solve( &solution, &source, l, threading );    
-
+	solve( &solution, &source, l, threading );
+#ifdef HAVE_FABULOUS
+	if ( g.mixed_precision )
+	  reset_fab_nrhs_float(l);
+	else
+	  reset_fab_nrhs_double(l);
+	if ( g.mixed_precision != 2 && g.solver[0] > 0 )
+	  g.p.fab.nrhs = nvecsf;
+#endif
+	
 	START_LOCKED_MASTER(threading)//my addition
 	if(g.bc==2)
 	  apply_twisted_bc_to_vector_double( &solution, &solution, minus_twisted_bc, l);
 	END_LOCKED_MASTER(threading)//my addition
 
 	START_LOCKED_MASTER(threading)  
-	  printf0("\n\n+-------------------------- down --------------------------+\n\n");
-	  g.mu*=-1;
-	  g.mu_odd_shift*=-1;
-	  for( int i=0; i<g.num_rhs_vect; i++ ) g.mu_even_shift[i]*=-1;
+	printf0("\n\n+-------------------------- down --------------------------+\n\n");
+	g.mu*=-1;
+	g.mu_odd_shift*=-1;
+	for( int i=0; i<nvec_tot; i++ ) g.mu_even_shift[i]*=-1;
 	END_LOCKED_MASTER(threading)
 
 	tm_term_update( g.mu, l, threading );
@@ -94,7 +107,15 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 #endif
 
   solve( &solution, &source, l, threading );
-
+#ifdef HAVE_FABULOUS
+  if ( g.mixed_precision )
+    reset_fab_nrhs_float(l);
+  else
+    reset_fab_nrhs_double(l);
+  if ( g.mixed_precision != 2 && g.solver[0] > 0 )
+    g.p.fab.nrhs = nvecsf;
+#endif
+  
   START_LOCKED_MASTER(threading)//my addition
   if(g.bc==2)
     apply_twisted_bc_to_vector_double( &solution, &solution, minus_twisted_bc, l);
@@ -102,7 +123,7 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 
   global_norm_double( norm, &solution, 0, l->inner_vector_size, l, threading );
   START_MASTER(threading)
-  for( int i=0; i<g.num_rhs_vect; i++ )
+  for( int i=0; i<nvecsf; i++ )
     printf0("solution vector %d norm: %le\n",i,norm[i]);
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
@@ -110,12 +131,18 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 #if 1 //my addition     
   if (g.my_rank == 0){//need to update it
     START_LOCKED_MASTER(threading)
+      int fac = 1;
+#ifdef HAVE_TM1p1
+    if (g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 )
+      fac *= g.n_flavours;
+#endif
     vector_double_change_layout( &solution, &solution, _NVEC_OUTER, no_threading );
     FILE *f;
     f = fopen("DDsol.out","w");
-    for ( int jj=0;jj<g.num_rhs_vect; jj++)
-      for ( int jjj=0; jjj<solution.size; jjj++)
-	fprintf(f,"vec_%d[%d] = %g %g\n", jj,jjj,creal_double(solution.vector_buffer[jj*solution.size+jjj])/norm[jj],cimag_double(solution.vector_buffer[jj*solution.size+jjj])/norm[jj]);
+    for ( int jj=0;jj<nvecsf; jj++)
+      for ( int jjj=0; jjj<solution.size*fac; jjj++)
+	fprintf(f,"vec_%d[%d] = %g %g\n", jj,jjj,
+		creal_double(solution.vector_buffer[jj*solution.size+jjj])/norm[jj],cimag_double(solution.vector_buffer[jj*solution.size+jjj])/norm[jj]);
     fclose(f);
     END_LOCKED_MASTER(threading)
   }
@@ -187,10 +214,19 @@ static void solve( vector_double *solution, vector_double *source, level_struct 
 
 static int wilson_driver( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading ) {
   
-  int iter = 0, start = threading->start_index[l->depth], end = threading->end_index[l->depth];
-  vector_double rhs = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.b:g.p.b; rhs.num_vect_now = num_loop;
-  vector_double sol = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.x:g.p.x; sol.num_vect_now = num_loop;
+  int iter = 0, start = threading->start_index[l->depth], end = threading->end_index[l->depth], nvec_tot = num_loop;
+  vector_double rhs = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.b:g.p.b; 
+  vector_double sol = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.x:g.p.x; 
 
+#ifdef HAVE_TM1p1
+  if( g.n_flavours > 1 ) {
+    nvec_tot         *= g.n_flavours;
+    //    rhs.num_vect_now *= g.n_flavours;
+    //    sol.num_vect_now *= g.n_flavours;
+    printf0("wil %d %d\n",rhs.num_vect_now,sol.num_vect_now);
+  }
+#endif
+  
 #ifdef WILSON_BENCHMARK
   START_MASTER(threading)
   prof_init( l );
@@ -204,7 +240,7 @@ static int wilson_driver( vector_double *solution, vector_double *source, level_
     START_LOCKED_MASTER(threading)
     g.n_chunk = i/num_loop;
     END_LOCKED_MASTER(threading)
-    vector_double_copy2( &rhs, source, i, num_loop, 1, start, end, l );
+    vector_double_copy2( &rhs, source, i, nvec_tot, 1, start, end, l );
     if ( g.method == -1 ) {
       cgn_double( &(g.p), l, threading );
     } else if ( g.mixed_precision == 2 ) {
@@ -212,7 +248,7 @@ static int wilson_driver( vector_double *solution, vector_double *source, level_
     } else {
       iter = solver_double( &(g.p), l, threading );
     }
-    vector_double_copy2( solution, &sol, i, num_loop, -1, start, end, l );
+    vector_double_copy2( solution, &sol, i, nvec_tot, -1, start, end, l );
   }
 
 #ifdef WILSON_BENCHMARK

@@ -39,22 +39,34 @@ void process_multi_inner_product_MP( int count, complex_double *results, vector_
    *  complex_double *results: stores the inner products (count x psi->num_vect_now) of each vector in the basis phi and the given vector psi on each process
    *****************************************/
 
-  int c, i, j, jj, nvec = psi->num_vect_now;
+  int c, i, j, jj, nvec = psi->num_vect_now, nvecmf = psi->num_vect_now;
+#ifdef HAVE_TM1p1
+#ifdef DEBUG
+  if ( g.n_flavours == 2 && nvec != 2*num_loop )
+    error0("process_multi_inner_product_MP: doublet error\n");
+#endif
+  if ( g.n_flavours == 2 && ( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) )
+    nvec /= g.n_flavours;
+#endif
   int core_start, core_end;
   compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, 1 );//num_loop);
 
   int thread = omp_get_thread_num();
   if ( thread == 0 && core_start != core_end)
     PROF_float_START( _PIP, threading );
-  
+  //  printf0("mul norm mp %d\n",nvec);
+
   //SYNC_CORES(threading)//????necessary? in the original
   VECTOR_LOOP(j, count*nvec, jj, results[j+jj] = 0.0;)
 
   for ( c=0; c<count; c++ ) {
+#ifdef DEBUG
     if ( phi[c].num_vect_now != psi->num_vect_now )
       error0("process_multi_inner_product_MP: phi[%d]->num_vect_now != psi->num_vect_now \n",c);
+#endif
     for ( i=core_start; i<core_end; i++ )
-      VECTOR_LOOP(j, nvec, jj, results[c*nvec+j+jj] += (complex_double) conj_float(phi[c].vector_buffer[i*phi[c].num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj])
+      VECTOR_LOOP(j, nvecmf, jj,
+		  results[c*nvec+(j+jj)%nvec] += (complex_double) conj_float(phi[c].vector_buffer[i*phi[c].num_vect+j+jj])*psi->vector_buffer[i*psi->num_vect+j+jj])
   }
 
   START_NO_HYPERTHREADS(threading)
@@ -86,13 +98,21 @@ void global_norm_MP( double *res, vector_float *x, int start, int end, level_str
   if(thread == 0 && core_start != core_end)
     PROF_float_START( _GIP, threading );
 
-  int i, j, jj, nvec = x->num_vect_now;
+  int i, j, jj, nvec = x->num_vect_now, nvecmf = x->num_vect_now;
+#ifdef HAVE_TM1p1
+#ifdef DEBUG
+  if ( g.n_flavours == 2 && nvec != 2*num_loop )
+    error0("global_norm_MP: doublet error\n");
+#endif
+  if ( g.n_flavours == 2 && ( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) )
+    nvec /= g.n_flavours;
+#endif
   double global_alpha[nvec];
   VECTOR_LOOP(j, nvec, jj, res[j+jj]=0;)
 
     //SYNC_CORES(threading)//????necessary? in the original
   for( i=core_start; i<core_end; i++ )
-    VECTOR_LOOP(j, nvec, jj, res[j+jj] += NORM_SQUARE_float(x->vector_buffer[i*x->num_vect+j+jj]);)
+    VECTOR_LOOP(j, nvecmf, jj, res[(j+jj)%nvec] += NORM_SQUARE_float(x->vector_buffer[i*x->num_vect+j+jj]);)
 
   // communication  -------------------------------------
   // sum over cores: be careful about overflow of workspace!!!!!!!! also potential problem using res directly

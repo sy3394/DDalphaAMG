@@ -43,25 +43,34 @@
   #define EPS_double 1E-14
 
   #define HAVE_TM       // flag for enable twisted mass
-//#define HAVE_MULT_TM
-  //#define HAVE_TM1p1    // flag for enable doublet for twisted mass; unless g.n_flavours==2, Dirac matrix is degenerate, and each part is inverted individually, although the size of the memoery is doubled
+#define HAVE_MULT_TM
+#define HAVE_TM1p1    // flag for enable doublet for twisted mass; unless g.n_flavours==2, Dirac matrix is degenerate, and each part is inverted individually, although the size of the memoery is doubled
+// oldHAVE_TM1p1: allco mem twice larger than degenerate case except for tm_term, ...; if g.n_flavours==1 or eps_term vanishes, use only half of mem;
+// if g.n_flavours==2, double inner d.o.f. where the fastest running inner index is still the vector to avoid shuffling in using simd, i.e., num_loop_up + num_loop_down
+// P_ND for D_ND is P\otimes I_2 where P is constructed for D_TM; P for D_TM(-\mu) is identical to P for D_TM(\mu) so that we assume g.n_flavours==1 in the setup phase
   #define INIT_ONE_PREC // flag undef for enabling additional features in the lib
 
   #define num_loop 4
+
   #define SIMD_byte 32
   #define MUN_C
   #if num_loop == 1
     #define VECTOR_LOOP(j, jmax, jj, instructions) for( j=0; j<jmax; j++) { jj=0; instructions; }
   #else
-    #define VECTOR_LOOP(j, jmax, jj, instructions) for( j=0; j<jmax; j+=num_loop) {_Pragma("unroll") _Pragma("vector aligned") _Pragma("ivdep") for( jj=0; jj<num_loop; jj++) { instructions; }} 
+    #define VECTOR_LOOP(j, jmax, jj, instructions) for( j=0; j<jmax; j+=num_loop) {_Pragma("unroll") _Pragma("vector aligned") _Pragma("ivdep") for( jj=0; jj<num_loop; jj++) { instructions; }}
+  #ifdef HAVE_TM1p1
+    #define VECTOR_LOOP2(j, jmax, jj, instructions) for( j=0; j<jmax; j+=num_loop) {_Pragma("unroll") _Pragma("vector aligned") _Pragma("ivdep") for( jj=0; jj<2*num_loop; jj++) { instructions; }}
+  #endif
   #endif
 
-  // These explicit repetitions are faster than for-loops.
+  // These explicit repetitions are faster than for-loops. FOR2 in VECTOR_FOR is based on internal d.o.f = 2*num_eig_vect
 //  #define DO_UNROLL(EXP) _Pragma (#EXP )
 //  #define FORN( N, e ) DO_UNROLL(unroll (N)) for(int i=0; i < N; i++){ e }; // suggestion: This is relevant only when compiled with -O3 -time
   #define FOR2( e )  { e e }
+  #define FOR4( e ) { FOR2( e ) FOR2( e ) }
   #define FOR6( e )  { e e e  e e e }
   #define FOR12( e ) { e e e  e e e  e e e  e e e }       // used only in the master thread
+  #define FOR24( e ) { FOR12( e ) FOR12( e ) }
   #define FOR36( e ) { FOR12( e ) FOR12( e ) FOR12( e ) } // used only in the master thread
   #define FOR42( e ) { FOR36( e ) FOR6( e ) }             // used only in the master thread
   #define VECTOR_FOR( start, end, expression, update, l ) do{ \
@@ -73,6 +82,15 @@
 		FOR2( expression; update; )			      \
 		  }						      \
           } while(0)
+  #define REAL_VECTOR_FOR( start, end, expression, update, l ) do{ \
+    if ( l->depth == 0 ) { \
+      for ( start; end; ) \
+	FOR24( expression; update; ) \
+    } else { \
+      for ( start; end; ) \
+	FOR4( expression; update; ) \
+    } \
+  } while(0)
 
   #define SQUARE( e ) (e)*(e)
   #define NORM_SQUARE_float( e ) SQUARE(crealf( e ))+SQUARE(cimagf( e ))
@@ -221,7 +239,7 @@
   enum { _NO_DEFAULT_SET, _DEFAULT_SET };
   enum { _NO_REORDERING, _REORDER };
   enum { _ADD, _COPY };
-  enum { _ORDINARY, _SCHWARZ, _ODDEVEN, _INNER, _EVEN_INNER };
+  enum { _NULL, _ORDINARY, _SCHWARZ, _ODDEVEN, _INNER, _EVEN_INNER };
   enum { _RES, _NO_RES };// _RES: Use residual r as the right-side; _NO_RES: Use b as the right-hand side, which occurs when x=0 as r=b-Ax_0 = b.  
   enum { _STANDARD, _LIME }; //formats
   enum { _READ, _WRITE };
@@ -233,7 +251,7 @@
   enum { _LEFT, _RIGHT, _NOTHING };
   enum { _PERIODIC, _ANTIPERIODIC, _TWISTED, _DIRICHLET };
   enum { _GIP, _PIP, _LA2, _LA6, _LA8, _LA, _CPY, _SET, _PR, _SC, _NC, _SM, _OP_COMM, _OP_IDLE, _ALLR, _GD_COMM, _GD_IDLE, _GRAM_SCHMIDT, _GRAM_SCHMIDT_ON_AGGREGATES,
-	 _SM1, _SM2, _SM3, _SM4, _SMALL1, _SMALL2, _RS, _RL, _FIP, _FMVP, _FAB_COPY, _NUM_PROF }; // _NUM_PROF has always to be the last constant!
+	 _SM1, _SM2, _SM3, _SM4, _SMALL1, _SMALL2, _RS, _RL, _FIP, _FALLR, _FMVP, _FAB_COPY, _NUM_PROF }; // _NUM_PROF has always to be the last constant!
   enum { _VTS = 20 };
   enum { _TRCKD_VAL, _STP_TIME, _SLV_ITER, _SLV_TIME, _CRS_ITER, _CRS_TIME, _SLV_ERR, _CGNR_ERR, _NUM_OPTB };
   enum { _NVEC_OUTER, _NVEC_INNER }; //vector layout: spin first; vector first
@@ -318,7 +336,7 @@
     // gmres used in V/K-cycle
     gmres_float_struct p_float;
     gmres_double_struct p_double;
-    // gmres as a smoother: used when g.method >= 4
+    // gmres as a smoother: used when g.method >= 3
     gmres_float_struct sp_float;
     gmres_double_struct sp_double;
     // dummy gmres struct
@@ -359,7 +377,7 @@
     int D_size;
     int clover_size;
     int block_size;
-    // buffer vectors: vbuf has num_eig_vect many vectors
+    // buffer vectors: vbuf has num_eig_vect many vectors; sbuf necessary?????
     vector_float vbuf_float[5], sbuf_float[2];
     vector_double vbuf_double[5], sbuf_double[2];
     // storage + daggered-operator bufferes
@@ -418,8 +436,13 @@
 
     // profiling, analysis, output
     int coarse_iter_count, *iter_counts, iter_count, iterator, print, conf_flag, setup_flag, in_setup;
-    double coarse_time, *iter_times, prec_time, resids[num_loop], *output_table[8], cur_storage, max_storage, total_time,
+    double coarse_time, *iter_times, prec_time, *output_table[8], cur_storage, max_storage, total_time,
       plaq_hopp, plaq_clov, norm_res, plaq, bicgstab_tol, twisted_bc[4], test;
+#ifdef HAVE_TM1p1
+    double resids[2*num_loop];
+#else
+    double resids[num_loop];
+#endif
 
     double m0, setup_m0;
 
@@ -433,7 +456,7 @@
 #endif
 
 #ifdef HAVE_TM1p1           
-    int n_flavours;
+    int n_flavours, force_2flavours, num_indep_flav;
     double epsbar, epsbar_ig5_odd_shift, epsbar_ig5_even_shift, *epsbar_factor;
 #endif
 

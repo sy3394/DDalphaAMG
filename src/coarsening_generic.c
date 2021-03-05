@@ -29,9 +29,7 @@ void interpolation_PRECISION_struct_init( interpolation_PRECISION_struct *is ) {
   vector_PRECISION_init(&(is->test_vector_vec));
   vector_PRECISION_init(&(is->interpolation_vec));
   is->eigenvalues = NULL;
-  vector_PRECISION_init(&(is->tmp));
-  is->bootstrap_vector = NULL;
-  is->bootstrap_eigenvalues = NULL;
+  //vector_PRECISION_init(&(is->tmp));
 }
 
 
