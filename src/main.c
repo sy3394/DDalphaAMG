@@ -29,7 +29,7 @@ struct common_thread_data *commonthreaddata;
 struct Thread *no_threading; // no_threading is global both in serial and thread pralel region
 
 int main( int argc, char **argv ) {
-#if 0
+#if 0 // attempt to enable debugging MPI process via gdb
   int ifl = 0;
   char hostname[256];
   gethostname(hostname, sizeof(hostname));

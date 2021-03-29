@@ -43,17 +43,16 @@
   #define EPS_double 1E-14
 
   #define HAVE_TM       // flag for enable twisted mass
-#define HAVE_MULT_TM
-#define HAVE_TM1p1    // flag for enable doublet for twisted mass; unless g.n_flavours==2, Dirac matrix is degenerate, and each part is inverted individually, although the size of the memoery is doubled
+  #define HAVE_MULT_TM
+  #define HAVE_TM1p1    // flag for enable doublet for twisted mass; unless g.n_flavours==2, Dirac matrix is degenerate, and each part is inverted individually, although the size of the memoery is doubled
 // oldHAVE_TM1p1: allco mem twice larger than degenerate case except for tm_term, ...; if g.n_flavours==1 or eps_term vanishes, use only half of mem;
 // if g.n_flavours==2, double inner d.o.f. where the fastest running inner index is still the vector to avoid shuffling in using simd, i.e., num_loop_up + num_loop_down
 // P_ND for D_ND is P\otimes I_2 where P is constructed for D_TM; P for D_TM(-\mu) is identical to P for D_TM(\mu) so that we assume g.n_flavours==1 in the setup phase
   #define INIT_ONE_PREC // flag undef for enabling additional features in the lib
 
-  #define num_loop 4
+  #define num_loop BASE_LOOP_COUNT
 
   #define SIMD_byte 32
-  #define MUN_C
   #if num_loop == 1
     #define VECTOR_LOOP(j, jmax, jj, instructions) for( j=0; j<jmax; j++) { jj=0; instructions; }
   #else
@@ -255,7 +254,7 @@
   enum { _VTS = 20 };
   enum { _TRCKD_VAL, _STP_TIME, _SLV_ITER, _SLV_TIME, _CRS_ITER, _CRS_TIME, _SLV_ERR, _CGNR_ERR, _NUM_OPTB };
   enum { _NVEC_OUTER, _NVEC_INNER }; //vector layout: spin first; vector first
-  enum { _FGMRES, _BGMRES, _GCR, _IB, _DR, _IBDR, _QR, _QRIB, _QRDR, _QRIBDR };
+  enum { _FGMRES, _BGMRES, _GCR, _GCRO, _IB, _DR, _IBDR, _QR, _QRIB, _QRDR, _QRIBDR , _NUM_SOLVER};
 
   // structures
   typedef struct block_struct {

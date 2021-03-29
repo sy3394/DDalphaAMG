@@ -40,9 +40,9 @@ DDalphaAMG_init init;
 DDalphaAMG_parameters params;
 DDalphaAMG_status status;
 char * conf_file = "../conf/8x8x8x8b6.0000id3n1";
-char * options = "c:f:i:L:p:B:l:k:w:u:t:hr:C:K:V:m:s:S:v";
+char * options = "c:f:i:L:p:B:n:l:k:w:u:t:C:K:V:m:s:S:v:D:b:g:I:M:e";
 /*
- * Setting standard values for DDalphaAMG_init
+ * Setting default values for DDalphaAMG_init
  */
 void standard_init() {
   init.global_lattice[T] = 8;
@@ -50,6 +50,8 @@ void standard_init() {
   init.global_lattice[Y] = 8;
   init.global_lattice[X] = 8;
 
+  init.nrhs = BASE_LOOP_COUNT;
+  
   init.kappa = 0.142857143;
   init.mu = 0.1;
   init.csw = 1;
@@ -90,6 +92,7 @@ void help( char * arg0 ) {
     printf0("   -L T Y X Z   Lattice size in each direction\n");
     printf0("   -p T Y X Z   Processors in each direction\n");
     printf0("   -B T Y X Z   Block size in each direction on first level.\n");
+    printf0("   -n #         number of rhs to solver simultaneously.\n");
     printf0("   -k #         kappa for the configuration\n");
     printf0("   -w #         c_sw for the configuration\n");
     printf0("   -u #         mu for the configuration\n");
@@ -102,6 +105,12 @@ void help( char * arg0 ) {
     printf0("   -m 2 [3] [4] Factor for mu on coarse levels\n");
     printf0("   -s 1 [2] [3] Setup iterations on each level (l-1)\n");
     printf0("   -S 1         Test additional setup iterations\n");
+    printf0("   -D 1 [2] [3] [4] Type of a solver on each level\n");
+    printf0("   -b 1 [2] [3] [4] Orthogonalization type for a FABULOUS solver on each level\n");
+    printf0("   -g 1 [2] [3] [4] Orthogonalization scheme for a FABULOUS solver on each level\n");
+    printf0("   -I 1 [2] [3] [4] Number of iteration for iterative variant of Gram-Schmidt procedure for a FABULOUS solver on each level\n");
+    printf0("   -M 1 [2] [3] [4] Max kept direction for some Fabulous solvers  on each level\n");
+    printf0("   -e 1 [2] [3] [4] Number of deflating eigenvectors for some Fabulous solvers on each level\n");
     printf0("   -v           Verbose\n");
   }
   printf0("\n\n");
@@ -109,7 +118,7 @@ void help( char * arg0 ) {
 } 
 
 /*
- * Printing implemented parameters
+ * Reading initialization params
  */
 void read_init_arg(int argc, char *argv[] ) {
 
@@ -181,6 +190,9 @@ void read_init_arg(int argc, char *argv[] ) {
 	p++;
       }
       break;
+    case 'n':
+      init.nrhs = atoi(optarg);
+      break;
     case 'l':
       init.number_of_levels = atoi(optarg);
       break;
@@ -219,6 +231,9 @@ void read_init_arg(int argc, char *argv[] ) {
     MPI_Abort(MPI_COMM_WORLD,0);
 }
 
+/*
+ * Reading solver-related params
+ */
 void read_params_arg(int argc, char *argv[] ) {
 
   int opt, p=0, fail=0, mu;
@@ -283,6 +298,90 @@ void read_params_arg(int argc, char *argv[] ) {
     case 'v':
       params.print = 1;
       break;
+    case 'D':
+      optind--;
+      mu=0;
+      for ( ; optind < argc && *argv[optind] != '-'; optind++){
+        if(mu > 3) {
+          printf0("Error: too many arguments in -so.\n");
+          p++;
+          fail++;
+          break;
+        }
+        params.solver[mu] = atoi(argv[optind]);
+        mu++;
+      }
+      break;
+    case 'g':
+      optind--;
+      mu=0;
+      for ( ; optind < argc && *argv[optind] != '-'; optind++){
+	if(mu > 3) {
+          printf0("Error: too many arguments in -ot.\n");
+          p++;
+          fail++;
+          break;
+        }
+        params.fab_orthoscheme[mu] = atoi(argv[optind]);
+	mu++;
+      }
+      break;
+    case 'b':
+      optind--;
+      mu=0;
+      for ( ; optind < argc && *argv[optind] != '-'; optind++){
+	if(mu > 3) {
+          printf0("Error: too many arguments in -os.\n");
+          p++;
+          fail++;
+          break;
+        }
+        params.fab_orthoscheme[mu] = atoi(argv[optind]);
+	mu++;
+      }
+      break;
+    case 'I':
+      optind--;
+      mu=0;
+      for ( ; optind < argc && *argv[optind] != '-'; optind++){
+	if(mu > 3) {
+          printf0("Error: too many arguments in -oi.\n");
+          p++;
+          fail++;
+          break;
+        }
+        params.fab_ortho_iter[mu] = atoi(argv[optind]);
+	mu++;
+      }
+      break;
+    case 'M':
+      optind--;
+      mu=0;
+      for ( ; optind < argc && *argv[optind] != '-'; optind++){
+	if(mu > 3) {
+          printf0("Error: too many arguments in -fm.\n");
+          p++;
+          fail++;
+          break;
+        }
+        params.fab_max_kept_direction[mu] = atoi(argv[optind]);
+	mu++;
+      }
+      break;
+    case 'e':
+      optind--;
+      mu=0;
+      for ( ; optind < argc && *argv[optind] != '-'; optind++){
+	if(mu > 3) {
+          printf0("Error: too many arguments in -fk.\n");
+          p++;
+          fail++;
+          break;
+        }
+        params.fab_num_deflating_eig[mu] = atoi(argv[optind]);
+	mu++;
+      }
+      break;
     case '?':
     default: 
       break;
@@ -316,6 +415,7 @@ int main( int argc, char *argv[] ) {
   DDalphaAMG_initialize( &init, &params, &status );
   printf0("Initialized %d levels in %.2f sec\n", status.success, status.time);
 
+  int nlvl = status.success;
   read_params_arg(argc, argv);
 
   comm_cart =  DDalphaAMG_get_communicator();
@@ -346,24 +446,32 @@ int main( int argc, char *argv[] ) {
   printf0("Computed plaquette %.13lf\n", status.info);
 
   free(gauge_field);
-  
 
+  
+  /*
+   * Setup the solver
+   */
+  int i;
   printf0("Running setup\n");
   DDalphaAMG_setup( &status );
-  printf0("Run %d setup iterations in %.2f sec (%.1f %% on coarse grid)\n", status.success,
-	  status.time, 100.*(status.coarse_time/status.time));
-  printf0("Total iterations on fine grid %d\n", status.iter_count);
-  printf0("Total iterations on coarse grids %d\n", status.coarse_iter_count);
- 
+  for( i=0; i<nlvl; i++ ) {
+    printf0("Run %d setup iterations in %.2f sec (%.1f %% on coarse grid at and below depth = %d)\n", status.success,
+	    status.time, 100.*(status.iter_times[i]/status.time), i);
+    printf0("Total iterations at depth %d %d\n", status.iter_counts[i],i);
+  }
+  
   /*
    * Defining the vector randomly.
    */
   double *vector_in, *vector_out;
-  vector_in = (double *) malloc(24*vol*sizeof(double));
-  vector_out = (double *) malloc(24*vol*sizeof(double));
+  vector_in = (double *) malloc(24*vol*sizeof(double)*init.nrhs);
+  vector_out = (double *) malloc(24*vol*sizeof(double)*init.nrhs);
   
   DDalphaAMG_define_vector_rand(vector_in);
-  
+
+  /*
+   * Solve Dx = b
+   */
   do {
     printf0("Running solver for up propagator\n");
     DDalphaAMG_solve( vector_out, vector_in, residual, &status );
@@ -371,10 +479,11 @@ int main( int argc, char *argv[] ) {
       printf0("Converged with final relative residual %e\n", status.info);
     else
       printf0("ERROR: not converged with final relative residual %e\n", status.info);
-    printf0("Solving time %.2f sec (%.1f %% on coarse grid)\n", status.time,
-	    100.*(status.coarse_time/status.time));
-    printf0("Total iterations on fine grid %d\n", status.iter_count);
-    printf0("Total iterations on coarse grids %d\n", status.coarse_iter_count);
+    for( i=0; i<nlvl; i++ ) {
+      printf0("Solving time %.2f sec (%.1f %% on coarse grid at and below depth = %d)\n", status.time,
+	      100.*(status.iter_times[i]/status.time), i);
+      printf0("Total iterations at depth %d %d\n", status.iter_counts[i],i);
+    }
      
     
     if (params.mu != 0) {
@@ -385,10 +494,11 @@ int main( int argc, char *argv[] ) {
       printf0("Running solver for down propagator\n");
       DDalphaAMG_solve( vector_out, vector_in, residual, &status );
       if (status.success) {
-      printf0("Solving time %.2f sec (%.1f %% on coarse grid)\n", status.time,
-	      100.*(status.coarse_time/status.time));
-      printf0("Total iterations on fine grid %d\n", status.iter_count);
-      printf0("Total iterations on coarse grids %d\n", status.coarse_iter_count);
+	for( i=0; i<nlvl; i++ ) {
+	  printf0("Solving time %.2f sec (%.1f %% on coarse grid at and below depth = %d)\n", status.time,
+		  100.*(status.iter_times[i]/status.time), i);
+	  printf0("Total iterations at depth %d %d\n", status.iter_counts[i],i);
+	}
       } 
       else 
 	printf0("ERROR: not converged\n");
@@ -406,10 +516,11 @@ int main( int argc, char *argv[] ) {
       params.setup_iterations[0]++;
       printf0("Updating setup\n");
       DDalphaAMG_update_setup( 1, &status );
-      printf0("Setup updated in %.2f sec (%.1f %% on coarse grid)\n",
-	      status.time, 100.*(status.coarse_time/status.time));
-      printf0("Total iterations on fine grid %d\n", status.iter_count);
-      printf0("Total iterations on coarse grids %d\n", status.coarse_iter_count);
+      for( i=0; i<nlvl; i++ ) {
+	printf0("Setup updated in %.2f sec (%.1f %% on coarse grid at and below depth = %d)\n", status.time,
+		100.*(status.iter_times[i]/status.time), i);
+	printf0("Total iterations at depth %d %d\n", status.iter_counts[i],i);
+      }
     }
     else
       break;

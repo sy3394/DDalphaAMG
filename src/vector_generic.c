@@ -36,10 +36,6 @@ void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect
   if ( num_vect % num_loop != 0 )
     error0("vector_PRECISION_alloc: #vectors should be multiple of num_loop for vectorization\n");
 #endif
-#ifdef tmpHAVE_TM1p1
-  if ( factor == 1 )
-    num_vect *= 2;
-#endif
   
   switch (type){
   case _NULL :
@@ -94,7 +90,7 @@ void vector_PRECISION_define( vector_PRECISION *phi, complex_PRECISION value, in
     PROF_PRECISION_START( _SET );
   if ( phi->vector_buffer != NULL ) {
     int i, j, jj;
-    for ( i=start; i<end; i++ ) //changed!!!!!
+    for ( i=start; i<end; i++ )
       VECTOR_LOOP(j, phi->num_vect_now, jj, phi->vector_buffer[i*phi->num_vect+j+jj] = value;)
   } else {
     error0("Error in \"vector_PRECISION_define\": pointer is null\n");
@@ -126,10 +122,10 @@ void vector_PRECISION_define_random( vector_PRECISION *phi, int start, int end, 
   if(thread == 0 && start != end)
     PROF_PRECISION_START( _SET );
   if ( phi != NULL ) {
-    int i;
-    int n_vect = phi->num_vect;
-    for ( i=start*n_vect; i<end*n_vect; i++ )
-      phi->vector_buffer[i] = (PRECISION)(((double)rand()/(double)RAND_MAX))-0.5 + ( (PRECISION)((double)rand()/(double)RAND_MAX)-0.5)*_Complex_I;
+    int i, j, jj, nvec = phi->num_vect;
+    for ( i=start; i<end; i++ )
+      VECTOR_LOOP( j, nvec, jj, phi->vector_buffer[i*nvec+j+jj]
+		   = (PRECISION)(((double)rand()/(double)RAND_MAX))-0.5 + ( (PRECISION)((double)rand()/(double)RAND_MAX)-0.5)*_Complex_I;)
   } else {
     error0("Error in \"vector_PRECISION_define_random\": pointer is null\n");
   }

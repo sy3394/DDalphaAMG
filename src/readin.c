@@ -145,8 +145,6 @@ static void read_global_info( FILE *in ) {
   // right hand side
   save_pt = &(g.rhs);  g.rhs = 1;
   read_parameter( &save_pt, "right hand side:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.num_rhs_vect); g.num_rhs_vect=1;
-  read_parameter( &save_pt, "number of rhs vectors:", "%d", 1, in, _DEFAULT_SET );
   if ( g.rhs == 4 ) {//no corresponding option in the input file????????????
     save_pt = &(g.source_list);
     read_parameter( &save_pt, "source list:", "%s", 1, in, _NO_DEFAULT_SET );
@@ -155,6 +153,9 @@ static void read_global_info( FILE *in ) {
     save_pt = g.propagator_coords;
     read_parameter( &save_pt, "propagator coordinates:", "%d", 4, in, _DEFAULT_SET );
   }
+  save_pt = &(g.num_rhs_vect); g.num_rhs_vect=1;
+  read_parameter( &save_pt, "number of rhs vectors:", "%d", 1, in, _DEFAULT_SET );
+
   
   save_pt = &(g.num_levels); g.num_levels = 2;
   read_parameter( &save_pt, "number of levels:", "%d", 1, in, _DEFAULT_SET );
@@ -598,6 +599,10 @@ static void validate_parameters( int ls, level_struct *l ) {
       g.mixed_precision = 1;
     }
     for ( i=0; i<g.num_levels; i++ ) {
+      if ( !(g.solver[i] < _NUM_SOLVER) ) {
+	warning0("The solver must be smaller than %d (depth==%d).\n         Switching to fabulous BGCR method.\n", _NUM_SOLVER, i);
+	g.solver[i] = _GCR;
+      }
       if ( i < g.num_levels-1  && g.solver[i] != _GCR && g.solver[0] != _FGMRES ) {
 	warning0("The solver at the depth %d needs to be flexible to employ AMG as its right preconditioner.\n         Switching to fabulous BGCR method.\n", i);
 	g.solver[i] = _GCR;
@@ -605,6 +610,10 @@ static void validate_parameters( int ls, level_struct *l ) {
       if ( g.solver[i] == _GCR && g.f_orthotype[i] != FABULOUS_BLOCK ) {
 	warning0("Only BLOCK-wise orthogonalization is currently implemented for BCGR. The BLOCK-wise version will be used at depth %d\n", i);
 	g.f_orthotype[i] = FABULOUS_BLOCK;
+      }
+      if ( g.k[i] < 0 ) {
+	warning0("Number of deflating eigenvectors for FABULOUS solvers (depth %d) must be non-negative.\n         Setting it to 0.\n", i);
+	g.k[i] = 0;
       }
     }
   } else if ( solver != 0 ) {
@@ -615,6 +624,7 @@ static void validate_parameters( int ls, level_struct *l ) {
 
   ASSERT( IMPLIES( g.vt.evaluation, g.rhs <= 2 ) );
 
+  ASSERT( DIVIDES( num_loop, g.num_rhs_vect ) );
   for ( i=0; i<g.num_levels-1; i++ )
     ASSERT( DIVIDES( num_loop, g.num_eig_vect[i] ) );
 
@@ -761,36 +771,6 @@ static void set_level_and_global_structs_according_to_global_struct( level_struc
   g.setup_m0 = g.m0;
 }
 
-// Helper function for set_DDalphaAMG_parameters
-static void set_global_info( struct init *params ) {
-
-  // global lattice
-  for( int i=0; i<4; i++ ) {
-    g.global_lattice[0][i] = params->global_lattice[i];
-    g.local_lattice[0][i] = params->global_lattice[i]/params->procs[i];
-    g.block_lattice[0][i] = params->block_lattice[i];
-  }
-
-  g.bc = params->bc;
-
-  if(g.bc==_TWISTED) {
-    for(int i=0; i<4; i++){
-      g.twisted_bc[i]=params->theta[i];
-      g.twisted_bc[i]*=M_PI;
-    }
-  }
-  
-  // Operator
-  g.m0 = 1./(2.*params->kappa)-4.;
-  g.csw = params->csw;
-#ifdef HAVE_TM
-  g.mu = params->mu;
-#endif
-  
-  g.num_openmp_processes = params->number_openmp_threads;
-
-}
-
 /*************        Public Functions    **************/
 // This is used in method_init
 void lg_in( char *inputfile, level_struct *l ) {
@@ -817,6 +797,7 @@ void lg_in( char *inputfile, level_struct *l ) {
   read_kcycle_data( in );
 
 #ifdef HAVE_TM
+  // sort the even shifts to ascending order in magnitude
   double mu;
   for ( int i=0; i<g.num_rhs_vect; i++ ) 
     for ( int j=i+1; j<g.num_rhs_vect; j++ )
@@ -825,6 +806,7 @@ void lg_in( char *inputfile, level_struct *l ) {
 	g.mu_even_shift[i] = g.mu_even_shift[j];
 	g.mu_even_shift[j] = mu;
       }
+  // compute meta info for even shifts
   for ( int i=0; i<g.num_rhs_vect; i++ ) {
     g.even_shifted += g.mu_even_shift[i]?1:0;
     g.is_even_shifted_mu_nonzero += (g.mu + g.mu_even_shift[i]!=0.0)?1:0;
@@ -838,30 +820,42 @@ void lg_in( char *inputfile, level_struct *l ) {
   fclose(in);
 }
 
-// This function is used in some header files and in the interface file
-void parameter_update( level_struct *l ) {
-  
-  if(l->depth==0) {
-    int ls = MAX(g.num_levels,2);
-    set_level_and_global_structs_according_to_global_struct( l );
-    validate_parameters( ls, l );
+/*****************  Interface  ***************************/
+
+// Helper function for set_DDalphaAMG_parameters
+static void set_global_info( struct init *params ) {
+
+  // global lattice
+  for( int i=0; i<4; i++ ) {
+    g.global_lattice[0][i] = params->global_lattice[i];
+    g.local_lattice[0][i] = params->global_lattice[i]/params->procs[i];
+    g.block_lattice[0][i] = params->block_lattice[i];
   }
 
-  l->level = g.num_levels-1-l->depth;
-  l->post_smooth_iter = g.post_smooth_iter[l->depth];
-  l->block_iter = g.block_iter[l->depth];
-  l->setup_iter = g.setup_iter[l->depth];
-  l->num_eig_vect = g.num_eig_vect[l->depth];
-  if(l->depth>0)
-    l->num_parent_eig_vect = g.num_eig_vect[l->depth-1];
-  else
-    l->num_parent_eig_vect = 6;
+  g.bc = params->bc;
+
+  if(g.bc==_TWISTED) {
+    for(int i=0; i<4; i++){
+      g.twisted_bc[i]=params->theta[i];
+      g.twisted_bc[i]*=M_PI;
+    }
+  }
+
+  // rhs
+  g.num_rhs_vect = params->nrhs;
   
-  if ( l->level > 0 && l->next_level != NULL ) 
-    parameter_update( l->next_level );
+  // Operator
+  g.m0 = 1./(2.*params->kappa)-4.;
+  g.csw = params->csw;
+#ifdef HAVE_TM
+  g.mu = params->mu;
+#endif
+  
+  g.num_openmp_processes = params->number_openmp_threads;
+
 }
 
-// For interfacing
+// For interface; replaces lg_in
 void set_DDalphaAMG_parameters( struct init *params, level_struct *l ) {
 
   FILE *in=NULL;
@@ -886,10 +880,54 @@ void set_DDalphaAMG_parameters( struct init *params, level_struct *l ) {
   read_testvector_io_data_if_necessary( in );
   read_evaluation_parameters_if_necessary( in );
   read_kcycle_data( in );
+
+#ifdef HAVE_TM
+  // sort the even shifts to ascending order in magnitude 
+  double mu;
+  for ( int i=0; i<g.num_rhs_vect; i++ )
+    for ( int j=i+1; j<g.num_rhs_vect; j++ )
+      if (  g.mu_even_shift[i]*g.mu_even_shift[i] >  g.mu_even_shift[j]*g.mu_even_shift[j] ) {
+        mu = g.mu_even_shift[i];
+        g.mu_even_shift[i] = g.mu_even_shift[j];
+        g.mu_even_shift[j] = mu;
+      }
+  // compute meta info for even shifts
+  for ( int i=0; i<g.num_rhs_vect; i++ ) {
+    g.even_shifted += g.mu_even_shift[i]?1:0;
+    g.is_even_shifted_mu_nonzero += (g.mu + g.mu_even_shift[i]!=0.0)?1:0;
+  }
+#endif
+#ifdef HAVE_FABULOUS
+  // For interface solver, we use FABULOUS only during the inversion
+  g.use_only_fgrmes_at_setup = 1;
+#endif
   
   validate_parameters( ls, l );
 
   if (params->init_file != NULL) 
     fclose(in);
 
+}
+
+// this function is used in var_table.h too
+void parameter_update( level_struct *l ) {
+  
+  if(l->depth==0) {
+    int ls = MAX(g.num_levels,2);
+    set_level_and_global_structs_according_to_global_struct( l );
+    validate_parameters( ls, l );
+  }
+
+  l->level = g.num_levels-1-l->depth;
+  l->post_smooth_iter = g.post_smooth_iter[l->depth];
+  l->block_iter = g.block_iter[l->depth];
+  l->setup_iter = g.setup_iter[l->depth];
+  l->num_eig_vect = g.num_eig_vect[l->depth];
+  if(l->depth>0)
+    l->num_parent_eig_vect = g.num_eig_vect[l->depth-1];
+  else
+    l->num_parent_eig_vect = 6;
+  
+  if ( l->level > 0 && l->next_level != NULL ) 
+    parameter_update( l->next_level );
 }

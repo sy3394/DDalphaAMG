@@ -31,8 +31,8 @@ static void solve( vector_double *solution, vector_double *source, level_struct 
 void solve_driver( level_struct *l, struct Thread *threading ) {
 
   int nvec_tot = g.num_rhs_vect, nvecsf = g.num_rhs_vect;
-
 #ifdef HAVE_TM1p1
+  // For solving for u&d together
   if( g.force_2flavours || g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) {
     data_layout_n_flavours( 2, l, threading );
     nvec_tot *= g.n_flavours;
@@ -43,24 +43,23 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 #endif
 
   vector_double solution, source;
-  double minus_twisted_bc[4], norm[nvecsf];
-
   vector_double_init( &solution ); 
   vector_double_init( &source );   
   vector_double_alloc( &solution, _INNER, nvec_tot, l, threading ); solution.num_vect_now = nvec_tot;
   vector_double_alloc( &source, _INNER, nvec_tot, l, threading );   source.num_vect_now   = nvec_tot;
 
   rhs_define( &source, l, threading ); 
- 
+
+  double minus_twisted_bc[4], norm[nvecsf];
   if(g.bc==2)
     for ( int i=0; i<4; i++ ) // 4 = x,y,z,t
       minus_twisted_bc[i] = -1*g.twisted_bc[i];
-  
   START_LOCKED_MASTER(threading)//my addition
   if(g.bc==2)
     apply_twisted_bc_to_vector_double( &source, &source, g.twisted_bc, l);
   END_LOCKED_MASTER(threading)
 
+    
   global_norm_double( norm, &source, 0, l->inner_vector_size, l, threading );
   START_MASTER(threading)
   for( int i=0; i<nvecsf; i++ )
@@ -68,6 +67,8 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
 
+    
+  //--- Solve
 #ifdef HAVE_TM1p1
   if( g.n_flavours == 1 )
 #endif
@@ -214,17 +215,13 @@ static void solve( vector_double *solution, vector_double *source, level_struct 
 
 static int wilson_driver( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading ) {
   
-  int iter = 0, start = threading->start_index[l->depth], end = threading->end_index[l->depth], nvec_tot = num_loop;
+  int iter = 0, start = threading->start_index[l->depth], end = threading->end_index[l->depth], nvec = source->num_vect, fac = nvec/g.num_rhs_vect;
   vector_double rhs = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.b:g.p.b; 
   vector_double sol = (g.mixed_precision==2 && g.method >= 0)?g.p_MP.dp.x:g.p.x; 
 
-#ifdef HAVE_TM1p1
-  if( g.n_flavours > 1 ) {
-    nvec_tot         *= g.n_flavours;
-    //    rhs.num_vect_now *= g.n_flavours;
-    //    sol.num_vect_now *= g.n_flavours;
-    printf0("wil %d %d\n",rhs.num_vect_now,sol.num_vect_now);
-  }
+#ifdef DEBUG
+  if( nvec != solution->num_vect )
+    error0("wilson_driver: assumptions are not met\n");
 #endif
   
 #ifdef WILSON_BENCHMARK
@@ -233,23 +230,24 @@ static int wilson_driver( vector_double *solution, vector_double *source, level_
   END_MASTER(threading)
   double t = -MPI_Wtime();
   double t_min = 1000;
-  for ( int i=0; i<100; i++ ) {
+  for ( int n=0; n<100; n++ ) {
     double tmp_t = -MPI_Wtime();
+    
 #endif
-  for ( int i=0; i<g.num_rhs_vect; i+=num_loop ) {
-    START_LOCKED_MASTER(threading)
-    g.n_chunk = i/num_loop;
-    END_LOCKED_MASTER(threading)
-    vector_double_copy2( &rhs, source, i, nvec_tot, 1, start, end, l );
-    if ( g.method == -1 ) {
-      cgn_double( &(g.p), l, threading );
-    } else if ( g.mixed_precision == 2 ) {
-      iter = fgmres_MP( &(g.p_MP), l, threading );
-    } else {
-      iter = solver_double( &(g.p), l, threading );
+    for ( int i=0; i<g.num_rhs_vect; i+=num_loop ) {
+      START_LOCKED_MASTER(threading)
+      g.n_chunk = i/num_loop;
+      END_LOCKED_MASTER(threading)
+      vector_double_copy2( &rhs, source, i*fac, nvec, 1, start, end, l );
+      if ( g.method == -1 ) {
+	cgn_double( &(g.p), l, threading );
+      } else if ( g.mixed_precision == 2 ) {
+	iter = fgmres_MP( &(g.p_MP), l, threading );
+      } else {
+	iter = solver_double( &(g.p), l, threading );
+      }
+      vector_double_copy2( solution, &sol, i*fac, nvec, -1, start, end, l );
     }
-    vector_double_copy2( solution, &sol, i, nvec_tot, -1, start, end, l );
-  }
 
 #ifdef WILSON_BENCHMARK
     tmp_t += MPI_Wtime();

@@ -28,19 +28,15 @@ void vcycle_PRECISION( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRE
 		       int res, level_struct *l, struct Thread *threading ) {
 
   if ( g.interpolation && l->level>0 ) {
-    //int nvec = num_loop;//eta->num_vect_now;
-    //        printf0("vy %d",eta->num_vect_now);
     for ( int i=0; i<l->n_cy; i++ ) {
       //--- compute the residual
       if ( i==0 && res == _NO_RES ) {
 	// if the initial guess is 0, the resid on the next level is the restircted rhs
-	//l->next_level->p_PRECISION.b.num_vect_now = nvec;
         restrict_PRECISION( &(l->next_level->p_PRECISION.b), eta, l, threading );
       } else {
 	// otherwise, compute b_(l+1) = R(b_l - D_l eta_l)
         int start = threading->start_index[l->depth];
         int end   = threading->end_index[l->depth];
-	//l->vbuf_PRECISION[0].num_vect_now = nvec; l->vbuf_PRECISION[1].num_vect_now = nvec; l->next_level->p_PRECISION.b.num_vect_now = nvec;
         apply_operator_PRECISION( &(l->vbuf_PRECISION[0]), phi, &(l->p_PRECISION), l, threading );
         vector_PRECISION_minus( &(l->vbuf_PRECISION[1]), eta, &(l->vbuf_PRECISION[0]), start, end, l );
         restrict_PRECISION( &(l->next_level->p_PRECISION.b), &(l->vbuf_PRECISION[1]), l, threading );

@@ -645,7 +645,7 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
 #ifdef FAB_OPENMP
   fab->threading = threading; // if fabulous is OpenMP safe.  This can be uncommented.
 #endif
-  //printf0("fab%d,  nrhs:%d dim:%d (%d vs %d or %d) %d; B(%d %d) X(%d %d) px %d pb %d\n",l->depth,fab->nrhs,fab->dim, l->inner_vector_size,p->b.size, fab->ldx, fab->ldb, fab->B.num_vect_now, fab->B.num_vect, fab->X.num_vect_now, fab->X.num_vect, p->x.num_vect_now,p->b.num_vect_now);
+  //printf0("fab%d (guess %d),  nrhs:%d dim:%d (ivs %d vs psize %d, ldx %d ldb %d; B(%d %d) X(%d %d) px %d pb %d\n",l->depth,p->initial_guess_zero,fab->nrhs,fab->dim, l->inner_vector_size,p->b.size, fab->ldx, fab->ldb, fab->B.num_vect_now, fab->B.num_vect, fab->X.num_vect_now, fab->X.num_vect, p->x.num_vect_now,p->b.num_vect_now);
   vector_PRECISION_copy( &(fab->B), &(p->b), 0, fab->dim, l );
   if( p->initial_guess_zero ) {
     vector_PRECISION_define( &(fab->X), 0, 0, fab->dim, l );
@@ -661,6 +661,7 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   void *X = fab->X.vector_buffer, *B = fab->B.vector_buffer;
   switch ( g.solver[l->depth] ) {
   case _GCR:    iter = fabulous_solve_GCR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
+  case _GCRO:   iter = fabulous_solve_GCRO( fab->nrhs, B, fab->ldb, X, fab->ldx, (void **)&fab->U, &(fab->ldu), fab->k, fab->eigvals, fab->handle ); break;
   case _IB:     iter = fabulous_solve_IB( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
   case _DR:     iter = fabulous_solve_DR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
   case _IBDR:   iter = fabulous_solve_IBDR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;

@@ -40,7 +40,7 @@ DDalphaAMG_init init;
 DDalphaAMG_parameters params;
 DDalphaAMG_status status;
 char * conf_file = "../conf/8x8x8x8b6.0000id3n1";
-char * options = "c:f:i:L:p:B:l:k:w:u:t:hr:C:K:V:m:s:S:v";
+char * options = "c:f:i:L:p:B:n:l:k:w:u:t:hr:C:K:V:m:s:S:v:D:b:g:I:M:e";
 /*
  * Setting standard values for DDalphaAMG_init
  */
@@ -50,6 +50,8 @@ void standard_init() {
   init.global_lattice[Y] = 8;
   init.global_lattice[X] = 8;
 
+  init.nrhs = BASE_LOOP_COUNT;
+  
   init.kappa = 0.142857143;
   init.mu = 0.1;
   init.csw = 1;
@@ -101,6 +103,11 @@ void help( char * arg0 ) {
     printf0("   -V 1 [2] [3] Basis vectors between each level (l-1)\n");
     printf0("   -m 2 [3] [4] Factor for mu on coarse levels\n");
     printf0("   -s 1 [2] [3] Setup iterations on each level (l-1)\n");
+    printf0("   -b 1 [2] [3] [4] Orthogonalization type for a FABULOUS solver on each level\n");
+    printf0("   -g 1 [2] [3] [4] Orthogonalization scheme for a FABULOUS solver on each level\n");
+    printf0("   -I 1 [2] [3] [4] Number of iteration for iterative variant of Gram-Schmidt procedure for a FABULOUS solver on each level\n");
+    printf0("   -M 1 [2] [3] [4] Max kept direction for some Fabulous solvers  on each level\n");
+    printf0("   -e 1 [2] [3] [4] Number of deflating eigenvectors for some Fabulous solvers on each level\n");
     printf0("   -v           Verbose\n");
   }
   printf0("\n\n");
@@ -179,6 +186,9 @@ void read_init_arg(int argc, char *argv[] ) {
 	printf0("Warning: too few arguments in -B.\n");
 	p++;
       }
+      break;
+    case 'n':
+      init.nrhs = atoi(optarg);
       break;
     case 'l':
       init.number_of_levels = atoi(optarg);
@@ -279,6 +289,89 @@ void read_params_arg(int argc, char *argv[] ) {
     case 'v':
       params.print = 1;
       break;
+    case 'D':
+      optind--;
+      mu=0;
+      for ( ; optind < argc && *argv[optind] != '-'; optind++){
+        if(mu > 3) {
+          printf0("Error: too many arguments in -so.\n");
+          p++;
+          fail++;
+          break;
+        }
+        params.solver[mu] = atoi(argv[optind]);
+        mu++;
+      }
+      break;
+    case 'g':
+      optind--;
+      mu=0;
+      for ( ; optind < argc && *argv[optind] != '-'; optind++){
+        if(mu > 3) {
+          printf0("Error: too many arguments in -ot.\n");
+          p++;
+          fail++;
+          break;
+        }
+        params.fab_orthoscheme[mu] = atoi(argv[optind]);
+        mu++;
+      }
+      break;
+      optind--;
+      mu=0;
+      for ( ; optind < argc && *argv[optind] != '-'; optind++){
+        if(mu > 3) {
+          printf0("Error: too many arguments in -os.\n");
+          p++;
+          fail++;
+          break;
+        }
+        params.fab_orthoscheme[mu] = atoi(argv[optind]);
+        mu++;
+      }
+      break;
+    case 'I':
+      optind--;
+      mu=0;
+      for ( ; optind < argc && *argv[optind] != '-'; optind++){
+        if(mu > 3) {
+          printf0("Error: too many arguments in -oi.\n");
+          p++;
+          fail++;
+          break;
+        }
+        params.fab_ortho_iter[mu] = atoi(argv[optind]);
+        mu++;
+      }
+      break;
+    case 'M':
+      optind--;
+      mu=0;
+      for ( ; optind < argc && *argv[optind] != '-'; optind++){
+	if(mu > 3) {
+          printf0("Error: too many arguments in -fm.\n");
+          p++;
+          fail++;
+          break;
+        }
+        params.fab_max_kept_direction[mu] = atoi(argv[optind]);
+        mu++;
+      }
+      break;
+    case 'e':
+      optind--;
+      mu=0;
+      for ( ; optind < argc && *argv[optind] != '-'; optind++){
+        if(mu > 3) {
+          printf0("Error: too many arguments in -fk.\n");
+          p++;
+          fail++;
+          break;
+        }
+        params.fab_num_deflating_eig[mu] = atoi(argv[optind]);
+        mu++;
+      }
+      break;
     case '?':
     default: 
       break;
@@ -343,33 +436,40 @@ int main( int argc, char *argv[] ) {
   printf0("Computed plaquette %.13lf\n", status.info);
   
 
+  /*
+   * Setup the solver
+   */
+  int i, nrhs = init.nrhs;
   printf0("Running setup\n");
   DDalphaAMG_setup( &status );
-  printf0("Run %d setup iterations in %.2f sec (%.1f %% on coarse grid)\n", status.success,
-	  status.time, 100.*(status.coarse_time/status.time));
-  printf0("Total iterations on fine grid %d\n", status.iter_count);
-  printf0("Total iterations on coarse grids %d\n", status.coarse_iter_count);
+  for( i=0; i<nlvl; i++ ) {
+    printf0("Run %d setup iterations in %.2f sec (%.1f %% on coarse grid at and below depth = %d)\n", status.success,
+            status.time, 100.*(status.iter_times[i]/status.time), i);
+    printf0("Total iterations at depth %d %d\n", status.iter_counts[i],i);
+  }
  
   /*
    * Defining fine and coarse vector randomly.
    */
   double *vector1[nlvl], *vector2[nlvl];
-  int vols[nlvl], vars[nlvl];
+  int vols[nlvl], vars[nlvl], sizes [nlvl];
   vols[0]=vol;
   vars[0]=3*4*2;
+  sizes[0] = vols[0]*vars[0];
 
   for ( int i=1; i<nlvl; i++ ) {
     vols[i] = vols[i-1] / params.block_lattice[i-1][T] / params.block_lattice[i-1][X] / params.block_lattice[i-1][Y] / params.block_lattice[i-1][Z];
     vars[i]=params.mg_basis_vectors[i-1]*2*2; // a factor of 2 is for the spin, the other for the complex
+    sizes[i] = vols[i]*vars[i];
   }
   
   for ( int i=0; i<nlvl; i++ ) {
-    vector1[i] = (double *) malloc(vars[i]*vols[i]*sizeof(double));
-    vector2[i] = (double *) malloc(vars[i]*vols[i]*sizeof(double));
+    vector1[i] = (double *) malloc(vars[i]*vols[i]*sizeof(double)*nrhs);
+    vector2[i] = (double *) malloc(vars[i]*vols[i]*sizeof(double)*nrhs);
   }
 
   for ( int i=0; i<nlvl; i++ )
-    for ( int j=0; j<vars[i]*vols[i]; j++ )
+    for ( int j=0; j<vars[i]*vols[i]*nrhs; j++ )
       vector1[i][j] = ((double)rand()/(double)RAND_MAX)-0.5;
 
 
@@ -378,13 +478,15 @@ int main( int argc, char *argv[] ) {
     DDalphaAMG_prolongate(vector2[i-1], vector1[i], i-1, &status);
     DDalphaAMG_restrict(vector2[i], vector2[i-1], i-1, &status);
 
-    double num=0, den=0;
-    for ( int j=0; j<vars[i]*vols[i]; j++ ) {
-      vector2[i][j] -= vector1[i][j];
-      num += vector2[i][j]*vector2[i][j];
-      den += vector1[i][j]*vector1[i][j];
+    for ( int n=0; n<nrhs; n++ ) {
+      double num=0, den=0;
+      for ( int j=0; j<sizes[i]; j++ ) {
+	vector2[i][j+n*sizes[i]] -= vector1[i][j+n*sizes[i]];
+	num += vector2[i][j+n*sizes[i]]*vector2[i][j+n*sizes[i]];
+	den += vector1[i][j+n*sizes[i]]*vector1[i][j+n*sizes[i]];
+      }
+      printf0("Restult (1-RP)v[%d] = %e\n\n", n, num/den);
     }
-    printf0("Restult (1-RP)v = %e\n\n", num/den);
   }
 
   for ( int i=1; i<nlvl; i++ ) {
@@ -394,14 +496,15 @@ int main( int argc, char *argv[] ) {
     DDalphaAMG_restrict(vector2[i], vector2[i-1], i-1, &status);
 
     DDalphaAMG_apply_coarse_operator(vector1[i], vector1[i], i, &status);
-
-    double num=0, den=0;
-    for ( int j=0; j<vars[i]*vols[i]; j++ ) {
-      vector2[i][j] -= vector1[i][j];
-      num += vector2[i][j]*vector2[i][j];
-      den += vector1[i][j]*vector1[i][j];
+    for ( int n=0; n<nrhs; n++ ) {
+      double num=0, den=0;
+      for ( int j=0; j<sizes[i]; j++ ) {
+        vector2[i][j+n*sizes[i]] -= vector1[i][j+n*sizes[i]];
+        num += vector2[i][j+n*sizes[i]]*vector2[i][j+n*sizes[i]];
+        den += vector1[i][j+n*sizes[i]]*vector1[i][j+n*sizes[i]];
+      }
+      printf0("Restult (D_c-RDP)v[%d] = %e\n\n", n, num/den);
     }
-    printf0("Restult (D_c-RDP)v = %e\n\n", num/den);
   }
   
   //  free(vector_in);

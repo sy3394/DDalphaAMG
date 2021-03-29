@@ -83,9 +83,9 @@
 
 #ifdef HAVE_FABULOUS
   typedef struct {
-    int nrhs, dim, ldb, ldx, k;
+    int nrhs, dim, ldb, ldx, ldu, k;
     vector_PRECISION B, X, B0, X0, C0;
-    void *eigvals;  
+    void *eigvals, *U;  
     fabulous_handle handle;
     struct level_struct *l;
     struct Thread *threading;

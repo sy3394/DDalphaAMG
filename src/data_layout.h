@@ -31,7 +31,7 @@
   void define_eo_bt( int **bt, int *eot, int *n_ebs, int *n_obs, int *n_bs, int *N, level_struct *l );
   void define_nt_bt_tt( int *nt, int *backward_nt, int **bt, int *tt, int *it, int *dt, level_struct *l );
   
-  static inline int lex_index( int t, int z, int y, int x, int N[3] ) {  
+  static inline int lex_index( int t, int z, int y, int x, int N[4] ) {  
     return x + N[X]*( y + N[Y]*(z + N[Z]*t ) );
   }
   
@@ -39,7 +39,7 @@
     return (x+N[X])%N[X] + N[X]*( (y+N[Y])%N[Y] + N[Y]*((z+N[Z])%N[Z] + N[Z]*((t+N[T])%N[T]) ) );    
   }
   
-  static inline int site_index( int t, int z, int y, int x, int N[3], int *index_table ) {
+  static inline int site_index( int t, int z, int y, int x, int N[4], int *index_table ) {
     return index_table[ lex_index( t, z, y, x, N ) ];
   }
   
