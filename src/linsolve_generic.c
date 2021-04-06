@@ -679,6 +679,8 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   END_LOCKED_MASTER(threading)
   vector_PRECISION_copy( &(p->x), &(fab->X), 0, fab->dim, l );
 
+  if ( g.solver[l->depth] == _GCRO )
+    printf0("fab %d\n",fab->ldu);
   // Compute the statitics
   START_LOCKED_MASTER(threading)
     if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0;}// g.iter_counts[0] = iter; }

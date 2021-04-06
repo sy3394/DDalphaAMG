@@ -175,16 +175,17 @@ void compute_core_start_end_custom(int start, int end, int *core_start, int *cor
   *core_start = start;
   *core_end   = end;
 
-  // custom defined minimum size per core
+  // custom defined minimum size per core: For now, this is also a unit for the number of items per core.
   int min_per_core = granularity; // why did you redefine????
   
   int length   = end-start;
-  int per_core  = floor(((double)length/min_per_core)/threading->n_core)*min_per_core;
+  int per_core  = floor(((double)length/min_per_core)/threading->n_core)*min_per_core; // base items per core
   int reminder  = length-per_core*threading->n_core;
   int ext_cores = reminder/min_per_core;
 
-  // TODO: allow for nonzero value for reminderr%min_per_core
-  // for that, we need to make a special case in loops such as for ( phi_pt=phi->vector_buffer+start*nvec_phi, end_pt=phi->vector_buffer+end*nvec_phi, D_pt = op->D+(start*3),
+  // TODO: allow for nonzero value for reminder%min_per_core
+  // As of now, each core should recieve multiple of min_per_core many elements.
+  // To generalize, we need to make a special case in loops such as for ( phi_pt=phi->vector_buffer+start*nvec_phi, end_pt=phi->vector_buffer+end*nvec_phi, D_pt = op->D+(start*3),
   // nb_pt=neighbor+((start/12)*4); phi_pt<end_pt; phi_pt+=12*nvec_phi) in d_plus_clover_PRECISION
   // Note: phi_pt is jumped by (inner d.o.f.) x nvec_phi assuming end-start%12==0 while compute_core_start_end_custom(0, nv*n, &start, &end, l, threading, nv )
 #ifdef DEBUG
@@ -192,13 +193,13 @@ void compute_core_start_end_custom(int start, int end, int *core_start, int *cor
     error0("compute_core_start_end_custom: end-start=%d needs to be divisible by min_per_core (%d)\n", length, min_per_core );
 #endif
   
-  if( threading->core*min_per_core < reminder && (threading->core+1)*min_per_core <= reminder) {// we assign extra min_per_core items
+  if( (threading->core+1)*min_per_core <= reminder ) {// we assign extra min_per_core items on the first ext_cores many cores
     *core_start += (per_core+min_per_core)*threading->core;
     *core_end = *core_start + per_core+min_per_core;
-  } else if ( threading->core == threading->n_core-1 ) {// remaining reminder%min_per_core elements put in the last thread
+  } else if ( threading->core == threading->n_core-1 ) {// remaining (reminder%min_per_core many) elements put in the last thread
     *core_start += per_core*threading->core + min_per_core*ext_cores;
     *core_end = *core_start + per_core + reminder%min_per_core;
-  } else {
+  } else { // on other cores, we assign only per_core many items
     *core_start += per_core*threading->core + min_per_core*ext_cores;
     *core_end = *core_start+per_core;
   }

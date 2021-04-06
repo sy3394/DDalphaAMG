@@ -102,8 +102,8 @@ void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_stru
   }
   
   // Setup parameters:
-  int mvp = (nrhs*p->restart_length*p->num_restart < g.max_mvp[l->depth])? g.max_mvp[l->depth]:nrhs*p->restart_length*p->num_restart;
   fabulous_set_ortho_process(g.f_orthoscheme[l->depth], g.f_orthotype[l->depth], g.ortho_iter[l->depth], fab->handle);
+  int mvp = (nrhs*p->restart_length*p->num_restart < g.max_mvp[l->depth])? g.max_mvp[l->depth]:nrhs*p->restart_length*p->num_restart;
   PRECISION tolerance[1] = { p->tol };
   fabulous_set_parameters( mvp, nrhs*p->restart_length, tolerance, 1, fab->handle );
   fabulous_set_advanced_parameters( g.max_kept_direction[l->depth], g.real_residual[l->depth], g.logger_user_data_size, g.quiet, fab->handle );

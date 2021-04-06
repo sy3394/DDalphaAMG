@@ -41,7 +41,6 @@ void test_routine( level_struct *l, struct Thread *threading ) {
       printf0("\nRunning tests with D = Wilson operator:\n");
 #endif
     }
-    MPI_Barrier(MPI_COMM_WORLD);
     END_MASTER(threading)
 
       //mul_test( l, threading);
@@ -55,7 +54,7 @@ void test_routine( level_struct *l, struct Thread *threading ) {
       if ( g.method > 0 && g.method < 4 ) schwarz_double_mvm_testfun( &(l->s_double), l, threading );
       if ( g.method > 0 && g.method < 4 && g.odd_even ) block_oddeven_double_test( l, threading );
     }
-MPI_Barrier(MPI_COMM_WORLD);
+
 #if 1
     //    START_LOCKED_MASTER(threading)
     if ( g.interpolation && g.method > 0 ) {
@@ -66,7 +65,6 @@ MPI_Barrier(MPI_COMM_WORLD);
     }
     //    END_LOCKED_MASTER(threading)
 #endif
-    MPI_Barrier(MPI_COMM_WORLD);
     START_MASTER(threading)
     if (g.test < 1e-5)
       printf0("TESTS passed, highest error %e < 1e-5\n", g.test);
