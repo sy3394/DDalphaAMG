@@ -436,7 +436,7 @@
     // profiling, analysis, output
     int coarse_iter_count, *iter_counts, iter_count, iterator, print, conf_flag, setup_flag, in_setup;
     double coarse_time, *iter_times, prec_time, *output_table[8], cur_storage, max_storage, total_time,
-      plaq_hopp, plaq_clov, norm_res, plaq, bicgstab_tol, twisted_bc[4], test;
+      plaq_hopp, plaq_clov, max_rel_res_norm, plaq, bicgstab_tol, twisted_bc[4], test;
 #ifdef HAVE_TM1p1
     double resids[2*num_loop];
 #else

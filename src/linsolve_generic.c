@@ -561,7 +561,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
           END_MASTER(threading)
         }
 #endif
-	// The last entry of gamma at (j+1)^th step is the minimized residual of the solution to the projected lin. eq. 
+	// The last entry of gamma at (j+1)^th step is the residual norm of the estimated solution that minimizes the residual norm of the projected Ax=b onto Krylov space
         gamma_max = gamma_jp1[0]/norm_r0[0];
 	for ( i=1; i<nrhs; i++ ) if ( gamma_max < gamma_jp1[i]/norm_r0[i] ) gamma_max = gamma_jp1[i]/norm_r0[i];
 	if( gamma_max < p->tol || gamma_max > 1E+5 ) { // if satisfied ... stop
@@ -584,26 +584,27 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   
   //-----------  Compute the statistics
   START_LOCKED_MASTER(threading)
-  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0; g.norm_res = gamma_max ; }//g.iter_counts[0] = iter; g.norm_res = gamma_max ; }
+  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0; g.max_rel_res_norm = gamma_max ; VECTOR_LOOP(i, n_vect, jj, g.resids[i+jj] = gamma_jp1[i+jj]/norm_r0[i+jj]); }
   END_LOCKED_MASTER(threading)
   if ( p->print ) {
+    //-- Compute relative residual norms for reporting (This does not affect the report at the top level as it is overwritten when exiting the coarse levels)
 #ifdef FGMRES_RESTEST
-    apply_operator_PRECISION( &(p->w), &(p->x), p, l, threading );
-    vector_PRECISION_minus( &(p->r), &(p->b), &(p->w), start, end, l );
-    global_norm_PRECISION( beta, &(p->r), p->v_start, p->v_end, l, threading );
+    apply_operator_PRECISION( &(p->w), &(p->x), p, l, threading );              // w = Dx
+    vector_PRECISION_minus( &(p->r), &(p->b), &(p->w), start, end, l );         // r = b-Dx
+    global_norm_PRECISION( beta, &(p->r), p->v_start, p->v_end, l, threading ); // beta = ||r||
 #else
-    VECTOR_LOOP(i, n_vect, jj, beta[i+jj] = creal_PRECISION(gamma_jp1[i+jj]);)
+    VECTOR_LOOP(i, n_vect, jj, beta[i+jj] = creal_PRECISION(gamma_jp1[i+jj]);)  // beta = ||gamma_(j+1)||
 #endif
     START_MASTER(threading)
-    g.norm_res = 0;
-    VECTOR_LOOP(i, n_vect, jj, g.norm_res += beta[i+jj]/norm_r0[i+jj];)
+    g.max_rel_res_norm = 0;
+    VECTOR_LOOP(i, n_vect, jj, if(g.max_rel_res_norm<beta[i+jj]/norm_r0[i+jj]) g.max_rel_res_norm = beta[i+jj]/norm_r0[i+jj];)//not really used anymore????
     VECTOR_LOOP(i, n_vect, jj, g.resids[i+jj] = beta[i]/norm_r0[i] );
 #if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
     if ( g.print > 0 ) printf0("+----------------------------------------------------------+\n\n");
 #endif
     END_MASTER(threading)
   }
-  // This is FGMRES specific
+  //-- Report statistics at coarse levels: This part is FGMRES specific
 #ifdef COARSE_RES
   if ( l->depth > 0 ) {
     START_MASTER(threading)
@@ -678,27 +679,32 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   vector_PRECISION_change_layout( &(fab->X), &(fab->X), _NVEC_INNER, no_threading );
   END_LOCKED_MASTER(threading)
   vector_PRECISION_copy( &(p->x), &(fab->X), 0, fab->dim, l );
-
+  /*
   if ( g.solver[l->depth] == _GCRO )
     printf0("fab %d\n",fab->ldu);
-  // Compute the statitics
-  START_LOCKED_MASTER(threading)
-    if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0;}// g.iter_counts[0] = iter; }
-  END_LOCKED_MASTER(threading)
-  if ( p->print > 0 ) {
-    int nvecsf = num_loop;
+  */
+  //----------- Compute the statitics
+  int nvecsf = num_loop;
 #ifdef HAVE_TM1p1
-    nvecsf *= g.num_indep_flav;
+  nvecsf *= g.num_indep_flav;
 #endif
-    int start, end, j, jj;
-    PRECISION norm[nvecsf], norm2[nvecsf];
+  int start, end, j, jj;
+  PRECISION norm[nvecsf], norm2[nvecsf];
+  if ( l->depth == 0 || p->print > 0 ) {
     compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading,l->num_lattice_site_var);
-    apply_operator_PRECISION( &(fab->B0), &(p->x), p, l, threading ); // compute w = D*x
-    vector_PRECISION_minus( &(fab->B0), &(p->b), &(fab->B0), 0, p->v_end, l ); // compute r = b - w = b - D*x
-    global_norm_PRECISION( norm, &(fab->B0), p->v_start, p->v_end, l, threading ); // gamma_0 = norm(r)
-    global_norm_PRECISION( norm2, &(p->b), p->v_start, p->v_end, l, threading );
+    apply_operator_PRECISION( &(fab->B0), &(p->x), p, l, threading );              // compute w = D*x
+    vector_PRECISION_minus( &(fab->B0), &(p->b), &(fab->B0), 0, p->v_end, l );     // compute r = b - w = b - D*x
+    global_norm_PRECISION( norm, &(fab->B0), p->v_start, p->v_end, l, threading ); // norm  = ||r||
+    global_norm_PRECISION( norm2, &(p->b), p->v_start, p->v_end, l, threading );   // norm2 = ||b||
+    START_LOCKED_MASTER(threading)
+    VECTOR_LOOP(j, nvecsf, jj, if(g.max_rel_res_norm<norm[j+jj]/norm2[j+jj]) g.max_rel_res_norm = norm[j+jj]/norm2[j+jj];)
     VECTOR_LOOP(j, nvecsf, jj, g.resids[j+jj] = norm[j+jj]/norm2[j+jj];)
+    END_LOCKED_MASTER(threading)
   }
+
+  START_LOCKED_MASTER(threading)
+    if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0; }
+  END_LOCKED_MASTER(threading)
 #endif
   
   return iter;

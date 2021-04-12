@@ -1551,6 +1551,10 @@ int coarse_solve_odd_even_PRECISION( gmres_PRECISION_struct *p, operator_PRECISI
 void coarse_odd_even_PRECISION_test( vector_PRECISION *out, vector_PRECISION *in, level_struct *l, struct Thread *threading ) {
   
   if ( g.odd_even ) {
+#ifdef DEBUG
+    if ( out->num_vect != in->num_vect || out->num_vect_now != in->num_vect_now )
+      error0("coarse_odd_even_PRECISION_test: assumptions are not met\n");
+#endif
     vector_PRECISION buf[2];
 
     for(int i=0; i<2; i++){

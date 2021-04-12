@@ -71,16 +71,15 @@ void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct T
     END_MASTER(threading)
 
     for ( i=0; i<n; i+=num_loop ) {      
-      START_LOCKED_MASTER(threading)
+      START_LOCKED_MASTER(threading)//why inside of LOCKED_MASTER????
       vector_PRECISION_define_random( &buffer[0], 0, l->inner_vector_size, l );
       END_LOCKED_MASTER(threading)
-      //  vector_PRECISION_define_random( &(l->is_PRECISION.test_vector_vec), start, end, l );//my proposal
 
-      smoother_PRECISION( &buffer[1], NULL, &buffer[0], 1, _NO_RES, l, threading );
-      vector_PRECISION_copy( &buffer[0], &buffer[1], start, end, l );
-      smoother_PRECISION( &buffer[1], NULL, &buffer[0], g.method >= 5?1:2, _NO_RES, l, threading );
-      vector_PRECISION_copy( &buffer[0], &buffer[1], start, end, l );
-      smoother_PRECISION( &buffer[1], NULL, &buffer[0], g.method >= 5?1:3, _NO_RES, l, threading );
+      for ( j = 0; j < g.post_smooth_iter[l->depth]-1; j++ ) {
+	smoother_PRECISION( &buffer[1], NULL, &buffer[0], g.method >= 4?1:j+1, _NO_RES, l, threading );
+	vector_PRECISION_copy( &buffer[0], &buffer[1], start, end, l );
+      }	
+      smoother_PRECISION( &buffer[1], NULL, &buffer[0], g.method >= 4?1:g.post_smooth_iter[l->depth], _NO_RES, l, threading );
       vector_PRECISION_copy2( &(l->is_PRECISION.test_vector_vec), &buffer[1], i, num_loop, -1, start, end, l );
 
 #ifdef DEBUG

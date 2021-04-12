@@ -26,7 +26,10 @@
 #include "main.h"
 
 void global_norm_PRECISION( PRECISION *res, vector_PRECISION *x, int start, int end, level_struct *l, struct Thread *threading ) {
-
+  /*
+   * Note: end-start needs to match with the local size of x; otherwise it computes partial norm
+   */
+  
   int i, j, jj, nvec = x->num_vect_now, nvecmf = x->num_vect_now;
 #ifdef HAVE_TM1p1
 #ifdef DEBUG

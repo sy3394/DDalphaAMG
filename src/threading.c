@@ -179,8 +179,8 @@ void compute_core_start_end_custom(int start, int end, int *core_start, int *cor
   int min_per_core = granularity; // why did you redefine????
   
   int length   = end-start;
-  int per_core  = floor(((double)length/min_per_core)/threading->n_core)*min_per_core; // base items per core
-  int reminder  = length-per_core*threading->n_core;
+  int base_per_core  = floor(((double)length/min_per_core)/threading->n_core)*min_per_core; // base items per core
+  int reminder  = length-base_per_core*threading->n_core;
   int ext_cores = reminder/min_per_core;
 
   // TODO: allow for nonzero value for reminder%min_per_core
@@ -194,14 +194,14 @@ void compute_core_start_end_custom(int start, int end, int *core_start, int *cor
 #endif
   
   if( (threading->core+1)*min_per_core <= reminder ) {// we assign extra min_per_core items on the first ext_cores many cores
-    *core_start += (per_core+min_per_core)*threading->core;
-    *core_end = *core_start + per_core+min_per_core;
+    *core_start += (base_per_core+min_per_core)*threading->core;
+    *core_end = *core_start + base_per_core+min_per_core;
   } else if ( threading->core == threading->n_core-1 ) {// remaining (reminder%min_per_core many) elements put in the last thread
-    *core_start += per_core*threading->core + min_per_core*ext_cores;
-    *core_end = *core_start + per_core + reminder%min_per_core;
+    *core_start += base_per_core*threading->core + min_per_core*ext_cores;
+    *core_end = *core_start + base_per_core + reminder%min_per_core;
   } else { // on other cores, we assign only per_core many items
-    *core_start += per_core*threading->core + min_per_core*ext_cores;
-    *core_end = *core_start+per_core;
+    *core_start += base_per_core*threading->core + min_per_core*ext_cores;
+    *core_end = *core_start+base_per_core;
   }
 }
 

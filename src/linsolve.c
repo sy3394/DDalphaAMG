@@ -336,7 +336,8 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   } // end of fgmres
   
   START_LOCKED_MASTER(threading)
-  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0; g.iter_counts[0] = iter; g.norm_res = gamma_max; }
+  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0; g.iter_counts[0] = iter;
+    g.max_rel_res_norm = gamma_max; for ( i=0; i<n_vect; i++ ) g.resids[i] = creal(gamma_jp1[i])/norm_r0[i];}
   END_LOCKED_MASTER(threading)
   
   if ( p->dp.print ) {

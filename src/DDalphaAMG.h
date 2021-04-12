@@ -248,7 +248,7 @@
    **   number of vectors must match init.nrhs
    **   initial guesses must be stored in vector_out 
    **/
-  void DDalphaAMG_restrict( double *vector_out, double *vector_in, int level,
+  void DDalphaAMG_restrict( float *vector_out, float *vector_in, int level,
                             DDalphaAMG_status *mg_status );
 
   /**
@@ -260,8 +260,8 @@
    **   number of vectors must match init.nrhs
    **   initial guesses must be stored in vector_out 
    **/
-  void DDalphaAMG_prolongate( double *vector_out, double *vector_in, int level,
-                            DDalphaAMG_status *mg_status );
+  void DDalphaAMG_prolongate( float *vector_out, float *vector_in, int level,
+			      DDalphaAMG_status *mg_status );
 
   /**
    ** Optional - Apply the operator:
@@ -272,10 +272,18 @@
    **   number of vectors must match init.nrhs
    **   initial guesses must be stored in vector_out 
    **/
-  void DDalphaAMG_apply_coarse_operator( double *vector_out, double *vector_in, int level,
-                                  DDalphaAMG_status *mg_status );
+  void DDalphaAMG_apply_coarse_operator( float *vector_out, float *vector_in, int level,
+					 DDalphaAMG_status *mg_status );
 
-/*
+   /**
+    ** Extra - coarse vector utils
+    **/
+   float* DDalphaAMG_coarse_vector_alloc( int level, int nrhs );
+   void DDalphaAMG_coarse_vector_free( float *vector, int level, int nrhs );
+   void DDalphaAMG_coarse_vector_rand( float *vector, int level, int nrhs );
+   void DDalphaAMG_coarse_vector_residual( float *resid, float *vector_out, float *vector_in, int level, int nrhs );
+
+  /*
    *  Concluding the following functions have to be call for freeing the memory and finalizing
    * the software. 
    */
