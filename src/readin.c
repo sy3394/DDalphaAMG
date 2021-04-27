@@ -52,24 +52,14 @@ static int read_parameter( void **save_at, char *search_pattern, char *read_form
   }
     
   fseek( read_from, 0L, SEEK_SET );
-  
+
+  // Search through the input file line by line to find search_pattern
+  // Note: as it is a while loop, only the first occurance of search_pattern counts
   while ( !match && fgets( read_pattern, 100000, read_from ) ) {
 
-    // Find out if there is a line starting from search_pattern
+    // Find out if the current line, read_pattern, mathces with earch_pattern
     k = strlen( read_pattern );
-    /*
-    j = 0;
-    for ( i=0; i<k && !match; i++ ) {
-      if ( search_pattern[j] == read_pattern[i] )
-        j++;
-      else
-        j = 0;
-      if ( j == n ) {
-        match = 1;
-      }
-    }
-    */ // replace it with a search just at the beginning of the line.
-    if(k>n) {
+    if(k>n) { // Note: read_pattern from fgets contains a new line character
       match = 1;
       i = 0;
       while ( i<n && match ) { 

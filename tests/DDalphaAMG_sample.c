@@ -467,7 +467,7 @@ int main( int argc, char *argv[] ) {
   vector_in = (double *) malloc(24*vol*sizeof(double)*init.nrhs);
   vector_out = (double *) malloc(24*vol*sizeof(double)*init.nrhs);
   
-  DDalphaAMG_define_vector_rand(vector_in);
+  DDalphaAMG_define_vector_rand(vector_in, init.nrhs);
 
   /*
    * Solve Dx = b

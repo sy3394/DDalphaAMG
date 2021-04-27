@@ -24,10 +24,12 @@
 
 #ifndef IO_HEADER
   #define IO_HEADER
+
 #ifdef HAVE_HDF5
 #include "hdf5.h"
 #define ROOTGROUPNAME "/rqcd"
 #define EIGENMODEGROUPNAME "eigenmodes"
+
   typedef struct Hdf5_fileinfo {
     char* filename;
     hid_t file_id, rootgroup_id, configgroup_id, eigenmodegroup_id, thiseigenmodegroup_id;
@@ -37,12 +39,17 @@
   } Hdf5_fileinfo;
 
   extern Hdf5_fileinfo h5info;
+
+  unsigned int stepIntoEigenmode( int index );
+  unsigned int initFile(  char *filename, const int mode, level_struct *l );
+  void closeFile();
+  void single_vector_io( double *phi, char *filename, const int mode, level_struct *l );
+
 #endif
   void byteswap( char *in );  
   void byteswap8( char *in );  
   void read_conf( double *input_data, char *input_name, double *conf_plaq, level_struct *l );
-  void vector_io( double *phi, char *filename, const int mode, level_struct *l );
-  void vector_io_single_file( vector_double *psi, double *lambda, char *filename, const int mode, int n, char *vector_type, level_struct *l );
+  void vector_io( double *psi, double *eigvals, int nvec, int layout, char *filename, const int mode, char *vector_type, level_struct *l );
   void d_dump( config_double D, level_struct *l );
   
   static inline int process_index( int t, int z, int y, int x, int ll[4] ) {
@@ -57,11 +64,5 @@
       return 0;
     }
   }
-  
-#ifdef HAVE_HDF5
-  unsigned int stepIntoEigenmode( int index );
-  unsigned int initFile(  char *filename, const int mode, level_struct *l );
-  void closeFile();
 
-#endif
 #endif

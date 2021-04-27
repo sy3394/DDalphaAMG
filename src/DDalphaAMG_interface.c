@@ -1222,9 +1222,6 @@ static inline void DDalphaAMG_proj_driver( float *vector_out, float *vector_in, 
 
   double t0, t1;
   t0 = MPI_Wtime();
-  //g.coarse_time = 0;
-  //g.iter_count = 0;
-  //g.coarse_iter_count = 0;
   for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
   for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
   mg_status->success = 0;
@@ -1471,31 +1468,32 @@ void DDalphaAMG_read_configuration( double *gauge_field, char *filename, int for
 
 }
 
-void DDalphaAMG_read_vector( double *vector_in, char *filename, int format, DDalphaAMG_status *mg_status ){
+/* File I/O */
+void DDalphaAMG_read_vector( double *vector_in, int nvec, char *filename, int format, DDalphaAMG_status *mg_status ){
 
   if(format==1)
-    lime_read_vector( vector_in, filename );
+    lime_read_vector( vector_in, nvec, filename );
   else
-    vector_io( vector_in, filename, _READ, &l );
+    vector_io( vector_in, NULL, nvec, _NVEC_OUTER, filename, _READ, "vector", &l );
 
 }
 
-void DDalphaAMG_write_vector( double *vector_out, char *filename, int format, DDalphaAMG_status *mg_status ){
+void DDalphaAMG_write_vector( double *vector_out, int nvec, char *filename, int format, DDalphaAMG_status *mg_status ){
 
   if(format==1)
-    lime_write_vector( vector_out, filename );
+    lime_write_vector( vector_out, nvec, filename );
   else
-    vector_io( vector_out, filename, _WRITE, &l );
+    vector_io( vector_out, NULL, nvec, _NVEC_OUTER, filename, _WRITE, "vector", &l );
 
 }
 
-//---- intended for top-level vectors
-void DDalphaAMG_define_vector_const( double *vector, double re, double im ) {
+/* for top-level vectors */
+void DDalphaAMG_define_vector_const( double *vector, int nvec, double re, double im ) {
 
   THREADED(threading[0]->n_core)
   if(vector!=NULL){
     int start, end;
-    compute_core_start_end_custom( 0, l.inner_vector_size, &start, &end, &l, threading[omp_get_thread_num()], l.num_lattice_site_var );
+    compute_core_start_end_custom( 0, l.inner_vector_size*nvec, &start, &end, &l, threading[omp_get_thread_num()], l.num_lattice_site_var );
     buffer_double_define( (buffer_double) vector, re+I*im, start, end, &l );
   }
   else {
@@ -1503,15 +1501,15 @@ void DDalphaAMG_define_vector_const( double *vector, double re, double im ) {
   }
 }
 
-void DDalphaAMG_define_vector_rand( double *vector ) {
+void DDalphaAMG_define_vector_rand( double *vector, int nvec ) {
 
   if(vector!=NULL){
-    int i, j, jj, nrhs = g.num_rhs_vect;
+    int i, j;
     THREADED(threading[0]->n_core) {
       int start, end;
       compute_core_start_end_custom( 0, l.inner_vector_size, &start, &end, &l, threading[omp_get_thread_num()], l.num_lattice_site_var);
-      for ( i=start; i<end; i++ )
-	VECTOR_LOOP(j, nrhs, jj, vector[i*nrhs+j+jj] = ((double)rand()/(double)RAND_MAX)-0.5 + (((double)rand()/(double)RAND_MAX)-0.5)*_Complex_I;)
+      for ( i=start*nvec; i<end*nvec; i++ )
+	vector[i] = ((double)rand()/(double)RAND_MAX)-0.5 + (((double)rand()/(double)RAND_MAX)-0.5)*_Complex_I;
     }
   }
   else {
@@ -1520,11 +1518,11 @@ void DDalphaAMG_define_vector_rand( double *vector ) {
 
 }
 
-void DDalphaAMG_define_pt_src( double *vector, int *global_pos, int *spin_color_ind ) {
+void DDalphaAMG_define_pt_src( double *vector, int nvec, int *global_pos, int *spin_color_ind ) {
 
   if(vector!=NULL){
-    int i, x, y, z, t, n, nrhs = g.num_rhs_vect, desired_rank, *ll = l.local_lattice;
-    for ( n=0; n<nrhs; n++ ) {
+    int i, x, y, z, t, n, desired_rank, *ll = l.local_lattice, size = l.inner_vector_size;
+    for ( n=0; n<nvec; n++ ) {
       t = global_pos[4*n + T]; z = global_pos[4*n + Z]; y = global_pos[4*n + Y]; x = global_pos[4*n + X];
       desired_rank = process_index( t, z, y, x, ll );
       if ( g.my_rank == desired_rank ) {
@@ -1533,7 +1531,7 @@ void DDalphaAMG_define_pt_src( double *vector, int *global_pos, int *spin_color_
 	  i = vector_index_fct( t, z, y, x );
 	else
 	  i = 2*lex_index(t, z, y, x, ll );
-	vector[i+spin_color_ind[n]] = 1.0;
+	vector[size*n+i+spin_color_ind[n]] = 1.0;
       }
     }
   }
@@ -1543,17 +1541,19 @@ void DDalphaAMG_define_pt_src( double *vector, int *global_pos, int *spin_color_
   
 }
 
-void DDalphaAMG_vector_norm( double* norm, double *vector ) {
+/* wrapper functions for some of internal routines */
+void DDalphaAMG_vector_norm( double* norm, double *vector, int nvec ) {
 
   if(vector!=NULL){
-#ifdef HAVE_TM1p1
-    ASSERT( g.n_flavours == 1 );
+#ifdef HAVE_TM1p1 
+    ASSERT( g.n_flavours == 1 ); // if not, we might need to make some assumptions on the order of elements in vector w/r/t flavour
 #endif
-    int nrhs = g.num_rhs_vect;
+    ASSERT( nvec%num_loop == 0 );
+    
     vector_double vec;
     vec.vector_buffer = (buffer_double) vector;
-    vec.num_vect = nrhs;
-    vec.num_vect_now = nrhs;
+    vec.num_vect = nvec;
+    vec.num_vect_now = nvec;
     vec.size = l.inner_vector_size;
     vec.layout = _NVEC_OUTER;
     vector_double_change_layout( &vec, &vec, _NVEC_INNER, no_threading );
@@ -1568,23 +1568,25 @@ void DDalphaAMG_vector_norm( double* norm, double *vector ) {
   }
 }
 
-void DDalphaAMG_vector_saxpy( double *vector_out, double *a, double *x, double *y ) {
+void DDalphaAMG_vector_saxpy( double *vector_out, int nvec, double *a, double *x, double *y ) {
 
   if(vector_out!=NULL && x!=NULL && y!=NULL){
 #ifdef HAVE_TM1p1
-    ASSERT( g.n_flavours == 1 );
+    ASSERT( g.n_flavours == 1 );// if not, we might need to make some assumptions on the order of elements in vector w/r/t flavour  
 #endif
-    int nrhs = g.num_rhs_vect, size = l.inner_vector_size;
+    ASSERT( nvec%num_loop == 0 );
+    
+    int size = l.inner_vector_size;
     vector_double vec_out, xx, yy;
     vec_out.vector_buffer= (buffer_double) vector_out; xx.vector_buffer= (buffer_double) x; yy.vector_buffer= (buffer_double) y;
-    vec_out.num_vect = nrhs; xx.num_vect = nrhs; yy.num_vect = nrhs;
-    vec_out.num_vect_now = nrhs; xx.num_vect_now = nrhs; yy.num_vect_now = nrhs;
+    vec_out.num_vect = nvec; xx.num_vect = nvec; yy.num_vect = nvec;
+    vec_out.num_vect_now = nvec; xx.num_vect_now = nvec; yy.num_vect_now = nvec;
     vec_out.size = size; xx.size = size; yy.size = size;
     vec_out.layout = _NVEC_OUTER; xx.layout = _NVEC_OUTER; yy.layout = _NVEC_OUTER;
     vec_out.l = &l; xx.l = &l; yy.l = &l;
 
-    complex_double alpha[nrhs];
-    for( int i=0; i< nrhs; i++ ) alpha[i] = a[i];
+    complex_double alpha[nvec];
+    for( int i=0; i< nvec; i++ ) alpha[i] = a[i];
 
     vector_double_change_layout( &vec_out, &vec_out, _NVEC_INNER, no_threading );
     vector_double_change_layout( &xx, &xx, _NVEC_INNER, no_threading );
@@ -1604,26 +1606,26 @@ void DDalphaAMG_vector_saxpy( double *vector_out, double *a, double *x, double *
 
 }
 
-//---- intended for coarse-level vectors
-float* DDalphaAMG_coarse_vector_alloc( int level, int nrhs ) {
+/* intended for coarse-level vectors */
+float* DDalphaAMG_coarse_vector_alloc( int level, int nvec ) {
   level_struct *ltmp=&l;
   for(int i=0; i<level; i++)
     ltmp=ltmp->next_level;
   buffer_float vector = NULL;
-  MALLOC(vector, complex_float, nrhs*ltmp->vector_size );
+  MALLOC(vector, complex_float, nvec*ltmp->vector_size );
   return (float*) vector;
 }
 
-void DDalphaAMG_coarse_vector_free( float *vector, int level, int nrhs ) {
+void DDalphaAMG_coarse_vector_free( float *vector, int level, int nvec ) {
   level_struct *ltmp=&l;
   for(int i=0; i<level; i++)
     ltmp=ltmp->next_level;
-  FREE(vector, float, 2*nrhs*ltmp->vector_size );
+  FREE(vector, float, 2*nvec*ltmp->vector_size );
 }
 
-void DDalphaAMG_coarse_vector_rand( float *vector, int level, int nrhs ) {
+void DDalphaAMG_coarse_vector_rand( float *vector, int level, int nvec ) {
   level_struct *ltmp=&l;
-  int i, j, jj;
+  int i;
   for(i=0; i<level; i++)
     ltmp=ltmp->next_level;
 
@@ -1631,20 +1633,20 @@ void DDalphaAMG_coarse_vector_rand( float *vector, int level, int nrhs ) {
   if(vector!=NULL){
     int start, end;
     compute_core_start_end( 0, ltmp->inner_vector_size, &start, &end, ltmp, threading[omp_get_thread_num()]);
-    for ( i=start; i<end; i++ )
-      VECTOR_LOOP(j, nrhs, jj, vector[i*nrhs+j+jj] = ((double)rand()/(double)RAND_MAX)-0.5 + (((double)rand()/(double)RAND_MAX)-0.5)*_Complex_I;)
+    for ( int i=start*nvec; i<end*nvec; i++ )
+      vector[i] = ((double)rand()/(double)RAND_MAX)-0.5 + (((double)rand()/(double)RAND_MAX)-0.5)*_Complex_I;
   }
   else {
     warning0("Vector NULL when calling DDalphaAMG_define_vector_const!");
   }
 }
 
-void DDalphaAMG_coarse_vector_residual( float *resid, float *vector_out, float *vector_in, int level, int nrhs ) {
+void DDalphaAMG_coarse_vector_residual( float *resid, float *vector_out, float *vector_in, int level, int nvec ) {
 
 #ifdef HAVE_TM1p1
     ASSERT( g.n_flavours == 1 );
 #endif
-  if ( nrhs%num_loop != 0 )
+  if ( nvec%num_loop != 0 )
     error0("The number of rhs in the input and output vector needs to be multiple of num_loop\n");
   
   level_struct *ltmp=&l;
@@ -1652,18 +1654,18 @@ void DDalphaAMG_coarse_vector_residual( float *resid, float *vector_out, float *
     ltmp=ltmp->next_level;
 
   int j, jj, vsize = ltmp->inner_vector_size;
-  float norm1[nrhs], norm2[nrhs];
+  float norm1[nvec], norm2[nvec];
   vector_float vec[2];
-  vec[0].vector_buffer = vector_in;
-  vec[1].vector_buffer = vector_out;
+  vec[0].vector_buffer = (complex_float *) vector_in;
+  vec[1].vector_buffer = (complex_float *) vector_out;
   for(int i=0; i<2; i++) {
-    vec[i].num_vect = nrhs;
-    vec[i].num_vect_now = nrhs;
+    vec[i].num_vect = nvec;
+    vec[i].num_vect_now = nvec;
     vec[i].size = ltmp->inner_vector_size;
     vec[i].layout = _NVEC_OUTER;
     vec[i].l = ltmp;
   }
-  VECTOR_LOOP(j, nrhs, jj, norm1[j+jj] = 1.; norm2[j+jj] = 1.;)
+  VECTOR_LOOP(j, nvec, jj, norm1[j+jj] = 1.; norm2[j+jj] = 1.;)
     
   if(vector_in!=NULL){
     vector_float_change_layout( &(vec[0]), &(vec[0]), _NVEC_INNER, no_threading );
@@ -1689,11 +1691,11 @@ void DDalphaAMG_coarse_vector_residual( float *resid, float *vector_out, float *
   }
   else {
     warning0("VectorOut NULL when calling DDalphaAMG_coarse_vector_residual!");
-    VECTOR_LOOP(j, nrhs, jj, resid[j+jj] = norm1[j+jj];)
+    VECTOR_LOOP(j, nvec, jj, resid[j+jj] = norm1[j+jj];)
     return;
   }
   
-  VECTOR_LOOP(j, nrhs, jj, resid[j+jj] = norm2[j+jj]/norm1[j+jj];)
+  VECTOR_LOOP(j, nvec, jj, resid[j+jj] = norm2[j+jj]/norm1[j+jj];)
 }
 
 void DDalphaAMG_test_routine( DDalphaAMG_status *mg_status ) {

@@ -16,17 +16,24 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * checked:11/30/2019
- * changed from sbacchio
- * checked: 12/09/2019
- * glanced over:12/18/2019
+ *
  */
 
 #include "main.h"
 
 #ifdef HAVE_HDF5
 
-hid_t openCreateGroup( hid_t parent, char* groupname ) {
+/* WARNING: This implementation for HDF5 is only experimental and not supported.
+ * As can be seen, HDF5 files are intended to store a set of eigenmodes.
+ * However, the following functions can be used to store a collection of
+ *  vectors of various types.
+ * Just create/read a HDF5 file using initFile, go to the group for the 
+ *  desired eigenmode using stepIntoEigenmode, and write/read your
+ *  vector one-by-one using vector_io
+ * HDF5 should be MPI aware
+ */
+
+static hid_t openCreateGroup( hid_t parent, char* groupname ) {
   htri_t group_ex = H5Lexists(parent, groupname, H5P_DEFAULT);
   ASSERT( group_ex >= 0 );
   hid_t group_id, status;
@@ -69,7 +76,7 @@ unsigned int stepIntoEigenmode( int index ) {
 }
 
 
-void writeSmallDataset_double( hid_t parent, char* name, double value) {
+static void writeSmallDataset_double( hid_t parent, char* name, double value) {
   hid_t data_id, space_id, status;
     /*
      * data set already exists. overwrite.
@@ -98,7 +105,7 @@ void writeSmallDataset_double( hid_t parent, char* name, double value) {
 }
 
 
-void writeSmallDataset_doublearr( hid_t parent, char* name, double *value, int len) {
+static void writeSmallDataset_doublearr( hid_t parent, char* name, double *value, int len) {
   hid_t data_id, space_id, status;
   htri_t link_ex = H5Lexists(parent, name, H5P_DEFAULT);
   ASSERT( link_ex >= 0 );
@@ -129,7 +136,7 @@ void writeSmallDataset_doublearr( hid_t parent, char* name, double *value, int l
 }
 
 
-void writeSmallDataset_int( hid_t parent, char* name, int value) {
+static void writeSmallDataset_int( hid_t parent, char* name, int value) {
   hid_t data_id, space_id, status;
     /*
      * data set already exists. overwrite.
@@ -157,7 +164,7 @@ void writeSmallDataset_int( hid_t parent, char* name, int value) {
 }
 
 
-void writeSmallDataset_intarr( hid_t parent, char* name, int *value, int len) {
+static void writeSmallDataset_intarr( hid_t parent, char* name, int *value, int len) {
   hid_t data_id, space_id, status;
   htri_t link_ex = H5Lexists(parent, name, H5P_DEFAULT);
   ASSERT( link_ex >= 0 );
@@ -188,7 +195,7 @@ void writeSmallDataset_intarr( hid_t parent, char* name, int *value, int len) {
 }
 
 
-void writeSmallDataset_str( hid_t parent, char* name, char* value, unsigned int len) {
+static void writeSmallDataset_str( hid_t parent, char* name, char* value, unsigned int len) {
   hid_t data_id, space_id, status;
     /*
      * data set already exists. overwrite.
@@ -223,6 +230,8 @@ unsigned int initFile( char *filename, const int mode, level_struct *l ) {
   /*
    * This routine opens a hdf5 file and returns the file_id.
    * It checks if the file exists and if it does, it checks that it is an hdf5 file.
+   * If mode==_WRITE, it creates a group for the config under EIGENMODEGROUPNAME group
+   *   and puts metadata, i.e., the header messages, into it as datasets
    * Parts of this code is taken from qdp++: lib/qdp_hdf5.cc
    */
   hid_t fapl_id = -1, fcpl_id = -1, file_id = -1;
@@ -321,7 +330,7 @@ unsigned int initFile( char *filename, const int mode, level_struct *l ) {
 
   h5info.file_id = file_id;
   /* 
-   * writes the header information as attributes / datasets into the hdf5 file
+   * writes the header information as datasets into the hdf5 file
    */
   char strbuffer[256];
   /*
@@ -339,18 +348,13 @@ unsigned int initFile( char *filename, const int mode, level_struct *l ) {
   }
   /*
    * build the config name (will be used as group name)
-   * configname = g.in + g.in_clov (after removal of the slashes)
+   * configname = g.in (after removal of the slashes)
    */
   char *pchr = strrchr(g.in, '/');
   if(pchr != NULL)
     strcpy(strbuffer, pchr+1);
   else
     strcpy(strbuffer, g.in);
-  pchr = strrchr(g.in_clov, '/');
-  if(pchr != NULL)
-    strcat(strbuffer, pchr+1);
-  else
-    strcat(strbuffer, g.in_clov);
   hid_t configgroup_id = openCreateGroup(eigenmodegroup_id, strbuffer);
   if( configgroup_id < 0 ) {
     printf0("io.c: initFile: configgroup \"%s\" could not be opened.", strbuffer);
@@ -360,7 +364,7 @@ unsigned int initFile( char *filename, const int mode, level_struct *l ) {
   h5info.rootgroup_id = rootgroup_id;
   h5info.configgroup_id = configgroup_id;
   h5info.eigenmodegroup_id = eigenmodegroup_id;
-  //thiseigenmodegroup is not open:
+  //this eigenmodegroup is not open:
   h5info.thiseigenmodegroup_id = -1;
   if(mode == _WRITE)
   {
@@ -388,7 +392,6 @@ unsigned int initFile( char *filename, const int mode, level_struct *l ) {
     writeSmallDataset_intarr(configgroup_id, "lattice_size", ls, 4);
     writeSmallDataset_intarr(configgroup_id, "local_lattice_size", lls, 4);
     writeSmallDataset_str(configgroup_id, "clifford_basis", CLIFFORD_BASIS, 256);
-    writeSmallDataset_str(configgroup_id, "config_name_clover", g.in_clov, 256);
     writeSmallDataset_str(configgroup_id, "config_name_hopp", g.in, 256);
   }
 
@@ -413,6 +416,115 @@ void closeFile() {
   h5info.ioTime += fnEntryTime - MPI_Wtime();
   printf0("io.c: closed file \"%s\". Time spent in io routines: %lf seconds wct (%lf node hours)\n", h5info.filename, h5info.ioTime, h5info.ioTime/3600*g.num_processes);
   h5info.ioTime = 0.0;
+}
+
+// Read/Write a single vector into/from phi from/into filename
+void single_vector_io( double *phi, char *filename, const int mode, level_struct *l ) {
+  double norm[num_loop];
+  // pointers to inner file structures.
+  hid_t dset_id, xfer_id;
+  // spaces, status
+  hid_t memspace, filespace, status;
+  // global (g_*) and local (l_*) sizes and start coordinates
+  int *gl=l->global_lattice, *ll=l->local_lattice;
+  hsize_t g_start[5], g_size[5], l_start[5], l_size[5];
+  double fnEntryTime;
+  fnEntryTime = MPI_Wtime();
+
+  status = -1;
+
+  // need to be already in thiseigenmodegroup (use stepIntoEigenmode)
+  ASSERT(h5info.thiseigenmodegroup_id > 0);
+
+  /*
+   * set the parameters:
+   */
+  for ( hsize_t i = 0; i < 4; i++)
+  {
+    g_start[i] = g.my_coords[i] * ll[i];
+    l_start[i] = 0;
+    g_size[i] = gl[i];
+    l_size[i] = ll[i];
+  }
+  g_start[4] = l_start[4] = 0; 
+  g_size[4] = l_size[4] = 24; // spin * color * re/im
+
+  // create a memspace:
+  memspace = H5Screate_simple(5, l_size, NULL);
+  ASSERT( memspace >= 0 );
+  // create a filespace:
+  filespace = H5Screate_simple(5, g_size, NULL);
+  status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, g_start, (hsize_t*)NULL, l_size, (hsize_t*)NULL);
+  ASSERT( status >= 0 );
+  // create a data transfer property:
+  xfer_id = H5Pcreate(H5P_DATASET_XFER);
+  status = H5Pset_dxpl_mpio(xfer_id, H5FD_MPIO_COLLECTIVE);
+  ASSERT( status >= 0);
+  // check if dataset exists:
+  htri_t dset_ex = H5Lexists(h5info.thiseigenmodegroup_id, "eigenvector", H5P_DEFAULT);
+  ASSERT( dset_ex >= 0 );
+  dset_id = -1;
+
+  if ( mode ==  _READ ) {
+    printf0("reading hdf5 file \"%s\"... ", filename);
+
+    dset_id = H5Dopen(h5info.thiseigenmodegroup_id, "eigenvector", H5P_DEFAULT);
+    ASSERT( dset_id >= 0 );
+    //read data:
+    status = H5Dread(dset_id, H5T_NATIVE_DOUBLE, memspace, filespace, xfer_id, phi);
+    ASSERT( status >= 0 );
+  } else if ( mode == _WRITE ) {
+    printf0("writing hdf5 file \"%s\"... ", filename);
+
+    // write_header_mg( file_id, NULL, filename, 1, l );
+    printf0("write_header_mg not implemented in HDF5!");
+    
+    if(dset_ex == 0)
+    {
+      /* dataset does not exist...
+       * create it:
+       */
+      dset_id = H5Dcreate(h5info.thiseigenmodegroup_id, "eigenvector", H5T_NATIVE_DOUBLE, filespace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    }
+    else
+    {
+      /* dataset already exists...
+       * open it for overwriting it...
+       */
+      dset_id = H5Dopen(h5info.thiseigenmodegroup_id, "eigenvector", H5P_DEFAULT);
+    }
+    ASSERT( dset_id >= 0 );
+    
+    // write data:
+    status = H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, memspace, filespace, xfer_id, phi);
+    ASSERT( status >= 0 );
+  }
+  /*
+   * close all open handles:
+   */
+  status = H5Dclose(dset_id);
+  ASSERT( status >= 0);
+  status = H5Sclose(filespace);
+  ASSERT( status >= 0);
+  status = H5Sclose(memspace);
+  ASSERT( status >= 0);
+  status = H5Pclose(xfer_id);
+  ASSERT( status >= 0);
+
+  h5info.ioTime += MPI_Wtime()-fnEntryTime;
+
+  /*
+   * print the norm of the vector
+   */
+  vector_double phi_vec;
+  vector_double_init(&phi_vec);
+  vector_double_alloc( &phi_vec, _INNER, num_loop, l, no_threading );
+  buffer_double_copy(phi_vec.vector_buffer, (buffer_double) phi, 0, l->inner_vector_size, l) ;
+  phi_vec.layout = _NVEC_OUTER;
+  vector_double_change_layout(&phi_vec, &phi_vec, _NVEC_INNER, no_threading );
+  global_norm_double( norm, &phi_vec, 0, l->inner_vector_size, l, no_threading );
+  printf0("norm: %e\n", norm[0] );
+  printf0("...done\n");
 }
 #endif
 
@@ -547,7 +659,7 @@ void read_conf( double *input_data, char *input_name, double *conf_plaq, level_s
 }
 
 
-void write_header_mg( FILE **file, double *lambda, char* vector_type, int n, level_struct *l ) {
+void write_header_mg( FILE **file, double *eigvals, char* vector_type, int n, level_struct *l ) {
   
   fprintf( *file, "<header>\n" );
   fprintf( *file, "%s\n", vector_type );
@@ -556,7 +668,6 @@ void write_header_mg( FILE **file, double *lambda, char* vector_type, int n, lev
   fprintf( *file, "csw: %.14lf\n", g.csw );
   fprintf( *file, "clov plaq: %.14lf\n", g.plaq_clov );
   fprintf( *file, "hopp plaq: %.14lf\n", g.plaq_hopp );
-  fprintf( *file, "clov conf name: %s\n", g.in_clov );
   fprintf( *file, "hopp conf name: %s\n", g.in );
   fprintf( *file, "X: %d\n", l->global_lattice[X] );
   fprintf( *file, "Y: %d\n", l->global_lattice[Y] );
@@ -569,300 +680,57 @@ void write_header_mg( FILE **file, double *lambda, char* vector_type, int n, lev
   fprintf( *file, "number of vectors: %d\n", n );
   fprintf( *file, "krylov subspace size: %d\n", 100 );
   fprintf( *file, "clifford basis: %s\n", CLIFFORD_BASIS );
-  if ( lambda != NULL ) {
+  if ( eigvals != NULL ) {
     fprintf( *file, "eigenvalues: " );
     for ( int i=0; i<2*n; i++ ) {
-      fprintf( *file, "%.16lf ", lambda[i] );
+      fprintf( *file, "%.16lf ", eigvals[i] );
     }
     fprintf( *file, "\n");
   }
   fprintf( *file, "</header>\n" );
 }
 
-// Read/Write a single vector into/from phi from/into filename
 #ifndef HAVE_HDF5
-void vector_io( double *phi, char *filename, const int mode, level_struct *l ) {
-
-  int t, z, y, x, *gl=l->global_lattice, *ll=l->local_lattice, bar_size = 24*ll[X], desired_rank; // (internal d.o.f.)x(real/imag) = 12*2
-  double *phi_pt = phi, t0, t1; double norm[num_loop];
-  FILE* file = NULL;
-  MPI_Request sreq, rreq;
-  confbuffer_struct buffer[2];
-  confbuffer_struct *buffer_pt = NULL;
-  
-  buffer[0].next = &(buffer[1]);
-  buffer[1].next = &(buffer[0]);  
-  buffer[0].data = NULL;
-  buffer[1].data = NULL;
-  
-#ifdef BIG_ENDIAN_TV
-  int i;
-#endif
-  
-  if ( g.my_rank == 0 ) {
-    MALLOC( buffer[0].data, double, bar_size );
-    MALLOC( buffer[1].data, double, bar_size );
-    buffer_pt = &buffer[0];
-  }
-  
-  t0 = MPI_Wtime();
-  
-  if ( mode == _READ ) {
-    
-    if ( g.my_rank == 0 ) {
-      ASSERT( (file = fopen( filename, "rb" )) != NULL );
-      char *cur_line = NULL;
-      MALLOC( cur_line, char, STRINGLENGTH );
-      fgets( cur_line, STRINGLENGTH-1, file );
-      if ( strcmp( cur_line, "<header>\n" ) ) {
-        fseek( file, 0L, SEEK_SET );
-      } else {
-        do {
-          ASSERT( fgets( cur_line, STRINGLENGTH-1, file ) );
-        } while ( strcmp( cur_line, "</header>\n" ) );
-      }
-      FREE( cur_line, char, STRINGLENGTH );
-    }
-    
-    printf0("reading from file \"%s\" ...\n", filename );
-  
-    if ( g.my_rank == 0 ) {
-      ASSERT( fread( buffer_pt->data, sizeof(double), bar_size, file ) > 0 );
-    }
-    
-    for ( t=0; t<gl[T]; t++ )
-      for ( z=0; z<gl[Z]; z++ )
-        for ( y=0; y<gl[Y]; y++ )
-          for ( x=0; x<gl[X]; x+=ll[X] ) {
-            desired_rank = process_index( t, z, y, x, ll );
-            
-            if ( g.my_rank == 0 ) {
-              MPI_Isend( buffer_pt->data, bar_size, MPI_DOUBLE, desired_rank, 0, g.comm_cart, &sreq );
-              if ( ! ( t == gl[T]-1 && z == gl[Z]-1 && y == gl[Y]-1 && x == gl[X]-ll[X]  ) )
-                ASSERT( fread( buffer_pt->next->data, sizeof(double), bar_size, file ) > 0 );
-            }
-            
-            if ( g.my_rank == desired_rank ) {
-              MPI_Recv( phi_pt, bar_size, MPI_DOUBLE, 0, 0, g.comm_cart, MPI_STATUS_IGNORE );
-#ifdef BIG_ENDIAN_TV
-              for ( i=0; i<bar_size; i++ ) {
-                byteswap8( (char *) ( phi_pt + i ) );
-              }
-#endif
-              phi_pt += bar_size;
-            }
-            
-            if ( g.my_rank == 0 ) {
-              MPI_Wait( &sreq, MPI_STATUS_IGNORE );
-              buffer_pt = buffer_pt->next;
-            }
-          }
-          
-  } else if ( mode == _WRITE ) {
-    if ( g.my_rank == 0 ) {
-      ASSERT( (file = fopen( filename, "wb" )) != NULL );
-      write_header_mg( &file, NULL, filename, 1, l );
-    }
-    printf0("writing file \"%s\" ...\n", filename );
-    
-    for ( t=0; t<gl[T]; t++ ) {
-      for ( z=0; z<gl[Z]; z++ )
-        for ( y=0; y<gl[Y]; y++ )
-          for ( x=0; x<gl[X]; x+=ll[X] ) {
-            desired_rank = process_index( t, z, y, x, ll );
-            
-            if ( g.my_rank == desired_rank ) {
-              MPI_Isend( phi_pt, bar_size, MPI_DOUBLE, 0, 0, g.comm_cart, &sreq );
-              phi_pt += bar_size;
-            }
-            
-            if ( g.my_rank == 0 ) {
-              MPI_Irecv( buffer_pt->next->data, bar_size, MPI_DOUBLE, desired_rank, 0, g.comm_cart, &rreq );
-              
-              if ( ! ( t == 0 && z == 0 && y == 0 && x == 0  ) ) {
-#ifdef BIG_ENDIAN_TV
-                for ( i=0; i<bar_size; i++ ) {
-                  byteswap8( (char *) ( buffer_pt->data + i ) );
-                }
-#endif
-                fwrite( buffer_pt->data, sizeof(double), bar_size, file );
-              }
-              
-              MPI_Wait( &rreq, MPI_STATUS_IGNORE );
-              buffer_pt = buffer_pt->next;
-            }
-            
-            if ( g.my_rank == desired_rank ) {
-              MPI_Wait( &sreq, MPI_STATUS_IGNORE );
-            }
-          }
-    }
-          
-    if ( g.my_rank == 0 ) {
-#ifdef BIG_ENDIAN_TV
-      for ( i=0; i<bar_size; i++ ) {
-        byteswap8( (char *) ( buffer_pt->data + i ) );
-      }
-#endif
-      fwrite( buffer_pt->data, sizeof(double), bar_size, file );
-    }
-  
-  } else
-    ASSERT( mode == _READ || mode == _WRITE );
-  
-  if ( g.my_rank == 0 ){
-    fclose( file );
-  }
-
-  t1 = MPI_Wtime();
-  
-  if ( g.my_rank == 0 ) {
-    FREE( buffer[0].data, double, bar_size );
-    FREE( buffer[1].data, double, bar_size );
-  }
-  vector_double phi_vec;
-  vector_double_init(&phi_vec);
-  vector_double_alloc( &phi_vec, _INNER, num_loop, l, no_threading );
-  buffer_double_copy(phi_vec.vector_buffer, (buffer_double) phi, 0, l->inner_vector_size, l) ;
-  phi_vec.layout = _NVEC_OUTER;
-  vector_double_change_layout(&phi_vec, &phi_vec, _NVEC_INNER, no_threading );
-  global_norm_double( norm, &phi_vec, 0, l->inner_vector_size, l, no_threading );
-  printf0("norm: %e\n", norm[0] );
-  printf0("...done (%lf seconds)\n\n", t1-t0 ); 
-}
-#else
-void vector_io( double *phi, char *filename, const int mode, level_struct *l ) {
-  double norm[num_loop];
-  // pointers to inner file structures.
-  hid_t dset_id, xfer_id;
-  // spaces, status
-  hid_t memspace, filespace, status;
-  // global (g_*) and local (l_*) sizes and start coordinates
-  int *gl=l->global_lattice, *ll=l->local_lattice;
-  hsize_t g_start[5], g_size[5], l_start[5], l_size[5];
-  double fnEntryTime;
-  fnEntryTime = MPI_Wtime();
-
-  status = -1;
-
-  // need to be already in thiseigenmodegroup (use stepIntoEigenmode)
-  ASSERT(h5info.thiseigenmodegroup_id > 0);
-
-  /*
-   * set the parameters:
-   */
-  for ( hsize_t i = 0; i < 4; i++)
-  {
-    g_start[i] = g.my_coords[i] * ll[i];
-    l_start[i] = 0;
-    g_size[i] = gl[i];
-    l_size[i] = ll[i];
-  }
-  g_start[4] = l_start[4] = 0; 
-  g_size[4] = l_size[4] = 24; // spin * color * re/im
-
-  // create a memspace:
-  memspace = H5Screate_simple(5, l_size, NULL);
-  ASSERT( memspace >= 0 );
-  // create a filespace:
-  filespace = H5Screate_simple(5, g_size, NULL);
-  status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, g_start, (hsize_t*)NULL, l_size, (hsize_t*)NULL);
-  ASSERT( status >= 0 );
-  // create a data transfer property:
-  xfer_id = H5Pcreate(H5P_DATASET_XFER);
-  status = H5Pset_dxpl_mpio(xfer_id, H5FD_MPIO_COLLECTIVE);
-  ASSERT( status >= 0);
-  // check if dataset exists:
-  htri_t dset_ex = H5Lexists(h5info.thiseigenmodegroup_id, "eigenvector", H5P_DEFAULT);
-  ASSERT( dset_ex >= 0 );
-  dset_id = -1;
-
-  if ( mode ==  _READ ) {
-    printf0("reading hdf5 file \"%s\"... ", filename);
-
-    dset_id = H5Dopen(h5info.thiseigenmodegroup_id, "eigenvector", H5P_DEFAULT);
-    ASSERT( dset_id >= 0 );
-    //read data:
-    status = H5Dread(dset_id, H5T_NATIVE_DOUBLE, memspace, filespace, xfer_id, phi);
-    ASSERT( status >= 0 );
-  } else if ( mode == _WRITE ) {
-    printf0("writing hdf5 file \"%s\"... ", filename);
-
-    // write_header_mg( file_id, NULL, filename, 1, l );
-    //printf0("write_header_mg for g.method != 6 not implemented in HDF5!");
-    
-    if(dset_ex == 0)
-    {
-      /* dataset does not exist...
-       * create it:
-       */
-      dset_id = H5Dcreate(h5info.thiseigenmodegroup_id, "eigenvector", H5T_NATIVE_DOUBLE, filespace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    }
-    else
-    {
-      /* dataset already exists...
-       * open it for overwriting it...
-       */
-      dset_id = H5Dopen(h5info.thiseigenmodegroup_id, "eigenvector", H5P_DEFAULT);
-    }
-    ASSERT( dset_id >= 0 );
-    
-    // write data:
-    status = H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, memspace, filespace, xfer_id, phi);
-    ASSERT( status >= 0 );
-  }
-  /*
-   * close all open handles:
-   */
-  status = H5Dclose(dset_id);
-  ASSERT( status >= 0);
-  status = H5Sclose(filespace);
-  ASSERT( status >= 0);
-  status = H5Sclose(memspace);
-  ASSERT( status >= 0);
-  status = H5Pclose(xfer_id);
-  ASSERT( status >= 0);
-
-  h5info.ioTime += MPI_Wtime()-fnEntryTime;
-
-  vector_double phi_vec;
-  vector_double_init(&phi_vec);
-  vector_double_alloc( &phi_vec, _INNER, num_loop, l, no_threading );
-  buffer_double_copy(phi_vec.vector_buffer, (buffer_double) phi, 0, l->inner_vector_size, l) ;
-  phi_vec.layout = _NVEC_OUTER;
-  vector_double_change_layout(&phi_vec, &phi_vec, _NVEC_INNER, no_threading );
-  global_norm_double( norm, &phi_vec, 0, l->inner_vector_size, l, no_threading );
-  printf0("norm: %e\n", norm[0] );
-  printf0("...done\n");
-}
-#endif
-
-
-#ifndef HAVE_HDF5
-void vector_io_single_file( vector_double *psi, double *lambda, char *filename, const int mode, int n, char *vector_type, level_struct *l ) {
+void vector_io( double *psi, double *eigvals, int n, int layout, char *filename, const int mode, char *vector_type, level_struct *l ) {
   /*
    * Description: read/write multiple vectors into/from a file
-   * Assume: readin vectors are ordered consecutively, i.e., with vector index being the slowest
+   * Assume: 
+   *   - readin vectors are stored consecutively, i.e., with vector index being the slowest, in the file
+   *   - if HAVE_TM1p1, n must contain flavour d.o.f.
    * mode == _READ:
-   *   if psi.vector_buffer is NULL, read eigenvectors are put into l->is_PRECISION.test_vector_vec
-   *   else, they are put into psi 
+   *   - if psi is NULL, read eigenvectors are put into l->is_PRECISION.test_vector_vec
+   *   - else, they are put into psi in the vector-order specified by layout
    * mode == _WRITE:
-   *   if psi.vector_buffer is NULL, l->is_PRECISION.test_vector_vec is reordered and written into filename
-   *   else, psi.vector_buffer is reordered and written into filename
-   * Comment(BOTH): l->x is used as a tmp field
-   * Comment(READ): after vectors are read, they are stored with layout==_NVEC_INNER
+   *   - if psi is NULL, l->is_PRECISION.test_vector_vec is reordered and written into filename
+   *   - else, psi is in the vector-order specified in layout and written into filename with possible reordering
+   * (BOTH) l->is_PRECISION.test_vector_vec is always in the layout == _NVEC_INNER
    */
+
+  ASSERT( l->depth == 0 );
+  if ( psi == NULL )
+    ASSERT( n%num_loop == 0 );
   
-  int t, z, y, x, *gl=l->global_lattice, *ll=l->local_lattice, bar_size = 24*ll[X], desired_rank, j;//3x4x2 = (color*spin*real/imag)
+  int t, z, y, x, *gl=l->global_lattice, *ll=l->local_lattice, bar_size = 2*l->num_lattice_site_var*ll[X], desired_rank, j;//3x4x2 = (color*spin*real/imag)
   double t0, t1;
-  double *psi_pt = (double *) psi->vector_buffer;
   double *phi_pt = NULL;
-  double *phi = NULL;
   FILE* file = NULL;
   MPI_Request sreq, rreq;
   confbuffer_struct buffer[2];
   confbuffer_struct *buffer_pt = NULL;
-    
+  vector_double v;
+
+  vector_double_init( &v );
+  if ( psi == NULL )
+    vector_double_alloc( &v, _INNER, n, l, no_threading );
+  else {
+    v.vector_buffer = (complex_double *) psi;
+    v.type         = _INNER;
+    v.size         = l->inner_vector_size;
+    v.num_vect     = n;
+    v.l            = l;
+  }
+  v.num_vect_now = n;
+
   buffer[0].next = &(buffer[1]);
   buffer[1].next = &(buffer[0]);  
   buffer[0].data = NULL;
@@ -883,9 +751,9 @@ void vector_io_single_file( vector_double *psi, double *lambda, char *filename, 
   if ( mode == _READ ) {
 
     if ( g.my_rank == 0 ) {
-      ASSERT( (file = fopen( filename, "rb" )) != NULL );
+      // Skip the header
       printf0("reading from file \"%s\" ...\n", filename );
-
+      ASSERT( (file = fopen( filename, "rb" )) != NULL );
       char *cur_line = NULL;
       MALLOC( cur_line, char, STRINGLENGTH );
       do {
@@ -894,8 +762,9 @@ void vector_io_single_file( vector_double *psi, double *lambda, char *filename, 
       FREE( cur_line, char, STRINGLENGTH );
     }
     
-    phi_pt=(double *) (&(l->x.vector_buffer));
+    phi_pt=(double *) (&(v.vector_buffer));
     for ( j=0; j<n; j++ ) {
+      // get the data at the first site
       if ( g.my_rank == 0 ) {
         ASSERT( fread( buffer_pt->data, sizeof(double), bar_size, file ) );
       }
@@ -907,19 +776,17 @@ void vector_io_single_file( vector_double *psi, double *lambda, char *filename, 
               
               desired_rank = process_index( t, z, y, x, ll );
               
-              if ( g.my_rank == desired_rank ) {
-                MPI_Irecv( phi_pt, bar_size, MPI_DOUBLE, 0, 0, g.comm_cart, &rreq );
-              }
               if ( g.my_rank == 0 ) {
+		// send the data at the current site
                 MPI_Isend( buffer_pt->data, bar_size, MPI_DOUBLE, desired_rank, 0, g.comm_cart, &sreq );
-              }
-              
-              if ( g.my_rank == 0 ) {
                 if ( ! ( t == gl[T]-1 && z == gl[Z]-1 && y == gl[Y]-1 && x == gl[X]-ll[X] ) )
+		  // read the data at the next site if that is not the last
                   ASSERT( fread( buffer_pt->next->data, sizeof(double), bar_size, file ) );
               }
-              
-              if ( g.my_rank == desired_rank ) {
+	      
+	      if ( g.my_rank == desired_rank ) {
+		// get the data at the current site
+                MPI_Irecv( phi_pt, bar_size, MPI_DOUBLE, 0, 0, g.comm_cart, &rreq );
                 MPI_Wait( &rreq, MPI_STATUS_IGNORE );
 #ifdef BIG_ENDIAN_TV
                 for ( i=0; i<bar_size; i++ ) {
@@ -928,6 +795,7 @@ void vector_io_single_file( vector_double *psi, double *lambda, char *filename, 
 #endif
                 phi_pt += bar_size;
               }
+	      
               if ( g.my_rank == 0 ) {
                 MPI_Wait( &sreq, MPI_STATUS_IGNORE );
                 buffer_pt = buffer_pt->next;
@@ -935,44 +803,34 @@ void vector_io_single_file( vector_double *psi, double *lambda, char *filename, 
             }
     }//END:for ( j=0; j<n; j++ )
 
-    ASSERT( l->x.num_vect == n );
-    l->x.num_vect_now = n;
-    l->x.layout = _NVEC_OUTER;
-    vector_double_change_layout(&(l->x), &(l->x), _NVEC_INNER, no_threading );    
-    if ( psi_pt == NULL ) {
+    v.layout = _NVEC_OUTER;
+    if ( psi == NULL || layout == _NVEC_INNER ) vector_double_change_layout(&v, &v, _NVEC_INNER, no_threading );    
+    if ( psi == NULL ) {
       if ( g.mixed_precision )
-	trans_float(&(l->is_float.test_vector_vec), &(l->x), l->s_float.op.translation_table, l, no_threading);
+	trans_float(&(l->is_float.test_vector_vec), &v, l->s_float.op.translation_table, l, no_threading);
       else
-	trans_double(&(l->is_double.test_vector_vec), &(l->x), l->s_double.op.translation_table, l, no_threading);
-    } else {
-      ASSERT( psi->num_vect == n );
-      psi->num_vect_now = n;//by assumption
-      vector_double_copy( psi, &(l->x), 0, l->inner_vector_size, l );
+	trans_double(&(l->is_double.test_vector_vec), &v, l->s_double.op.translation_table, l, no_threading);
     }
   } else if ( mode == _WRITE ) {
     
-    if ( g.my_rank == 0 ) {
-      ASSERT( (file = fopen( filename, "wb" )) != NULL );
-      write_header_mg( &file, lambda, vector_type, n, l );
-    }
-
-    printf0("writing file \"%s\" ...\n", filename );
-
-    ASSERT( l->x.num_vect == n );
-    l->x.num_vect_now = n;
-    l->x.layout = _NVEC_INNER;
     if ( psi == NULL ) {
       if ( g.mixed_precision )
-	trans_back_float( &(l->x), &(l->is_float.test_vector_vec), l->s_float.op.translation_table, l, no_threading );
+	trans_back_float( &v, &(l->is_float.test_vector_vec), l->s_float.op.translation_table, l, no_threading );
       else
-	trans_back_double( &(l->x), &(l->is_double.test_vector_vec), l->s_double.op.translation_table, l, no_threading );
-    } else {
-      ASSERT( psi->num_vect == n && psi->num_vect_now == n );
-      vector_double_copy( &(l->x), psi, 0, l->inner_vector_size, l );
-    }
-    vector_double_change_layout(&(l->x), &(l->x), _NVEC_OUTER, no_threading );
+	trans_back_double( &v, &(l->is_double.test_vector_vec), l->s_double.op.translation_table, l, no_threading );
+      v.layout = _NVEC_INNER;
+    } else 
+      v.layout = layout;
+    vector_double_change_layout(&v, &v, _NVEC_OUTER, no_threading );
 
-    phi_pt=(double *)(&(l->x.vector_buffer));
+    printf0("writing file \"%s\" ...\n", filename );
+    
+    if ( g.my_rank == 0 ) {
+      ASSERT( (file = fopen( filename, "wb" )) != NULL );
+      write_header_mg( &file, eigvals, vector_type, n, l );
+    }
+    
+    phi_pt=(double *)(&(v.vector_buffer));
     for ( j=0; j<n; j++ ){
       for ( t=0; t<gl[T]; t++ )
         for ( z=0; z<gl[Z]; z++ )
@@ -980,16 +838,16 @@ void vector_io_single_file( vector_double *psi, double *lambda, char *filename, 
             for ( x=0; x<gl[X]; x+=ll[X] ) {
               
               desired_rank = process_index( t, z, y, x, ll );
-	              
-              if ( g.my_rank == 0 ) {
-                MPI_Irecv( buffer_pt->next->data, bar_size, MPI_DOUBLE, desired_rank, 0, g.comm_cart, &rreq );
-              }
-              if ( g.my_rank == desired_rank ) {
+
+              if ( g.my_rank == desired_rank ) 
+		// send the data at the current site
                 MPI_Isend( phi_pt, bar_size, MPI_DOUBLE, 0, 0, g.comm_cart, &sreq );
-              }
-              
+	      
               if ( g.my_rank == 0 ) {
+		// get the data at the current site
+                MPI_Irecv( buffer_pt->next->data, bar_size, MPI_DOUBLE, desired_rank, 0, g.comm_cart, &rreq );
                 if ( ! ( t == 0 && z == 0 && y == 0 && x == 0  ) ) {
+		  // if the current site is not the first site, write the data at the prev site into the file
 #ifdef BIG_ENDIAN_TV
                   for ( i=0; i<bar_size; i++ ) {
                     byteswap8( (char *) ( buffer_pt->data + i ) );
@@ -997,25 +855,22 @@ void vector_io_single_file( vector_double *psi, double *lambda, char *filename, 
 #endif
                   fwrite( buffer_pt->data, sizeof(double), bar_size, file );
                 }
-              }
-              
-              if ( g.my_rank == 0 ) {
                 MPI_Wait( &rreq, MPI_STATUS_IGNORE );
-                buffer_pt = buffer_pt->next;
+                buffer_pt = buffer_pt->next; // next now pts to the data at the current site
               }
-              if ( g.my_rank == desired_rank ) {
-                MPI_Wait( &sreq, MPI_STATUS_IGNORE );
+	      if ( g.my_rank == desired_rank ) {
+		MPI_Wait( &sreq, MPI_STATUS_IGNORE );
                 phi_pt += bar_size;
               }
-              
             }
-            
+
+      // write the data at the last site into the file
       if ( g.my_rank == 0 ) {
-        #ifdef BIG_ENDIAN_TV
+#ifdef BIG_ENDIAN_TV
         for ( i=0; i<bar_size; i++ ) {
           byteswap8( (char *) ( buffer_pt->data + i ) );
         }
-        #endif
+#endif
         fwrite( buffer_pt->data, sizeof(double), bar_size, file );
       }
     }//END:for ( j=0; j<n; j++ )
@@ -1025,9 +880,11 @@ void vector_io_single_file( vector_double *psi, double *lambda, char *filename, 
   if ( g.my_rank == 0 ) {
     fclose( file );
   }
-  
+
   t1 = MPI_Wtime();
-  
+
+  if ( psi == NULL )
+    vector_double_free( &v, l, no_threading );
   if ( g.my_rank == 0 ) {
     FREE( buffer[0].data, double, bar_size );
     FREE( buffer[1].data, double, bar_size );
@@ -1036,7 +893,7 @@ void vector_io_single_file( vector_double *psi, double *lambda, char *filename, 
   printf0("...done (%lf seconds)\n\n", t1-t0 ); 
 }
 #else
-void vector_io_single_file( double *psi, double *lambda, char *filename, const int mode, int n, char *vector_type, level_struct *l ) {
+void vector_io( double *psi, double *eigvals, int nrhs, int layout, char *filename, const int mode, char *vector_type, level_struct *l )
   printf0("io.c: vector_io_single_file: method not implemented using hdf5.");
   return;
 }

@@ -129,7 +129,13 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
   END_MASTER(threading)
   SYNC_MASTER_TO_ALL(threading)
 
-#if 1 //my addition     
+#if 1 //debug
+    /*
+  START_LOCKED_MASTER(threading)
+  vector_io( (double *) solution.vector_buffer, NULL, nvec_tot, _NVEC_INNER, "DDsol.out", _WRITE, "solutions", l );
+  END_LOCKED_MASTER(threading)
+    */
+
   if (g.my_rank == 0){//need to update it
     START_LOCKED_MASTER(threading)
       int fac = 1;
@@ -147,6 +153,7 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
     fclose(f);
     END_LOCKED_MASTER(threading)
   }
+
 #endif
   vector_double_free( &solution, l, threading );
   vector_double_free( &source, l, threading );

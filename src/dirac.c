@@ -25,8 +25,7 @@ void dirac_setup( config_double hopp, level_struct *l ) {
 /*********************************************************************************
 * Sets up the gauge matrices + clover term for the dirac operator and calculates 
 * the plaquette of the configuration. (only those that need to be precomputed)
-* config_double hopp: Vector containing all entries of the hopping terms.
-* config_double clover: Vector containing all entries of the clover term.
+* config_double hopp: Vector containing all entries of the gauge configuration.
 *********************************************************************************/
 
   double t0, t1;

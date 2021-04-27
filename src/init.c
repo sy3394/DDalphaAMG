@@ -82,7 +82,6 @@ void l_init( level_struct *l ) {
   level_double_init( l );
   level_float_init( l );
 
-  vector_double_init(&(l->x));
   l->next_level = NULL;
   l->reqs = NULL;
 }

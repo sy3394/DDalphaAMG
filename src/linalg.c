@@ -39,24 +39,26 @@ void process_multi_inner_product_MP( int count, complex_double *results, vector_
    *  complex_double *results: stores the inner products (count x psi->num_vect_now) of each vector in the basis phi and the given vector psi on each process
    *****************************************/
 
-  int c, i, j, jj, nvec = psi->num_vect_now, nvecmf = psi->num_vect_now;
-#ifdef HAVE_TM1p1
 #ifdef DEBUG
-  if ( g.n_flavours == 2 && nvec != 2*num_loop )
+#ifdef HAVE_TM1p1
+  if ( g.n_flavours == 2 && psi->num_vect_now != 2*num_loop )
     error0("process_multi_inner_product_MP: doublet error\n");
 #endif
+#endif
+  
+  int c, i, j, jj, nvec = psi->num_vect_now, nvecmf = psi->num_vect_now;
+#ifdef HAVE_TM1p1
   if ( g.n_flavours == 2 && ( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) )
     nvec /= g.n_flavours;
 #endif
+  
   int core_start, core_end;
-  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, 1 );//num_loop);
+  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, 1 );
 
   int thread = omp_get_thread_num();
   if ( thread == 0 && core_start != core_end)
     PROF_float_START( _PIP, threading );
-  //  printf0("mul norm mp %d\n",nvec);
 
-  //SYNC_CORES(threading)//????necessary? in the original
   VECTOR_LOOP(j, count*nvec, jj, results[j+jj] = 0.0;)
 
   for ( c=0; c<count; c++ ) {
@@ -91,8 +93,15 @@ void global_norm_MP( double *res, vector_float *x, int start, int end, level_str
    * res <- norms of vectors in x: contains x->num_vect_now elements
    ********************/
 
+#ifdef DEBUG
+#ifdef HAVE_TM1p1
+  if ( g.n_flavours == 2 && x->num_vect_now != 2*num_loop )
+    error0("global_norm_MP: doublet error\n");
+#endif
+#endif
+  
   int core_start, core_end;
-  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, 1);//num_loop);
+  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, 1);
 
   int thread = omp_get_thread_num();
   if(thread == 0 && core_start != core_end)
@@ -100,17 +109,13 @@ void global_norm_MP( double *res, vector_float *x, int start, int end, level_str
 
   int i, j, jj, nvec = x->num_vect_now, nvecmf = x->num_vect_now;
 #ifdef HAVE_TM1p1
-#ifdef DEBUG
-  if ( g.n_flavours == 2 && nvec != 2*num_loop )
-    error0("global_norm_MP: doublet error\n");
-#endif
   if ( g.n_flavours == 2 && ( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 ) )
     nvec /= g.n_flavours;
 #endif
+  
   double global_alpha[nvec];
   VECTOR_LOOP(j, nvec, jj, res[j+jj]=0;)
 
-    //SYNC_CORES(threading)//????necessary? in the original
   for( i=core_start; i<core_end; i++ )
     VECTOR_LOOP(j, nvecmf, jj, res[(j+jj)%nvec] += NORM_SQUARE_float(x->vector_buffer[i*x->num_vect+j+jj]);)
 

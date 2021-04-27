@@ -16,9 +16,6 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * checked:11/29/2019
- * changed from sbacchio
- * glanced over: 12/18/2019
  */
 
 #include <stdio.h>
@@ -41,18 +38,21 @@
   #define _FILE_OFFSET_BITS 64
   #define EPS_float 1E-6
   #define EPS_double 1E-14
+  #define SIMD_byte 32
 
   #define HAVE_TM       // flag for enable twisted mass
   #define HAVE_MULT_TM
-  #define HAVE_TM1p1    // flag for enable doublet for twisted mass; unless g.n_flavours==2, Dirac matrix is degenerate, and each part is inverted individually, although the size of the memoery is doubled
-// oldHAVE_TM1p1: allco mem twice larger than degenerate case except for tm_term, ...; if g.n_flavours==1 or eps_term vanishes, use only half of mem;
-// if g.n_flavours==2, double inner d.o.f. where the fastest running inner index is still the vector to avoid shuffling in using simd, i.e., num_loop_up + num_loop_down
-// P_ND for D_ND is P\otimes I_2 where P is constructed for D_TM; P for D_TM(-\mu) is identical to P for D_TM(\mu) so that we assume g.n_flavours==1 in the setup phase
+  //#define HAVE_TM1p1    // flag for enable doublet for twisted mass
+  /* A few notes on TM1p1 flag
+   *  - the size of the memoery is doubled to allow u&d vectors forming a single rhs vector and solved together
+   *  - if g.n_flavours==2, inner d.o.f. is doubled where the fastest running inner index is still the vector to avoid shuffling in using simd, i.e., num_loop_up + num_loop_down
+   *  - if g.force_2flavours==1, u&d parts are solved together even when eps term is zero and Dirac matrix is degenerate in flavour space
+   *  - P_ND for D_ND is P\otimes I_2 where P is constructed for D_TM; P for D_TM(-\mu) is identical to P for D_TM(\mu) so that we assume g.n_flavours==1 in the setup phase
+   */
+
   #define INIT_ONE_PREC // flag undef for enabling additional features in the lib
 
   #define num_loop BASE_LOOP_COUNT
-
-  #define SIMD_byte 32
   #if num_loop == 1
     #define VECTOR_LOOP(j, jmax, jj, instructions) for( j=0; j<jmax; j++) { jj=0; instructions; }
   #else
@@ -380,7 +380,7 @@
     vector_float vbuf_float[5], sbuf_float[2];
     vector_double vbuf_double[5], sbuf_double[2];
     // storage + daggered-operator bufferes
-    vector_double x; // used in io.c
+    //vector_double x; // used in io.c
     // local solver parameters
     double tol, relax_fac;
     int n_cy, post_smooth_iter, block_iter, setup_iter;
@@ -421,7 +421,7 @@
     MPI_Request sreqs[8], rreqs[8];
     int num_processes, my_rank, my_coords[4], tv_io_single_file, num_openmp_processes;
     // string buffers
-    char in[STRINGLENGTH], in_clov[STRINGLENGTH], source_list[STRINGLENGTH], tv_io_file_name[STRINGLENGTH];
+    char in[STRINGLENGTH], source_list[STRINGLENGTH], tv_io_file_name[STRINGLENGTH];
     
     // geometry, method parameters
     //   process_grid: #processes in the mu dir in the Cartesian topology of processes

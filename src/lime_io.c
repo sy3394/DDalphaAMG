@@ -264,7 +264,8 @@ void lime_read_conf( double *input_data, char *input_name, double *conf_plaq ) {
   }
   input_data_pt = input_data;
   
-  // Distribute data to according processes
+  /* Distribute data to appropriate processes */
+  // Get the data at the first site
   if ( g.my_rank == 0 ) {
     if (precision==64) {
       ASSERT( fread( buffer_pt->data, sizeof(double), read_size, fin ) > 0 );
@@ -288,7 +289,9 @@ void lime_read_conf( double *input_data, char *input_name, double *conf_plaq ) {
           desired_rank = process_index( t, z, y, x, ll );
           
           if ( g.my_rank == 0 ) {
+	    // send data for the current site
             MPI_Isend( buffer_pt->data, read_size, MPI_DOUBLE, desired_rank, k, g.comm_cart, &sreq );
+	    // get the data at the next site if the current site is not the end
             if ( ! ( t == gl[T]-1 && z == gl[Z]-1 && y == gl[Y]-1 && x == gl[X]-ll[X]  ) ) {
               if (precision==64) {
                 ASSERT( fread( buffer_pt->next->data, sizeof(double), read_size, fin ) > 0 );
@@ -333,14 +336,12 @@ void lime_read_conf( double *input_data, char *input_name, double *conf_plaq ) {
         
 }
 
-// if I multiply bar_size by #vectors(need to think how to get this number)
-// I can read multiple vectors in a one call if we assume #vectors is the fastest index
-// As of now, it reads a single vector
-void lime_read_vector( double *phi, char *filename ) {
+// Assume: vector layoout is _NVEC_OUTER
+void lime_read_vector( double *phi, int n, char *filename ) {
   
   #ifdef HAVE_LIME
   
-  int t, z, y, x, *gl=g.global_lattice[0], *ll=g.local_lattice[0], bar_size = 24*ll[X], desired_rank, precision=64;
+  int t, z, y, x, *gl=g.global_lattice[0], *ll=g.local_lattice[0], bar_size = 2*12*ll[X], desired_rank, precision=64;
   double *phi_pt = phi, t0, t1;
   float *float_buffer = NULL;
   FILE* file = NULL;
@@ -353,7 +354,7 @@ void lime_read_vector( double *phi, char *filename ) {
   buffer[0].data = NULL;
   buffer[1].data = NULL;
   
-  int i;
+  int i, j;
   
   if ( g.my_rank == 0 ) {
     MALLOC( buffer[0].data, double, bar_size );
@@ -362,7 +363,10 @@ void lime_read_vector( double *phi, char *filename ) {
   }
   
   t0 = MPI_Wtime();
-  
+
+  printf0("reading from file \"%s\" ...\n", filename );
+
+  // Get info from and Skip the header
   if ( g.my_rank == 0 ) {
     ASSERT( (file = fopen( filename, "rb" )) != NULL );
     lime_fileinfo lime;
@@ -375,81 +379,83 @@ void lime_read_vector( double *phi, char *filename ) {
     fseek(file, lime.offset, SEEK_SET);
   }
   
-  printf0("reading from file \"%s\" ...\n", filename );
-  
-  if ( g.my_rank == 0 ) {
-    if (precision==64) {
-      ASSERT( fread( buffer_pt->data, sizeof(double), bar_size, file ) > 0 );
-      for ( i=0; i<bar_size; i++ )
-        byteswap8( (char *) ( buffer_pt->data + i ) );
-    }
-    else if (precision==32) {
-      ASSERT( fread( float_buffer, sizeof(float), bar_size, file ) > 0 );
-      for ( int i=0; i<bar_size; i++ ) {
-        byteswap( (char *) (float_buffer+i) );
-        buffer_pt->data[i] = float_buffer[i];
+
+  for ( j=0; j<n; j++ ) {
+    // Read the data at the first site
+    if ( g.my_rank == 0 ) {
+      if (precision==64) {
+	ASSERT( fread( buffer_pt->data, sizeof(double), bar_size, file ) > 0 );
+	for ( i=0; i<bar_size; i++ )
+	  byteswap8( (char *) ( buffer_pt->data + i ) );
+      }
+      else if (precision==32) {
+	ASSERT( fread( float_buffer, sizeof(float), bar_size, file ) > 0 );
+	for ( i=0; i<bar_size; i++ ) {
+	  byteswap( (char *) (float_buffer+i) );
+	  buffer_pt->data[i] = float_buffer[i];
+	}
       }
     }
+  
+    for ( t=0; t<gl[T]; t++ )
+      for ( z=0; z<gl[Z]; z++ )
+	for ( y=0; y<gl[Y]; y++ )
+	  for ( x=0; x<gl[X]; x+=ll[X] ) {
+	    desired_rank = process_index( t, z, y, x, ll );
+	    
+	    if ( g.my_rank == 0 ) {
+	      // send the data at the current site
+	      MPI_Isend( buffer_pt->data, bar_size, MPI_DOUBLE, desired_rank, 0, g.comm_cart, &sreq );
+	      if ( ! ( t == gl[T]-1 && z == gl[Z]-1 && y == gl[Y]-1 && x == gl[X]-ll[X]  ) ) {
+		// read the data at the next site if the current site is not the last
+		if (precision==64) {
+		  ASSERT( fread( buffer_pt->next->data, sizeof(double), bar_size, file ) > 0 );
+		  for ( i=0; i<bar_size; i++ )
+		    byteswap8( (char *) ( buffer_pt->next->data + i ) );
+		}
+		else if (precision==32) {
+		  ASSERT( fread( float_buffer, sizeof(float), bar_size, file ) > 0 );
+		  for ( i=0; i<bar_size; i++ ) {
+		    byteswap( (char *) (float_buffer+i) );
+		    buffer_pt->next->data[i] = float_buffer[i];
+		  }
+		}        
+	      }
+	    }
+          
+	    if ( g.my_rank == desired_rank ) {
+	      // get the data at the current site
+	      MPI_Recv( phi_pt, bar_size, MPI_DOUBLE, 0, 0, g.comm_cart, MPI_STATUS_IGNORE );
+	      phi_pt += bar_size;
+	    }
+	    
+	    if ( g.my_rank == 0 ) {
+	      MPI_Wait( &sreq, MPI_STATUS_IGNORE );
+	      buffer_pt = buffer_pt->next;
+	    }
+	  }
+  }
+  if ( g.my_rank == 0 ){
+    fclose( file );
   }
   
-  for ( t=0; t<gl[T]; t++ )
-    for ( z=0; z<gl[Z]; z++ )
-      for ( y=0; y<gl[Y]; y++ )
-        for ( x=0; x<gl[X]; x+=ll[X] ) {
-          desired_rank = process_index( t, z, y, x, ll );
-          
-          if ( g.my_rank == 0 ) {
-            MPI_Isend( buffer_pt->data, bar_size, MPI_DOUBLE, desired_rank, 0, g.comm_cart, &sreq );
-            if ( ! ( t == gl[T]-1 && z == gl[Z]-1 && y == gl[Y]-1 && x == gl[X]-ll[X]  ) ) {
-              if (precision==64) {
-                ASSERT( fread( buffer_pt->next->data, sizeof(double), bar_size, file ) > 0 );
-                for ( i=0; i<bar_size; i++ )
-                  byteswap8( (char *) ( buffer_pt->next->data + i ) );
-              }
-              else if (precision==32) {
-                ASSERT( fread( float_buffer, sizeof(float), bar_size, file ) > 0 );
-                for ( int i=0; i<bar_size; i++ ) {
-                  byteswap( (char *) (float_buffer+i) );
-                  buffer_pt->next->data[i] = float_buffer[i];
-                }
-              }        
-            }
-          }
-          
-          if ( g.my_rank == desired_rank ) {
-            MPI_Recv( phi_pt, bar_size, MPI_DOUBLE, 0, 0, g.comm_cart, MPI_STATUS_IGNORE );
-            phi_pt += bar_size;
-          }
-          
-          if ( g.my_rank == 0 ) {
-            MPI_Wait( &sreq, MPI_STATUS_IGNORE );
-            buffer_pt = buffer_pt->next;
-          }
-        }
-        
-        if ( g.my_rank == 0 ){
-          fclose( file );
-        }
-        
-        t1 = MPI_Wtime();
-        
-        if ( g.my_rank == 0 ) {
-          FREE( buffer[0].data, double, bar_size );
-          FREE( buffer[1].data, double, bar_size );
-          if (precision==32)
-            FREE( float_buffer, float, bar_size );
-        }
-        
-        printf0("...done (%lf seconds)\n\n", t1-t0 ); 
-        #else
-        error0("Lime not enabled. Use -DHAVE_LIME during compilation. Aborting...");
-        #endif
+  t1 = MPI_Wtime();
+  
+  if ( g.my_rank == 0 ) {
+    FREE( buffer[0].data, double, bar_size );
+    FREE( buffer[1].data, double, bar_size );
+    if (precision==32)
+      FREE( float_buffer, float, bar_size );
+  }
+  
+  printf0("...done (%lf seconds)\n\n", t1-t0 ); 
+#else
+  error0("Lime not enabled. Use -DHAVE_LIME during compilation. Aborting...");
+#endif
 }
 
-// if I multiply bar_size by #vectors(need to think how to get this number)
-// I can write multiple vectors in a one call if we assume #vectors is the fastest index
-// As of now, it writes a single vector
-void lime_write_vector( double *phi, char *filename ) {
+// Assume: vector layoout is _NVEC_OUTER
+void lime_write_vector( double *phi, int n, char *filename ) {
   
   #ifdef HAVE_LIME
   
@@ -466,7 +472,7 @@ void lime_write_vector( double *phi, char *filename ) {
   buffer[0].data = NULL;
   buffer[1].data = NULL;
   
-  int i;
+  int i, j;
   
   if ( g.my_rank == 0 ) {
     MALLOC( buffer[0].data, double, bar_size );
@@ -482,40 +488,45 @@ void lime_write_vector( double *phi, char *filename ) {
     lime_write_info(&file, "scidac-binary-data", (n_uint64_t) 4*3*sizeof(complex_double), &offset);
     fseek(file, offset, SEEK_SET);
   }
-  
-  for ( t=0; t<gl[T]; t++ ) {
-    for ( z=0; z<gl[Z]; z++ )
-      for ( y=0; y<gl[Y]; y++ )
-        for ( x=0; x<gl[X]; x+=ll[X] ) {
-          desired_rank = process_index( t, z, y, x, ll );
+
+  for ( j=0; j<n; j++ ) {
+    for ( t=0; t<gl[T]; t++ ) 
+      for ( z=0; z<gl[Z]; z++ )
+	for ( y=0; y<gl[Y]; y++ )
+	  for ( x=0; x<gl[X]; x+=ll[X] ) {
+	    desired_rank = process_index( t, z, y, x, ll );
           
-          if ( g.my_rank == 0 ) {
-            MPI_Irecv( buffer_pt->next->data, bar_size, MPI_DOUBLE, desired_rank, 0, g.comm_cart, &rreq );
-            if ( ! ( t == 0 && z == 0 && y == 0 && x == 0  ) ) {
-              for ( i=0; i<bar_size; i++ ) {
-                byteswap8( (char *) ( buffer_pt->data + i ) );
-              }
-              fwrite( buffer_pt->data, sizeof(double), bar_size, file );
-            }
-            buffer_pt = buffer_pt->next;
-          }
-          if ( g.my_rank == desired_rank ) {
-            MPI_Isend( phi_pt, bar_size, MPI_DOUBLE, 0, 0, g.comm_cart, &sreq);
-            phi_pt += bar_size;
-            MPI_Wait( &sreq, MPI_STATUS_IGNORE );
-          }
-          
-          if ( g.my_rank == 0 ) {
-            MPI_Wait( &rreq, MPI_STATUS_IGNORE );
-          }
-        }
-  }
-  
-  if ( g.my_rank == 0 ) {  
-    for ( i=0; i<bar_size; i++ ) {
-      byteswap8( (char *) ( buffer_pt->data + i ) );
+	    if ( g.my_rank == 0 ) {
+	      // get the data at the current site  
+	      MPI_Irecv( buffer_pt->next->data, bar_size, MPI_DOUBLE, desired_rank, 0, g.comm_cart, &rreq );
+	      if ( ! ( t == 0 && z == 0 && y == 0 && x == 0  ) ) {
+		// if the current site is not the first site, write the data at the prev site into the file 
+		for ( i=0; i<bar_size; i++ ) {
+		  byteswap8( (char *) ( buffer_pt->data + i ) );
+		}
+		fwrite( buffer_pt->data, sizeof(double), bar_size, file );
+	      }
+	      buffer_pt = buffer_pt->next;
+	    }
+	    if ( g.my_rank == desired_rank ) {
+	      // send the data at the current site  
+	      MPI_Isend( phi_pt, bar_size, MPI_DOUBLE, 0, 0, g.comm_cart, &sreq);
+	      phi_pt += bar_size;
+	      MPI_Wait( &sreq, MPI_STATUS_IGNORE );
+	    }
+	    
+	    if ( g.my_rank == 0 ) {
+	      MPI_Wait( &rreq, MPI_STATUS_IGNORE );
+	    }
+	  }
+
+    // write the data at the last site into the file  
+    if ( g.my_rank == 0 ) {  
+      for ( i=0; i<bar_size; i++ ) {
+	byteswap8( (char *) ( buffer_pt->data + i ) );
+      }
+      fwrite( buffer_pt->data, sizeof(double), bar_size, file );
     }
-    fwrite( buffer_pt->data, sizeof(double), bar_size, file );
   }
   
   if ( g.my_rank == 0 ){

@@ -68,13 +68,13 @@ void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_stru
 #endif
   
   vector_PRECISION *X = &(fab->X) , *B = &(fab->B), *B0 = &(fab->B0), *X0 = &(fab->X0), *C0 = &(fab->C0);
-  // The following fields are fed to fabulous solver; perhaps will be unnecessary if fabulous can handle _ORINARY properly!!!!
-  vector_PRECISION_alloc( X, (g.odd_even&&l->level==0)?_EVEN_INNER:_INNER, nrhs, l, threading ); //X->num_vect_now = nrhs;
-  vector_PRECISION_alloc( B, (g.odd_even&&l->level==0)?_EVEN_INNER:_INNER, nrhs, l, threading ); //B->num_vect_now = nrhs;
-  // The following fields are used in mvp_PRECISION as temporay storage
-  vector_PRECISION_alloc( X0, v_type, nrhs, l, threading ); X0->layout = _NVEC_OUTER; //X0->num_vect_now = nrhs;
-  vector_PRECISION_alloc( B0, v_type, nrhs, l, threading ); B0->layout = _NVEC_OUTER; //B0->num_vect_now = nrhs;
-  vector_PRECISION_alloc( C0, v_type, nrhs, l, threading ); C0->layout = _NVEC_OUTER; //C0->num_vect_now = nrhs;
+  // The following fields are fed to fabulous solver; visible outsdie of fabulous; perhaps will be unnecessary if fabulous can handle _ORINARY properly!!!!
+  vector_PRECISION_alloc( X, (g.odd_even&&l->level==0)?_EVEN_INNER:_INNER, nrhs, l, threading ); X->num_vect_now = nrhs;
+  vector_PRECISION_alloc( B, (g.odd_even&&l->level==0)?_EVEN_INNER:_INNER, nrhs, l, threading ); B->num_vect_now = nrhs;
+  // The following fields are used in mvp_PRECISION as temporay storage; only visible inside of fabulous
+  vector_PRECISION_alloc( X0, v_type, nrhs, l, threading ); X0->layout = _NVEC_OUTER; X0->num_vect_now = nrhs;
+  vector_PRECISION_alloc( B0, v_type, nrhs, l, threading ); B0->layout = _NVEC_OUTER; B0->num_vect_now = nrhs;
+  vector_PRECISION_alloc( C0, v_type, nrhs, l, threading ); C0->layout = _NVEC_OUTER; C0->num_vect_now = nrhs;
   if ( X->size != fab->dim )
     error0("set_fabulous_struct_PRECISION: assumptions are not met\n");
 
@@ -149,8 +149,6 @@ int64_t mvpf_PRECISION(  void *user_env, int N,
 			 const void *p_beta, void *BB, int ldb) {
   
   
-  //END_LOCKED_MASTER(((gmres_PRECISION_struct *)user_env)->fab.threading)
-    
   gmres_PRECISION_struct *p      = (gmres_PRECISION_struct *) user_env;
   fabulous_PRECISION_struct *fab = &(p->fab);
   level_struct *l                = fab->l;
@@ -159,8 +157,10 @@ int64_t mvpf_PRECISION(  void *user_env, int N,
   PROF_PRECISION_START( _FMVP, threading );
 
 #ifdef DEBUG
-  if ( g.n_flavours/g.num_indep_flav*fab->dim != ldx || g.n_flavours/g.num_indep_flav*fab->dim != ldb )
+#ifdef HAVETM1p1
+  if ( g.n_flavours/g.num_indep_flav*fab->dim != ldx || g.n_flavours/g.num_indep_flav*fab->dim != ldb || g.n_flavours/g.num_indep_flav*N > fab->X0.num_vect  )
     error0("mvpf_PRECISION: assumptions are not met\n");
+#endif
 #endif
   int n = fab->X0.num_vect;
   complex_PRECISION alphas[n], betas[n];
@@ -173,23 +173,19 @@ int64_t mvpf_PRECISION(  void *user_env, int N,
     betas[i]  = *beta;
   }
 
-  int dim = fab->dim;
-#ifdef HAVE_TM1p1
-  dim *= g.n_flavours/g.num_indep_flav;
-#endif
   int start, end;
-  compute_core_start_end_custom(0, dim, &start, &end, l, threading, l->num_lattice_site_var);
+  compute_core_start_end_custom(0, fab->dim, &start, &end, l, threading, l->num_lattice_site_var);
 
   vector_PRECISION B, X, B0 = fab->B0, X0 = fab->X0, C0 = fab->C0;
-  vector_PRECISION_duplicate( &B, &B0, 0, l ); B.num_vect_now = N; B.size = fab->dim;
-  vector_PRECISION_duplicate( &X, &X0, 0, l ); X.num_vect_now = N; X.size = fab->dim;
+  vector_PRECISION_duplicate( &B, &B0, 0, l ); B.size = fab->dim;
+  vector_PRECISION_duplicate( &X, &X0, 0, l ); X.size = fab->dim;
   START_MASTER(threading)
-  B.vector_buffer = BB;
+  B.vector_buffer = (buffer_PRECISION) BB;
   X.vector_buffer = (const buffer_PRECISION) XX;
   END_MASTER(threading)
   vector_PRECISION_copy_fab( &B0, &B, 0, N, 1, start, end, l );
   vector_PRECISION_copy_fab( &X0, &X, 0, N, 1, start, end, l );
-  //printf0("matvf: %d vs %d %d;  %d;  %d vs %d %d\n",dim, g.n_flavours/g.num_indep_flav,N, B0.num_vect_now,X0.num_vect_now);
+  //printf0("matvf: dim=%d ffac=%d; N=%d vs  (B0,X0,C0)_now=( %d,%d,%d); size ldb,ldb=%d %d vs %d %d \n",dim, g.n_flavours/g.num_indep_flav,N, B0.num_vect_now,X0.num_vect_now,C0.num_vect_now,ldx,ldb,B0.size,X0.size);
 
   // may need to write a new dirac op function for column major order!!!!
   START_LOCKED_MASTER(threading)
@@ -198,8 +194,8 @@ int64_t mvpf_PRECISION(  void *user_env, int N,
   C0.layout = _NVEC_INNER;
   END_LOCKED_MASTER(threading)
   vector_PRECISION_scale( &B0, &B0, betas, 0, start, end, fab->l );
-  p->eval_operator( &C0, &X0, p->op, l, no_threading );
-  vector_PRECISION_saxpy( &B0, &B0, &C0, alphas, 0, 1, 0, fab->dim, l );
+  p->eval_operator( &C0, &X0, p->op, l, no_threading ); // if(g.odd_even&&l->level==0), updates only even part
+  vector_PRECISION_saxpy( &B0, &B0, &C0, alphas, 0, 1, start, end, l );
   START_LOCKED_MASTER(threading)
   X0.layout = _NVEC_OUTER;
   vector_PRECISION_change_layout( &B0, &B0, _NVEC_OUTER, no_threading );
@@ -209,7 +205,6 @@ int64_t mvpf_PRECISION(  void *user_env, int N,
 
   //printf0("mvp2 %d: %d vs %d; %d %d %d\n", g.my_rank, N, fab->B0.num_vect, ldx, ldb, fab->B0.size );fflush(stdout);
   PROF_PRECISION_STOP( _FMVP, 1, threading );
-  //START_LOCKED_MASTER(threading)
     
   return sizeof(PRECISION)/4*N*ldx*ldx;//this is actually wrong!!!!!;
 }
@@ -221,8 +216,6 @@ int64_t dot_product_PRECISION(void *user_env,
 			      const void *B_, int ldb,
 			      void *C_, int ldc) {
 
-  //END_LOCKED_MASTER(((gmres_PRECISION_struct *)user_env)->fab.threading)
-    
   fabulous_PRECISION_struct *fab = &(((gmres_PRECISION_struct *) user_env)->fab);
   level_struct *l = fab->l;
   struct Thread *threading = fab->threading;
@@ -241,6 +234,10 @@ int64_t dot_product_PRECISION(void *user_env,
   int dim = fab->dim;
 #ifdef HAVE_TM1p1
   dim *= g.n_flavours/g.num_indep_flav;
+#ifdef DEBUG
+  if(dim > lda )
+    error0("fabulous dot_product_PRECISION: assumptions are not met %d %d %d\n",dim,lda,ldb);
+#endif
 #endif
   int start;
   int end;
@@ -277,7 +274,6 @@ int64_t dot_product_PRECISION(void *user_env,
   }
   PROF_PRECISION_STOP( _FIP, 1, threading );
   
-  //START_LOCKED_MASTER(threading)  
   return 2L*N*M*lda;
 }
 
@@ -286,15 +282,16 @@ int64_t fabulous_rightprecond_PRECISION(void *user_env, int N,
 					const void *XX, int ldx,
 					void *BB, int ldb) {
 
-  //END_LOCKED_MASTER(((gmres_PRECISION_struct *)user_env)->fab.threading)
   gmres_PRECISION_struct *p      = user_env;
   fabulous_PRECISION_struct *fab = &(p->fab);
   level_struct *l                = fab->l;
   struct Thread *threading       = fab->threading;
 
 #ifdef DEBUG
+#ifdef HAVE_TM1p1
   if ( g.n_flavours/g.num_indep_flav*fab->dim != ldx || g.n_flavours/g.num_indep_flav*fab->dim != ldb )
     error0("mvpf_PRECISION: assumptions are not met\n");
+#endif
 #endif
   
 #if 1
@@ -311,18 +308,17 @@ int64_t fabulous_rightprecond_PRECISION(void *user_env, int N,
   B.vector_buffer = BB;
   X.vector_buffer = (const buffer_PRECISION) XX;
 
-  int res = _NO_RES, n = fab->B0.num_vect, dim = fab->dim;
+  int res = _NO_RES, n = fab->B0.num_vect, start, end;
 #ifdef HAVE_TM1p1
-  dim *= g.n_flavours/g.num_indep_flav;
   n /= g.n_flavours/g.num_indep_flav;
 #endif
-  printf0("fab PRECISION prec: at %d nrhs=%d vs %d, nvec(%d,%d): layout(%d %d): ld (B,X)=%d,%d vs %d, size %d\n",l->depth,N, n,X0.num_vect_now,B0.num_vect_now,B.layout,X.layout,ldx,ldb,dim, B0.size);fflush(stdout);
+  //printf0("fab PRECISION prec: at %d nrhs=%d vs %d, nvec(%d,%d): layout(%d %d): ld (B,X)=%d,%d vs %d, size %d, %d\n",l->depth,N, n,X0.num_vect_now,B0.num_vect_now,B.layout,X.layout,ldx,ldb,dim, B0.size,X0.size);fflush(stdout);
 
   if ( l->level > 0 ) {
     
-    //compute_core_start_end_custom(0, dim, &start, &end, l, threading, l->num_lattice_site_var );    
-    vector_PRECISION_copy_fab( &X0, &X, 0, N, 1, 0, dim, l );
-    for ( int i=N; i<n; i++ )  vector_PRECISION_copy_fab( &X0, &X, i, 1, -1, 0, dim, l );// just to avoid overall divergence due to unused vector fields in FGMRES
+    compute_core_start_end_custom(0, fab->dim, &start, &end, l, threading, l->num_lattice_site_var );    
+    vector_PRECISION_copy_fab( &X0, &X, 0, N, 1, start, end, l );
+    for ( int i=N; i<n; i++ )  vector_PRECISION_copy_fab( &X0, &X, i, 1, -1, start, end, l );// just to avoid overall divergence due to unused vector fields in FGMRES
     START_LOCKED_MASTER(threading)
     vector_PRECISION_change_layout( &X0, &X0, _NVEC_INNER, no_threading );
     B0.layout = _NVEC_INNER;
@@ -343,13 +339,13 @@ int64_t fabulous_rightprecond_PRECISION(void *user_env, int N,
     X0.layout = _NVEC_OUTER;
     vector_PRECISION_change_layout( &B0, &B0, _NVEC_OUTER, no_threading );//printfv_PRECISION(&B0);
     END_LOCKED_MASTER(threading)
-    vector_PRECISION_copy_fab( &B, &B0, 0, N, -1, 0, dim, l );
+    vector_PRECISION_copy_fab( &B, &B0, 0, N, -1, start, end, l );
     
   } else {
     error0("fabulous_rightprecond_PRECISION: should not be called at the bottom\n");
   }
   //  printf0("fab prec: at %d nrhs=%d vs %d, nvec(%d,%d): layout(%d %d): ld (B,X)=%d,%d vs %d\n",l->depth,N, n,X0.num_vect_now,B0.num_vect_now,B.layout,X.layout,ldx,ldb,dim);fflush(stdout);
-  //START_LOCKED_MASTER(threading)
+
   return n; //This is a random number
     
 }
@@ -364,18 +360,17 @@ void fabulous_print_PRECISION(void *user_env,
   fabulous_PRECISION_struct *fab = &(p->fab);
   level_struct *l                = fab->l;
   struct Thread *threading       = fab->threading;
-
-  int i, n = fab->X0.num_vect, dim = fab->dim;
+  //printf0("print fab: %d NRHS=%d\n",l->depth,NRHS);
+  int i, n = fab->X0.num_vect;
 #ifdef HAVE_TM1p1
-  dim *= g.n_flavours/g.num_indep_flav;
   n /= g.n_flavours/g.num_indep_flav;
 #endif
   int start, end;
-  compute_core_start_end_custom(0, dim, &start, &end, l, threading, l->num_lattice_site_var);
+  compute_core_start_end_custom(0, fab->dim, &start, &end, l, threading, l->num_lattice_site_var);
 
   PRECISION res[n], norm[n];
   //printf0("fab print: %d %d, %d\n",ldx,ldr,NRHS);
-  vector_PRECISION R, X, B0 = fab->B0, X0 = fab->X0, C0 = fab->C0;
+  vector_PRECISION R, X, C0 = fab->C0;
   vector_PRECISION_duplicate( &R, &C0, 0, l ); R.num_vect_now = NRHS; R.size = fab->dim;
   vector_PRECISION_duplicate( &X, &C0, 0, l ); X.num_vect_now = NRHS; X.size = fab->dim;
   START_MASTER(threading)
@@ -411,7 +406,7 @@ void fabulous_print_PRECISION(void *user_env,
 
 // dir == 1: z[0:length] <-x[vec_ind:vec_ind+length]; dir==-1: z[vec_ind:vec_ind+length] <- x[0:length]
 static void vector_PRECISION_copy_fab( vector_PRECISION *z, vector_PRECISION *x, int vec_ind, int length, int dir, int start, int end, level_struct *l ) {
-
+  // In case of HAVE_TM1p1, lenght & start,end should not include flavour d.o.f
   PROF_PRECISION_START( _FAB_COPY );
   int layout = x->layout, fdof = 1;
   int i, j;
@@ -419,8 +414,6 @@ static void vector_PRECISION_copy_fab( vector_PRECISION *z, vector_PRECISION *x,
   fdof *= g.n_flavours/g.num_indep_flav; // flavour d.o.f.
 #endif
   if ( layout == _NVEC_INNER ) {
-    // If HAVE_TM1p1, start & end should not include flavour d.o.f.
-    // If HAVE_TM1p1, length should be the #indep. r.h.s.
     if ( dir == 1 )
       for( i=start; i<end; i++)
 	for( j=0; j<length*fdof; j++ ) z->vector_buffer[i*z->num_vect+j%length+z->num_vect/2*(j/length)]
@@ -431,14 +424,12 @@ static void vector_PRECISION_copy_fab( vector_PRECISION *z, vector_PRECISION *x,
 					 = x->vector_buffer[i*x->num_vect+j%length+x->num_vect/2*(j/length)];
   }
   else if ( layout == _NVEC_OUTER ) {
-    // If HAVE_TM1p1, length should be the #indep. r.h.s.
-    // If HAVE_TM1p1, start & end should include flavour d.o.f. 
     if ( dir == 1 )
       for( j=0; j<length; j++ )
-	for( i=start; i<end; i++) z->vector_buffer[j*z->size*fdof+i] = x->vector_buffer[(vec_ind+j)*x->size*fdof+i];
+	for( i=start*fdof; i<end*fdof; i++) z->vector_buffer[j*z->size*fdof+i] = x->vector_buffer[(vec_ind+j)*x->size*fdof+i];
     else
       for( j=0; j<length; j++ )
-	for( i=start; i<end; i++) z->vector_buffer[(vec_ind+j)*z->size*fdof+i] = x->vector_buffer[j*x->size*fdof+i];
+	for( i=start*fdof; i<end*fdof; i++) z->vector_buffer[(vec_ind+j)*z->size*fdof+i] = x->vector_buffer[j*x->size*fdof+i];
   }
   PROF_PRECISION_STOP( _FAB_COPY, (double)(end-start)/(double)l->inner_vector_size );
 }

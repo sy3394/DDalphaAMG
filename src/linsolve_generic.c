@@ -113,7 +113,7 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
   } else if ( type == _K_CYCLE ) {
     // these settings also work for GMRES as a smoother
     p->timing = 0;
-    p->print = 0;//just for debugging orig0
+    p->print = 0;
     p->initial_guess_zero = 1;
     p->v_start = 0;
     p->v_end = l->inner_vector_size;
@@ -587,12 +587,16 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0; g.max_rel_res_norm = gamma_max ; VECTOR_LOOP(i, n_vect, jj, g.resids[i+jj] = gamma_jp1[i+jj]/norm_r0[i+jj]); }
   END_LOCKED_MASTER(threading)
   if ( p->print ) {
-    //-- Compute relative residual norms for reporting (This does not affect the report at the top level as it is overwritten when exiting the coarse levels)
+    //-- Compute relative residual norms for reporting
+    //    (While g.resids & max_rel_res_norm could be set to their values at each level, this does not affect the report at the top level,
+    //     as they are overwritten to the top-level values when completing the top-level loop)
 #ifdef FGMRES_RESTEST
+    // compute the true residual
     apply_operator_PRECISION( &(p->w), &(p->x), p, l, threading );              // w = Dx
     vector_PRECISION_minus( &(p->r), &(p->b), &(p->w), start, end, l );         // r = b-Dx
     global_norm_PRECISION( beta, &(p->r), p->v_start, p->v_end, l, threading ); // beta = ||r||
 #else
+    // content with the estimate
     VECTOR_LOOP(i, n_vect, jj, beta[i+jj] = creal_PRECISION(gamma_jp1[i+jj]);)  // beta = ||gamma_(j+1)||
 #endif
     START_MASTER(threading)
@@ -626,9 +630,6 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   fabulous_PRECISION_struct *fab = &(p->fab);
   level_struct * l = fab->l;
   PRECISION t0, t1;
-  //  int even_size = p->op->num_even_sites*l->num_lattice_site_var;
-  //printf0("begin PRECISION fab: solver %d depth %d: %d=%d? %d, sizes %d %d %d even sts %d\n", g.solver, l->depth, fab->nrhs,fab->B.num_vect,p->b.num_vect_now, p->b.size, fab->B.size, fab->dim, even_size);fflush(stdout);
-  //p->b.num_vect_now = num_loop; p->x.num_vect_now = num_loop;
 
 #ifdef DEBUG
   int nf = 1, nvec = p->b.num_vect_now;
@@ -639,19 +640,24 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
     error0("fabulous_PRECISION: assumptions are not met %d %d %d %d %d %d\n",
 	   nvec, p->x.num_vect_now, nf*num_loop, fab->B.num_vect_now, fab->B0.num_vect_now, fab->nrhs );
 #endif
-  
+    //  int even_size = p->op->num_even_sites*l->num_lattice_site_var;
+  //printf0("begin PRECISION fab: solver %d depth %d: %d=%d? %d, sizes %d %d %d even sts %d\n", g.solver, l->depth, fab->nrhs,fab->B.num_vect,p->b.num_vect_now, p->b.size, fab->B.size, fab->dim, even_size);fflush(stdout);
+  //p->b.num_vect_now = num_loop; p->x.num_vect_now = num_loop;
+  //printf0("fab%d (guess %d),  nrhs:%d dim:%d (ivs %d vs psize %d, ldx %d ldb %d; B(%d %d) X(%d %d) px %d pb %d; (v_start,v_end)=(%d %d)\n",l->depth,p->initial_guess_zero,fab->nrhs,fab->dim, l->inner_vector_size,p->b.size, fab->ldx, fab->ldb, fab->B.num_vect_now, fab->B.num_vect, fab->X.num_vect_now, fab->X.num_vect, p->x.num_vect_now,p->b.num_vect_now,p->v_start,p->v_end);  
   START_LOCKED_MASTER(threading)
   if ( l->depth == 0 ) t0 = MPI_Wtime();
   END_LOCKED_MASTER(threading)
+  int start, end;
+  compute_core_start_end_custom(0, fab->dim, &start, &end, l, threading, l->num_lattice_site_var);
 #ifdef FAB_OPENMP
   fab->threading = threading; // if fabulous is OpenMP safe.  This can be uncommented.
 #endif
-  //printf0("fab%d (guess %d),  nrhs:%d dim:%d (ivs %d vs psize %d, ldx %d ldb %d; B(%d %d) X(%d %d) px %d pb %d\n",l->depth,p->initial_guess_zero,fab->nrhs,fab->dim, l->inner_vector_size,p->b.size, fab->ldx, fab->ldb, fab->B.num_vect_now, fab->B.num_vect, fab->X.num_vect_now, fab->X.num_vect, p->x.num_vect_now,p->b.num_vect_now);
-  vector_PRECISION_copy( &(fab->B), &(p->b), 0, fab->dim, l );
+  
+  vector_PRECISION_copy( &(fab->B), &(p->b), start, end, l );
   if( p->initial_guess_zero ) {
-    vector_PRECISION_define( &(fab->X), 0, 0, fab->dim, l );
+    vector_PRECISION_define( &(fab->X), 0, start, end, l );
   } else {
-    vector_PRECISION_copy( &(fab->X), &(p->x), 0, fab->dim, l );
+    vector_PRECISION_copy( &(fab->X), &(p->x), start, end, l );
   }
   START_LOCKED_MASTER(threading)
   vector_PRECISION_change_layout( &(fab->B), &(fab->B), _NVEC_OUTER, no_threading );
@@ -678,7 +684,7 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   fab->B.layout = _NVEC_INNER;
   vector_PRECISION_change_layout( &(fab->X), &(fab->X), _NVEC_INNER, no_threading );
   END_LOCKED_MASTER(threading)
-  vector_PRECISION_copy( &(p->x), &(fab->X), 0, fab->dim, l );
+  vector_PRECISION_copy( &(p->x), &(fab->X), start, end, l );
   /*
   if ( g.solver[l->depth] == _GCRO )
     printf0("fab %d\n",fab->ldu);
@@ -688,12 +694,11 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
 #ifdef HAVE_TM1p1
   nvecsf *= g.num_indep_flav;
 #endif
-  int start, end, j, jj;
+  int j, jj;
   PRECISION norm[nvecsf], norm2[nvecsf];
   if ( l->depth == 0 || p->print > 0 ) {
-    compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading,l->num_lattice_site_var);
     apply_operator_PRECISION( &(fab->B0), &(p->x), p, l, threading );              // compute w = D*x
-    vector_PRECISION_minus( &(fab->B0), &(p->b), &(fab->B0), 0, p->v_end, l );     // compute r = b - w = b - D*x
+    vector_PRECISION_minus( &(fab->B0), &(p->b), &(fab->B0), start, end, l );     // compute r = b - w = b - D*x
     global_norm_PRECISION( norm, &(fab->B0), p->v_start, p->v_end, l, threading ); // norm  = ||r||
     global_norm_PRECISION( norm2, &(p->b), p->v_start, p->v_end, l, threading );   // norm2 = ||b||
     START_LOCKED_MASTER(threading)

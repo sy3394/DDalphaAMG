@@ -1,11 +1,5 @@
 # --- COMPILER ----------------------------------------
-CMP=INTEL #GNU or INTEL
-#ifeq ( $(strip $CMP), INTEL ))
 CC = mpiicc
-#else ifeq ( $(strip $CMP), GNU )
-#CC = mpicc
-#endif
-#CC=mpiicc
 #intel mpiicc
 #gnu mpicc
 # --- CFLAGS -----------------------------------------
@@ -40,6 +34,7 @@ OBJ = $(patsubst $(GSRCDIR)/%.c,$(BUILDDIR)/%.o,$(GSRC))
 OBJDB = $(patsubst %.o,%_devel.o,$(OBJ))
 DEP = $(patsubst %.c,%.dep,$(GSRC))
 
+
 # --- FLAGS FOR HDF5 ---------------------------------
 # H5FLAGS=-DHAVE_HDF5 /usr/include
 # H5LIB=-lhdf5 -lz
@@ -49,42 +44,38 @@ LIMEDIR=${HOME}/src/c-lime/install
 LIMEFLAGS=-DHAVE_LIME -I${LIMEDIR}/include
 LIMELIB= -L${LIMEDIR}/lib -llime
 
-# --- FLAGS FOR EFENCE --------------------------------- 
-EFENCEDIR=${HOME}/src/electric-fence
-EFENCEFLAGS=-I${EFENCEDIR}
-EFENCELIB= # -L${EFENCEDIR} -lefence
-
 # --- FLAGS FOR FABULOUS --------------------------------- 
 FABULOUSDIR=${HOME}/src/fabulous
 FABULOUSFLAGS=-DHAVE_FABULOUS -I${FABULOUSDIR}/src/api/include
 FABULOUSLIB=-L${FABULOUSDIR}/build/src/api -lfabulous
 
+# --- FLAGS FOR EFENCE --------------------------------- 
+EFENCEDIR=${HOME}/src/electric-fence
+EFENCEFLAGS=-I${EFENCEDIR}
+EFENCELIB= # -L${EFENCEDIR} -lefence
+
 # --- FLAGS FOR LAPACK for intel compiler ---------------------------------
-#ifeq ( $(strip $CMP), INTEL )
-LAPACKDIR=/onyx/buildsets/noe190301/software/imkl/2018.1.163-iimpi-2018a/mkl
-#LAPACKDIR=/onyx/buildsets/noe190301/software/ScaLAPACK/2.0.2-gompi-2017b-OpenBLAS-0.2.20
-LAPACKFLAGS=-I${LAPACKDIR}/include
-#LAPACKLIB=-L${LAPACKDIR}/lib -l-lscalapack
-LAPACKLIB=-L${LAPACKDIR}/lib/intel64 -L${LAPACKDIR}/mkl/lib/intel64 -lmkl
-#endif
+LAPACKDIR= #/onyx/buildsets/noe190301/software/imkl/2018.1.163-iimpi-2018a/mkl
+LAPACKFLAGS= #-I${LAPACKDIR}/include
+LAPACKLIB= #-L${LAPACKDIR}/lib/intel64 -L${LAPACKDIR}/mkl/lib/intel64 -lmkl
 
 # Available flags:
 # -DPARAMOUTPUT -DTRACK_RES -DFGMRES_RESTEST -DPROFILING
 # -DSINGLE_ALLREDUCE_ARNOLDI
 # -DCOARSE_RES -DSCHWARZ_RES -DTESTVECTOR_ANALYSIS -DDEBUG
-# -DOPTIMIZE -DBASE_LOOP_COUNT=4
-OPT_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) ${FABULOUSFLAGS} $(H5FLAGS) ${LAPACKFLAGS} ${EFENCEFLAGS} -DPARAMOUTPUT -DTRACK_RES -DBASE_LOOP_COUNT=4 -DOPENMP -DPROFILING  -DDEBUG 
-DEVEL_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) ${FABULOUSFLAGS} ${LAPACKFLAGS} ${EFENCEFLAGS} -DDEBUG -DPARAMOUTPUT -DTRACK_RES -DFGMRES_RESTEST -DBASE_LOOP_COUNT=4 -DPROFILING -DCOARSE_RES -DSCHWARZ_RES -DTESTVECTOR_ANALYSIS -DOPENMP
-TEST_FLAGS = -DBASE_LOOP_COUNT=4
+# -DOPTIMIZE -DBASE_LOOP_COUNT=4 -DHAVE_TM1p1
+OPT_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) ${FABULOUSFLAGS} $(H5FLAGS) ${LAPACKFLAGS} ${EFENCEFLAGS} -DPARAMOUTPUT -DTRACK_RES -DBASE_LOOP_COUNT=4 -DOPENMP -DPROFILING  -DDEBUG -DTRACK_RES -DHAVE_TM1p1 -DTRACK_RES
+DEVEL_VERSION_FLAGS = $(CFLAGS) $(LIMEFLAGS) ${FABULOUSFLAGS} ${LAPACKFLAGS} ${EFENCEFLAGS} -DDEBUG -DPARAMOUTPUT -DTRACK_RES -DFGMRES_RESTEST -DBASE_LOOP_COUNT=4 -DPROFILING -DCOARSE_RES -DSCHWARZ_RES -DTESTVECTOR_ANALYSIS -DOPENMP -DHAVE_TM1p1
+TEST_FLAGS = -DBASE_LOOP_COUNT=4 -DHAVE_TM1p1
 
-all: execs library exec-tests
+all: execs library exec-tests documentation
 execs: $(BINDIR)/DDalphaAMG $(BINDIR)/DDalphaAMG_devel
 library: $(LIB)
 exec-tests: $(TSTS)
 documentation: $(DOCDIR)/user_doc.pdf
 install: copy
 
-.PHONY: all wilson library
+.PHONY: all execs library exec-tests documentation install clean cleanall
 .SUFFIXES:
 .SECONDARY:
 

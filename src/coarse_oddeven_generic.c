@@ -1383,7 +1383,6 @@ void coarse_n_hopping_term_PRECISION( vector_PRECISION *out, vector_PRECISION *i
 // used at the bottom; also used in preconditioner if g.method==4,5
 void coarse_apply_schur_complement_PRECISION( vector_PRECISION *out, vector_PRECISION *in, operator_PRECISION_struct *op, level_struct *l, struct Thread *threading ) {
 
-  // start and end indices for vector functions depending on thread
   int start;
   int end;
   // compute start and end indices for core

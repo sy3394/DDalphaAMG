@@ -1,24 +1,25 @@
 
 The DDalphaAMG solver library is an inverter for Wilson-Clover fermions from lattice QCD.
 
-This is the branch sbacchio/master: it includes the twisted mass fermions and a personalized
-  version of the library.
+This is the branch sy3394/master: it includes the solver library for twisted mass fermions
+     with capability of simultaneous inversion of multiple rhs
 
 INSTALL:
 
-  The main directory contains a makefile example. The standard makefile
-  should work with a few adjustments (compiler and MPI library) on the 
-  machine of your choice. Please note, that the code was built in a 
-  generic manner. Thus, the actual code for compilation is created by 
+  The main directory contains an example for Makefile. This makefile needs
+  a few adjustments (compiler and MPI library) before compiling the code on 
+  your machine. Please note, that the code was built in a 
+  generic precision. Thus, the actual code for compilation is created by 
   the makefile via pattern substitution right before the compilation.
-  This part of the makefile should not be removed. Once the necessary 
-  adjustments of the makefile are done, the command 
-  "make -f yourmakefile -j numberofthreads wilson"
+  This part of the makefile should not be removed.
+  Once the necessary adjustments of the makefile are done, the command 
+  "make -f yourmakefile -j execs"
   should compile the whole entire Wilson solver code, such that it is
   ready to be run. The makefile contains additional rules "library" and
   "documentation" for compiling the code as a library and for compiling
-  the user documentation. the library interface can be found in the
-  "include" folder.
+  the user documentation as well as "exec-tests" for compiling a test routine
+  and "install" to make an install directory specified via setting PREFIX variable.
+  The library interface can be found in the "include" folder.
 
 HOWTO:
 

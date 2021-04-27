@@ -16,14 +16,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * copied:11/30/2019 
- * not changed from sbacchio
  */
  
 #ifndef DDalphaAMG_HEADER
   #define DDalphaAMG_HEADER
   #define MAX_MG_LEVELS 4
-//  #define num_loop BASE_LOOP_COUNT
 
   #include "mpi.h"
 
@@ -209,13 +206,12 @@
                                               double tol, DDalphaAMG_status *mg_status );
 
   /**
-   ** Optional - Apply the operator:
+   ** Extra - Apply the operator:
    **   vector_out = D * vector_in.
    **  mg_status.success = 1
    ** Note:
    **   vectors should be stored in vector_in one after another
    **   number of vectors must match init.nrhs
-   **   initial guesses must be stored in vector_out 
    **/
   void DDalphaAMG_apply_operator( double *vector_out, double *vector_in,
                                   DDalphaAMG_status *mg_status );
@@ -224,14 +220,13 @@
                                           double *vector2_out, double *vector2_in, DDalphaAMG_status *mg_status );
 
   /**
-   ** Optional - Apply a preconditioner step:
+   ** Extra - Apply a preconditioner step:
    **   vector_out = D_c^{-1} * vector_in.
    **  mg_status.success = 1
    **  mg_status.info = residual after preconditioning
    ** Note:
    **   vectors should be stored in vector_in one after another
    **   number of vectors must match init.nrhs
-   **   initial guesses must be stored in vector_out 
    **/
   void DDalphaAMG_preconditioner( double *vector_out, double *vector_in,
                                   DDalphaAMG_status *mg_status );
@@ -240,51 +235,40 @@
 
 
   /**
-   ** Optional - Restrict vector from level:
+   ** Extra - Restrict vector from level:
    **   vector_out = P^\dagger * vector_in.
    **  mg_status.success = 1
    ** Note:
    **   vectors should be stored in vector_in one after another
    **   number of vectors must match init.nrhs
-   **   initial guesses must be stored in vector_out 
    **/
   void DDalphaAMG_restrict( float *vector_out, float *vector_in, int level,
                             DDalphaAMG_status *mg_status );
 
   /**
-   ** Optional - Prolongate vector to level:
+   ** Extra - Prolongate vector to level:
    **   vector_out = P * vector_in.
    **  mg_status.success = 1
    ** Note:
    **   vectors should be stored in vector_in one after another
    **   number of vectors must match init.nrhs
-   **   initial guesses must be stored in vector_out 
    **/
   void DDalphaAMG_prolongate( float *vector_out, float *vector_in, int level,
 			      DDalphaAMG_status *mg_status );
 
   /**
-   ** Optional - Apply the operator:
+   ** Extra - Apply the operator:
    **   vector_out = D * vector_in.
    **  mg_status.success = 1
    ** Note:
    **   vectors should be stored in vector_in one after another
    **   number of vectors must match init.nrhs
-   **   initial guesses must be stored in vector_out 
    **/
   void DDalphaAMG_apply_coarse_operator( float *vector_out, float *vector_in, int level,
 					 DDalphaAMG_status *mg_status );
 
-   /**
-    ** Extra - coarse vector utils
-    **/
-   float* DDalphaAMG_coarse_vector_alloc( int level, int nrhs );
-   void DDalphaAMG_coarse_vector_free( float *vector, int level, int nrhs );
-   void DDalphaAMG_coarse_vector_rand( float *vector, int level, int nrhs );
-   void DDalphaAMG_coarse_vector_residual( float *resid, float *vector_out, float *vector_in, int level, int nrhs );
-
   /*
-   *  Concluding the following functions have to be call for freeing the memory and finalizing
+   *  Concluding, the following functions have to be call for freeing the memory and finalizing
    * the software. 
    */
 
@@ -318,36 +302,45 @@
    **  Note: configurations and vector read with this function do NOT require reordering,
    **    -> mg_params.conf_index_fct = NULL, mg_params.vector_index_fct = NULL;
    **  Note:
-   **    vectors should be stored in vector_in one after another
-   **    number of vectors must match init.nrhs
-   **    initial guesses must be stored in vector_out 
+   **    vectors should be stored consecutively, i.e., one after another
    **/
   void DDalphaAMG_read_configuration( double *gauge_field, char *filename, int format,
                                       DDalphaAMG_status *mg_status );
-  void DDalphaAMG_read_vector( double *vector_in, char *filename, int format,
+  void DDalphaAMG_read_vector( double *vector_in, int nvec, char *filename, int format,
                                DDalphaAMG_status *mg_status );
-  void DDalphaAMG_write_vector( double *vector_out, char *filename, int format,
+  void DDalphaAMG_write_vector( double *vector_out, int nvec, char *filename, int format,
                                 DDalphaAMG_status *mg_status );
 
   /**
    ** Extra - Define vector with constant, random components or pt source
    **  Note:
-   **   global_pos is an array (dim = 4 x init.nrhs) of global lattice sites (T,Z,Y,X) for each rhs
-   **   spin_color_ind is an array (dim = init.nrhs) of the spin-color index at which the source has non-trivial value for each rhs
+   **   global_pos is an array (size = 4 x nrhs) of global lattice sites (T,Z,Y,X) for each rhs
+   **   spin_color_ind is an array (size = nrhs) of the spin-color index at which the source has non-trivial value for each rhs
    **/
-  void DDalphaAMG_define_vector_const( double *vector, double re, double im );
-  void DDalphaAMG_define_vector_rand( double *vector );
-  void DDalphaAMG_define_pt_src( double *vector, int *global_pos, int *spin_color_ind );
+  void DDalphaAMG_define_vector_const( double *vector, int nvec, double re, double im );
+  void DDalphaAMG_define_vector_rand( double *vector, int nvec );
+  void DDalphaAMG_define_pt_src( double *vector, int nvec, int *global_pos, int *spin_color_ind );
 
   /**
    ** Extra - Vector algebra: norm, saxpy
    **  Note:
    **    vectors should be stored in vector_in one after another
-   **    number of vectors must match init.nrhs
-   **    norm and the coefficients, a, should be an array of init.nrhs many double's
+   **    number of vectors must be divisible by BASIC_LOOP_COUNT
+   **    norm and the coefficients, a, should be an array of nrhs many double's
    **/
-  void DDalphaAMG_vector_norm( double * norm, double *vector );
-  void DDalphaAMG_vector_saxpy( double *vector_out, double *a, double *x, double *y );
+  void DDalphaAMG_vector_norm( double * norm, double *vector, int nvec );
+  void DDalphaAMG_vector_saxpy( double *vector_out, int nvec, double *a, double *x, double *y );
+
+  /**
+   ** Extra - Coarse vector utils
+   **  Note: 
+   **    vectors should be stored in vector_in one after another
+   **    number of vectors must be divisible by BASIC_LOOP_COUNT  
+   **/
+  float* DDalphaAMG_coarse_vector_alloc( int level, int nvec );
+  void DDalphaAMG_coarse_vector_free( float *vector, int level, int nvec );
+  void DDalphaAMG_coarse_vector_rand( float *vector, int level, int nvec );
+  void DDalphaAMG_coarse_vector_residual( float *resid, float *vector_out, float *vector_in, int level, int nvec );
 
   /**
    ** Extra - Full test routinle

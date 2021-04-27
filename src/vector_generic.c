@@ -409,13 +409,13 @@ void vector_PRECISION_change_layout( vector_PRECISION *vec_out, vector_PRECISION
   }
 
   switch (layout){
-    case _NVEC_OUTER : // from vectors->spins->site (fastest->slowest) to spins->sites->vectors 
+    case _NVEC_OUTER : // from vectors->(flavours->)spin_color->site (fastest->slowest) to (flavours->)spin_color->sites->vectors 
       for( n=0; n<nvec; n++ )
 	for( i=0; i<size; i++ ){
 	  vec_tmp.vector_buffer[(n%nvecsf)*sizesf+i*nf+n/nvecsf] = vec_in->vector_buffer[i*nvec+n];}
       vec_out->layout = _NVEC_OUTER;
       break;
-    case _NVEC_INNER : // from spins->sites->vectors (fastest->slowest) to vectors->spins->site
+    case _NVEC_INNER : // from (flavours->)spin_color->sites->vectors (fastest->slowest) to vectors->(flavours->)spin_color->site
       for( i=0; i<size; i++ )
 	for( n=0; n<nvec; n++ )
 	  vec_tmp.vector_buffer[i*nvec+n] = vec_in->vector_buffer[(n%nvecsf)*sizesf+i*nf+n/nvecsf];
@@ -651,7 +651,7 @@ void free_alloc_PRECISION( level_struct *l, int n_v_old, int n_v ) {
     vector_PRECISION_init( &(l->sbuf_PRECISION[i]) );
     vector_PRECISION_alloc( &(l->sbuf_PRECISION[i]), (l->depth==0)?_INNER:_ORDINARY, n_v*tm1p1, l, no_threading );
   }
-//
+
   op->prnT = NULL;
   if ( l->depth == 0 ) { 
     int its = (l->num_lattice_site_var/2)*l->num_lattice_sites*n_v;
