@@ -294,7 +294,7 @@ int64_t fabulous_rightprecond_PRECISION(void *user_env, int N,
 #endif
 #endif
   
-#if 1
+#if 0
   level_struct * l_tmp = l;
   while ( l_tmp != NULL ) {
     l_tmp->p_PRECISION.fab.nrhs = N;

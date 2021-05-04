@@ -593,7 +593,7 @@ static void validate_parameters( int ls, level_struct *l ) {
 	warning0("The solver must be smaller than %d (depth==%d).\n         Switching to fabulous BGCR method.\n", _NUM_SOLVER, i);
 	g.solver[i] = _GCR;
       }
-      if ( i < g.num_levels-1  && g.solver[i] != _GCR && g.solver[0] != _FGMRES ) {
+      if ( i < g.num_levels-1  && g.solver[i] != _GCR && g.solver[i] != _FGMRES ) {
 	warning0("The solver at the depth %d needs to be flexible to employ AMG as its right preconditioner.\n         Switching to fabulous BGCR method.\n", i);
 	g.solver[i] = _GCR;
       }
