@@ -67,8 +67,10 @@ void vector_PRECISION_alloc( vector_PRECISION *vec, const int type, int num_vect
 }
 
 
-void vector_PRECISION_free( vector_PRECISION *vec, level_struct *l, struct Thread *threading ) {//make sure threading (used in PUBLIC_FREE) is not freed yet!!!!
-  // PUBLIC_FREE requires threading to exist (in most cases no_threading)!!!!!!!!!!!
+void vector_PRECISION_free( vector_PRECISION *vec, level_struct *l, struct Thread *threading ) {
+  
+  ASSERT(threading != NULL); // PUBLIC_FREE requires threading to exist (in most cases no_threading)
+  
   switch (vec->type){
   case _ORDINARY :   PUBLIC_FREE( vec->vector_buffer, complex_PRECISION, l->vector_size*vec->num_vect );
     break;
@@ -137,12 +139,10 @@ void vector_PRECISION_define_random( vector_PRECISION *phi, int start, int end, 
 void vector_PRECISION_duplicate( vector_PRECISION *z, vector_PRECISION *x, int start, level_struct *l ) {
   
   z->vector_buffer = x->vector_buffer + start*l->num_lattice_site_var*x->num_vect;
-  z->size          = x->size;// - start*l->num_lattice_site_var;
+  z->size          = x->size;
   z->type          = x->type;
   z->num_vect      = x->num_vect;
   z->num_vect_now  = x->num_vect_now;
-  //z->start         = start*l->num_lattice_site_var*x->num_vect;
-  //z->end           = x->end;
   z->layout        = x->layout;
   z->l             = x->l;
 }
@@ -239,7 +239,7 @@ void vector_PRECISION_real_scale( vector_PRECISION *z, vector_PRECISION *x, comp
     error0("vector_PRECISION_real_scale: Expect in and out bandles of vectors contain the same # of vectors in use");
 #endif
   
-  int i, j, jj, nvec = x->num_vect_now;//MIN(z->num_vect,x->num_vect);//!!!!!!!!
+  int i, j, jj, nvec = x->num_vect_now;
   PRECISION r_alpha[nvec];
 
   if(opt){

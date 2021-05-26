@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016, Matthias Rottmann, Artur Strebel, Simon Heybrock, Simone Bacchio, Bjoern Leder.
+ * Copyright (C) 2016, Matthias Rottmann, Artur Strebel, Simon Heybrock, Simone Bacchio, Bjoern Leder, Shuhei Yamamoto.
  * 
  * This file is part of the DDalphaAMG solver library.
  * 
@@ -16,16 +16,13 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * copied:11/30/2019
- * changed from sbacchio
- * glanced over: 12/08/2019
- * 1st cleanup:12/18/2019
+ *
  */
 
 #include "main.h"
 static void mul_test( level_struct *l, struct Thread *threading );
 void test_routine( level_struct *l, struct Thread *threading ) {
-#if 1
+
   if ( g.method >= 0 ) {
     START_MASTER(threading)
     g.test = 0;
@@ -43,8 +40,6 @@ void test_routine( level_struct *l, struct Thread *threading ) {
     }
     END_MASTER(threading)
 
-      //mul_test( l, threading);
-
     if ( g.mixed_precision ) {
       operator_float_test_routine( &(l->s_float.op), l, threading );
       if ( g.method > 0 && g.method < 4 ) schwarz_float_mvm_testfun( &(l->s_float), l, threading );
@@ -55,16 +50,13 @@ void test_routine( level_struct *l, struct Thread *threading ) {
       if ( g.method > 0 && g.method < 4 && g.odd_even ) block_oddeven_double_test( l, threading );
     }
 
-#if 1
-    //    START_LOCKED_MASTER(threading)
     if ( g.interpolation && g.method > 0 ) {
       if ( g.mixed_precision )
         coarse_operator_float_test_routine( l, threading );
       else
         coarse_operator_double_test_routine( l, threading );
     }
-    //    END_LOCKED_MASTER(threading)
-#endif
+
     START_MASTER(threading)
     if (g.test < 1e-5)
       printf0("TESTS passed, highest error %e < 1e-5\n", g.test);
@@ -73,7 +65,6 @@ void test_routine( level_struct *l, struct Thread *threading ) {
     printf0("\n");
     END_MASTER(threading)
   }
-  //            error0("STOP\n");
 
 #ifdef HAVE_TM1p1
   if( g.n_flavours==1 &&
@@ -121,13 +112,11 @@ void test_routine( level_struct *l, struct Thread *threading ) {
     }
   }
 #endif
-
-#endif
 }
 
 void prof_init( level_struct *l ) {
   if ( l->depth == 0 ) {
-    g.coarse_time=0; g.coarse_iter_count=0;//!!!!!!!!!!
+    g.coarse_time=0; g.coarse_iter_count=0;
     for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
     for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
   }
@@ -157,7 +146,6 @@ double prof_print( level_struct *l ) {
       printf0("| flop/lattice site: %9.2le                               |\n", flop );
       printf0("| flop/s/MPIprocess: %9.2le                               |\n",
               (flop/g.iter_times[0])*ll[T]*ll[Z]*ll[Y]*ll[X] );
-      //      (flop/g.total_time)*ll[T]*ll[Z]*ll[Y]*ll[X] );//!!!!!!
       printf0("+------------------------------------------------------------+\n\n");
     }
   }

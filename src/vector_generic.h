@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016, Matthias Rottmann, Artur Strebel, Simon Heybrock, Simone Bacchio, Bjoern Leder.
+ * Copyright (C) 2016, Matthias Rottmann, Artur Strebel, Simon Heybrock, Simone Bacchio, Bjoern Leder, Shuhei Yamamoto.
  * 
  * This file is part of the DDalphaAMG solver library.
  * 
@@ -16,10 +16,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * copied:11/30/2019
- * new file from sbacchio
- * checked:12/06/2019
- * 1sr cleanup: 12/18/2019
+ *
  */
 
 #ifndef VECTOR_PRECISION_HEADER
@@ -35,8 +32,8 @@
   void set_boundary_PRECISION( vector_PRECISION *phi, complex_PRECISION alpha, level_struct *l, struct Thread *threading );
   void vector_PRECISION_define_random( vector_PRECISION *phi, int start, int end, level_struct *l ); 
 
-void vector_PRECISION_duplicate( vector_PRECISION *z, vector_PRECISION *x, int start, level_struct *l );
-void vector_PRECISION_copy2( vector_PRECISION *z, vector_PRECISION *x, int start_ind, int length, int dir, int start, int end,  level_struct *l );
+  void vector_PRECISION_duplicate( vector_PRECISION *z, vector_PRECISION *x, int start, level_struct *l );
+  void vector_PRECISION_copy2( vector_PRECISION *z, vector_PRECISION *x, int start_ind, int length, int dir, int start, int end,  level_struct *l );
   void vector_PRECISION_copy( vector_PRECISION *z, vector_PRECISION *x, int start, int end, level_struct *l );
   void vector_PRECISION_scale( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION *alpha, int k, int start, int end, level_struct *l );
   void vector_PRECISION_real_scale( vector_PRECISION *z, vector_PRECISION *x, complex_PRECISION *alpha,
@@ -54,7 +51,6 @@ void vector_PRECISION_copy2( vector_PRECISION *z, vector_PRECISION *x, int start
   void trans_back_PRECISION( vector_double *out, vector_PRECISION *in, int *tt, level_struct *l, struct Thread *threading );
   void two_flavours_to_serial_PRECISION( vector_PRECISION *flav1, vector_PRECISION *flav2, vector_PRECISION *serial, level_struct *l, struct Thread *threading );
   void serial_to_two_flavours_PRECISION( vector_PRECISION *flav1, vector_PRECISION *flav2, vector_PRECISION *serial, level_struct *l, struct Thread *threading );
-
 
   void free_alloc_PRECISION( level_struct *l, int n_v_i, int n_v_f ); 
 

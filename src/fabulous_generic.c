@@ -40,6 +40,7 @@ void fabulous_PRECISION_init( fabulous_PRECISION_struct *fab ) {
   fab->ldb = 0;
   fab->ldx = 0;
   fab->ldu = 0;
+  fab->dsize= 0;
   fab->U = NULL;
   fab->l = NULL;
   fab->threading = NULL;
@@ -153,21 +154,21 @@ int64_t mvpf_PRECISION(  void *user_env, int N,
   fabulous_PRECISION_struct *fab = &(p->fab);
   level_struct *l                = fab->l;
   struct Thread *threading       = fab->threading;
+  int n = fab->X0.num_vect;
+  complex_PRECISION alphas[n], betas[n];
+  const complex_PRECISION *alpha = (const complex_PRECISION*) p_alpha, *beta = (const complex_PRECISION*) p_beta;
   
   PROF_PRECISION_START( _FMVP, threading );
 
 #ifdef DEBUG
+  //if ( N > fab->X0.num_vect )
+    //error0("mvpf_PRECISION: assumptions are not met (%d %d)\n",N,fab->X0.num_vect);
 #ifdef HAVETM1p1
   if ( g.n_flavours/g.num_indep_flav*fab->dim != ldx || g.n_flavours/g.num_indep_flav*fab->dim != ldb || g.n_flavours/g.num_indep_flav*N > fab->X0.num_vect  )
     error0("mvpf_PRECISION: assumptions are not met\n");
 #endif
 #endif
-  int n = fab->X0.num_vect;
-  complex_PRECISION alphas[n], betas[n];
-  /*
-  const complex_PRECISION alpha = *((const complex_PRECISION*) p_alpha), beta = *((const complex_PRECISION*) p_beta);
-  for ( int i=0; i<n; i++ ) { alphas[i] = alpha;betas[i] = beta;}*/
-  const complex_PRECISION *alpha = (const complex_PRECISION*) p_alpha, *beta = (const complex_PRECISION*) p_beta;
+  
   for ( int i=0; i<n; i++ ) {
     alphas[i] = *alpha;
     betas[i]  = *beta;
@@ -177,14 +178,25 @@ int64_t mvpf_PRECISION(  void *user_env, int N,
   compute_core_start_end_custom(0, fab->dim, &start, &end, l, threading, l->num_lattice_site_var);
 
   vector_PRECISION B, X, B0 = fab->B0, X0 = fab->X0, C0 = fab->C0;
-  vector_PRECISION_duplicate( &B, &B0, 0, l ); B.size = fab->dim;
-  vector_PRECISION_duplicate( &X, &X0, 0, l ); X.size = fab->dim;
+  vector_PRECISION_duplicate( &B, &B0, 0, l ); B.size = fab->dim; B.num_vect = N;
+  vector_PRECISION_duplicate( &X, &X0, 0, l ); X.size = fab->dim; X.num_vect = N;
   START_MASTER(threading)
   B.vector_buffer = (buffer_PRECISION) BB;
   X.vector_buffer = (const buffer_PRECISION) XX;
   END_MASTER(threading)
-  vector_PRECISION_copy_fab( &B0, &B, 0, N, 1, start, end, l );
-  vector_PRECISION_copy_fab( &X0, &X, 0, N, 1, start, end, l );
+
+    int ns = n;
+#ifdef HAVE_TM1p1
+  ns /= g.n_flavours/g.num_indep_flav;
+#endif
+  for ( int vi = 0; vi<N; vi += ns ) {
+    int s = (((((vi+ns)/N)*2-1)%2+1)/2); // <=> vi+ns > N?1:0;
+    int d = (vi+ns-N)*s;//((vi+ns)/N)
+    //if(N>ns)printf0("fab mat: vi=%d d=%d ns=%d N=%d\n",vi,d,ns,N);
+    //    else warning0("fab small!!!%d %d\n",N,d);
+    vector_PRECISION_copy_fab( &B0, &B, vi, ns-d, 1, start, end, l );
+  vector_PRECISION_copy_fab( &X0, &X, vi, ns-d, 1, start, end, l );
+  //for ( int i=0; i<d; i++ ) vector_PRECISION_copy_fab( &X0, &X, N%ns+i, 1, -1, start, end, l );
   //printf0("matvf: dim=%d ffac=%d; N=%d vs  (B0,X0,C0)_now=( %d,%d,%d); size ldb,ldb=%d %d vs %d %d \n",dim, g.n_flavours/g.num_indep_flav,N, B0.num_vect_now,X0.num_vect_now,C0.num_vect_now,ldx,ldb,B0.size,X0.size);
 
   // may need to write a new dirac op function for column major order!!!!
@@ -201,8 +213,8 @@ int64_t mvpf_PRECISION(  void *user_env, int N,
   vector_PRECISION_change_layout( &B0, &B0, _NVEC_OUTER, no_threading );
   C0.layout = _NVEC_OUTER;
   END_LOCKED_MASTER(threading)
-  vector_PRECISION_copy_fab( &B, &B0, 0, N, -1, start, end, l );
-
+    vector_PRECISION_copy_fab( &B, &B0, vi, ns-d, -1, start, end, l );
+  }
   //printf0("mvp2 %d: %d vs %d; %d %d %d\n", g.my_rank, N, fab->B0.num_vect, ldx, ldb, fab->B0.size );fflush(stdout);
   PROF_PRECISION_STOP( _FMVP, 1, threading );
     
@@ -288,19 +300,14 @@ int64_t fabulous_rightprecond_PRECISION(void *user_env, int N,
   struct Thread *threading       = fab->threading;
 
 #ifdef DEBUG
+  if ( N > fab->X0.num_vect )
+    error0("fabulous_rightprecond_PRECISION: assumptions are not met (%d %d)\n",N,fab->X0.num_vect);
 #ifdef HAVE_TM1p1
   if ( g.n_flavours/g.num_indep_flav*fab->dim != ldx || g.n_flavours/g.num_indep_flav*fab->dim != ldb )
     error0("mvpf_PRECISION: assumptions are not met\n");
 #endif
 #endif
   
-#if 0
-  level_struct * l_tmp = l;
-  while ( l_tmp != NULL ) {
-    l_tmp->p_PRECISION.fab.nrhs = N;
-    l_tmp = l_tmp->next_level;
-  }
-#endif
   vector_PRECISION B, X, B0 = fab->B0, X0 = fab->X0;
   vector_PRECISION_duplicate( &B, &B0, 0, l ); B.num_vect_now = N; B.size = fab->dim; 
   vector_PRECISION_duplicate( &X, &X0, 0, l ); X.num_vect_now = N; X.size = fab->dim; 

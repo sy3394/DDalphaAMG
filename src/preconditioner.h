@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016, Matthias Rottmann, Artur Strebel, Simon Heybrock, Simone Bacchio, Bjoern Leder.
+ * Copyright (C) 2016, Matthias Rottmann, Artur Strebel, Simon Heybrock, Simone Bacchio, Bjoern Leder, Shuhei Yamamoto.
  * 
  * This file is part of the DDalphaAMG solver library.
  * 
@@ -16,10 +16,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * copied:11/30/2019
- * changed from sbacchio
- * glanced over:12/08/2019
- * 1st cleanup:12/18/2019
+ *
  */
 
 #ifndef PRECONDITIONER_HEADER
@@ -34,6 +31,5 @@
 
   void preconditioner( vector_double *phi, vector_double *Dphi, vector_double *eta,
                        const int res, level_struct *l, struct Thread *threading );
-//  void preconditioner2( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRECISION *eta,
-//                       const int res, level_struct *l, struct Thread *threading );
+
 #endif

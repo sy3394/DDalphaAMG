@@ -33,6 +33,7 @@ void prof_PRECISION_init( level_struct *l ) {
       l->prof_PRECISION.count[i] = 0.0;
       l->prof_PRECISION.flop[i] = 0.0;
     }
+
     
     double level_ratio = 1;
     for ( int mu=0; mu<4; mu++ )

@@ -81,14 +81,6 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 	END_MASTER(threading)
 
 	solve( &solution, &source, l, threading );
-#ifdef HAVE_FABULOUS
-	if ( g.mixed_precision )
-	  reset_fab_nrhs_float(l);
-	else
-	  reset_fab_nrhs_double(l);
-	if ( g.mixed_precision != 2 && g.solver[0] > 0 )
-	  g.p.fab.nrhs = nvecsf;
-#endif
 	
 	START_LOCKED_MASTER(threading)//my addition
 	if(g.bc==2)
@@ -108,14 +100,6 @@ void solve_driver( level_struct *l, struct Thread *threading ) {
 #endif
 
   solve( &solution, &source, l, threading );
-#ifdef HAVE_FABULOUS
-  if ( g.mixed_precision )
-    reset_fab_nrhs_float(l);
-  else
-    reset_fab_nrhs_double(l);
-  if ( g.mixed_precision != 2 && g.solver[0] > 0 )
-    g.p.fab.nrhs = nvecsf;
-#endif
   
   START_LOCKED_MASTER(threading)//my addition
   if(g.bc==2)

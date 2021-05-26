@@ -340,7 +340,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
           printf0("|              setup iter: %-3d                             |\n", g.setup_iter[i] );
           printf0("|            test vectors: %-3d                             |\n", g.num_eig_vect[i] );
         } else {
-          printf0("|      coarge grid solver: %-30s  |\n", g.odd_even?"odd even GMRES":"GMRES" );
+          printf0("|      coarse grid solver: %-30s  |\n", g.odd_even?"odd even GMRES":"GMRES" );
           printf0("|              iterations: %-6d                          |\n", g.coarse_iter );
           printf0("|                  cycles: %-6d                          |\n", g.coarse_restart );
           printf0("|               tolerance: %-5.2le                           |\n", g.coarse_tol );

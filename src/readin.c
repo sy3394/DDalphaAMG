@@ -476,6 +476,8 @@ static void read_solver_parameters( FILE *in ) {
   save_pt = &(g.use_only_fgrmes_at_setup); g.use_only_fgrmes_at_setup = 0;
   read_parameter( &save_pt, "use only FGMRES at setup:", "%d", 1, in, _DEFAULT_SET );
 #ifdef HAVE_FABULOUS
+  save_pt = &(g.n_defl_updates); g.n_defl_updates = 5;
+  read_parameter( &save_pt, "fabulous num of deflation space updates:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.logger_user_data_size); g.logger_user_data_size = 0;
   read_parameter( &save_pt, "fabulous user data size for log:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.quiet); g.quiet = 1;

@@ -1,11 +1,13 @@
 This software is an outcome of the PhD thesis of Matthias Rottmann, University of Wuppertal.
 
-Code Designers: Matthias Rottmann, Simone Bacchio, Artur Strebel, Simon Heybrock, Bjoern Leder.
+Code Designers: Matthias Rottmann, Simone Bacchio, Artur Strebel, Simon Heybrock, Bjoern Leder,
+     		Shuhei Yamamoto.
 
 Contributions by: Andreas Frommer, Karsten Kahl, Stefan Krieg, Kalman Szabo, Wolfgang Soeldner,
                   Holger Arndt, Peter Georg.
 
-Acknowledgments: We thank BMW-c, QCDSF and CLS for providing configurations to test the library.
+Acknowledgments: We thank BMW-c, QCDSF and CLS for providing configurations to test the library
+		 and PRACE for financial support..
                  Furthermore, we thank James Brannick, Norbert Eicker and Matthias Bolten for 
                  fruitful discussions and useful advice.
 

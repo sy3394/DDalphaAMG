@@ -62,7 +62,8 @@ int main( int argc, char **argv ) {
     printf("\n\n+----------------------------------------------------------+\n");
     printf("| The DDalphaAMG solver library.                           |\n");
     printf("| Copyright (C) 2016, Matthias Rottmann, Artur Strebel,    |\n");
-    printf("|       Simon Heybrock, Simone Bacchio, Bjoern Leder.      |\n");
+    printf("|       Simon Heybrock, Simone Bacchio, Bjoern Leder,      |\n");
+    printf("|       Shuhei Yamamoto                             .      |\n");
     printf("|                                                          |\n");
     printf("| This program comes with ABSOLUTELY NO WARRANTY.          |\n");
     printf("+----------------------------------------------------------+\n\n");
