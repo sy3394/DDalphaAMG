@@ -429,10 +429,10 @@
     int num_levels, num_desired_levels, process_grid[4], in_format,
         **global_lattice, **local_lattice, **block_lattice, 
         *post_smooth_iter, *block_iter, *setup_iter, *ncycle,
-        method, odd_even, rhs, propagator_coords[4],
+        method, odd_even, rhs, 
         interpolation, randomize, *num_eig_vect, num_coarse_eig_vect, kcycle, mixed_precision,
-        restart, max_restart, kcycle_restart, kcycle_max_restart, coarse_iter, coarse_restart;
-    double tol, coarse_tol, kcycle_tol, csw, rho, *relax_fac;
+        *max_iter, *max_restart, kcycle_restart, kcycle_max_restart;
+    double *tol, kcycle_tol, setup_tol, csw, rho, *relax_fac;
 
     // profiling, analysis, output
     int coarse_iter_count, *iter_counts, iter_count, iterator, print, conf_flag, setup_flag, in_setup;

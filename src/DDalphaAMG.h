@@ -459,8 +459,7 @@
      **
      **  interpolation = 0 - no interpolation
      **  interpolation = 1 - successive inv-iter
-     **  interpolation = 2 - f-cycle inv-iter
-     **  interpolation = 3 - f-cycle fgmres+amg-inv-it
+     **  interpolation = 2 - f-cycle fgmres+amg-inv-it
      **/
     int interpolation;
 

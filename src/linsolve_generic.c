@@ -333,7 +333,7 @@ int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
 
   START_LOCKED_MASTER(threading)
   if ( l->depth==0 && ( p->timing || p->print ) ) prof_init( l );
-  if ( l->level==0 && g.num_levels > 1 && g.interpolation ) p->tol = g.coarse_tol;
+  if ( l->level==0 && g.num_levels > 1 && g.interpolation ) p->tol = g.tol[g.num_levels-1];
   if ( l->depth > 0 ) p->timing = 1;
   END_LOCKED_MASTER(threading)
 
@@ -1169,7 +1169,7 @@ void bicgstab_PRECISION( gmres_PRECISION_struct *ps, level_struct *l, struct Thr
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
   compute_core_start_end_custom(ps->v_start, ps->v_end, &start, &end, l, threading, l->num_lattice_site_var );
   
-  tol = (l->level==0 && g.num_levels > 1 && g.interpolation )?g.coarse_tol:g.bicgstab_tol;
+  tol = (l->level==0 && g.num_levels > 1 && g.interpolation )?g.tol[g.num_levels-1]:g.bicgstab_tol;
   maxiter = 1000000; 
   r = ps->r; b = ps->b; x = ps->x; p = ps->w;
   pp = ps->V[0]; r_tilde = ps->V[1]; v = ps->V[2]; s = ps->V[3]; t = ps->V[4];
@@ -1264,7 +1264,7 @@ void cgn_PRECISION( gmres_PRECISION_struct *ps, level_struct *l, struct Thread *
   b = ps->b; x = ps->x;
   r_old = ps->V[2]; r_new = ps->V[3]; r_true = ps->r;
   p = ps->w; pp = ps->V[0]; Dp = ps->V[1];
-  tol = (l->level==0 && g.num_levels > 1 && g.interpolation )?g.coarse_tol:ps->tol;
+  tol = (l->level==0 && g.num_levels > 1 && g.interpolation )?g.tol[g.num_levels-1]:ps->tol;
   maxiter = ps->num_restart;
   
   START_MASTER(threading)

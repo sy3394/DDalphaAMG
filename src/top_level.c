@@ -174,7 +174,7 @@ void rhs_define( vector_double *rhs, level_struct *l, struct Thread *threading )
     if ( g.print > 0 ) printf0("rhs = first unit vector\n");
     END_MASTER(threading)
   } else if ( g.rhs == 2 ) {
-    // this would yield different results if we threaded it, so we don't
+    // this would yield different results if we threaded it, so we don't (rand() is not thread-safe)
     START_LOCKED_MASTER(threading)
     vector_double_define_random( rhs, 0, l->inner_vector_size, l );
     END_LOCKED_MASTER(threading)

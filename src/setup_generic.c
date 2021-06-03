@@ -50,7 +50,7 @@ void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct T
   int start = threading->start_index[l->depth];
   int end   = threading->end_index[l->depth];
 
-  if ( V == NULL ) { // if the initial test vectors are not supplied, compute them using smoothing
+  if ( V == NULL && g.interpolation < 3 ) { // if the initial test vectors are not in V nor supplied from a file later, compute them using smoothing
     if ( l->depth == 0) {
       tm_term_update( (complex_double)(g.setup_mu), l, threading ); // set (first num_loop) tm_term using a single shift for all rhs
       finalize_operator_update( l, threading ); // to update clover_oo_inv
@@ -60,7 +60,6 @@ void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct T
     for( i=0; i<2; i++){
       vector_PRECISION_init( &buffer[i] );
       vector_PRECISION_alloc( &buffer[i], (i==0)?_INNER:_ORDINARY, num_loop, l, threading );
-      //buffer[i].num_vect_now = num_loop;
     }
     START_MASTER(threading)
     if ( g.print > 0 ) printf0("initial definition --- depth: %d\n", l->depth );
@@ -71,7 +70,8 @@ void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct T
     END_MASTER(threading)
 
     for ( i=0; i<n; i+=num_loop ) {      
-      START_LOCKED_MASTER(threading)//why inside of LOCKED_MASTER????
+      START_LOCKED_MASTER(threading)
+      // this would yield different results if we threaded it, so we don't (rand() is not thread-safe) 
       vector_PRECISION_define_random( &buffer[0], 0, l->inner_vector_size, l );
       END_LOCKED_MASTER(threading)
 
@@ -102,7 +102,9 @@ void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct T
     END_MASTER(threading)
 #endif
     
-    } else { // if the initial test vectors are provided, reorder them to make the interpolation op from them.//when used???? mthod=5????
+  } else if ( g.interpolation < 3 ){
+      // if the initial test vectors are provided, reorder them to make the interpolation op from them.
+      // test vectors are read from a file later when g.interpolation == 3
     trans_PRECISION( &(l->is_PRECISION.test_vector_vec), V, l->s_PRECISION.op.translation_table, l, threading );
   }
 
@@ -257,8 +259,7 @@ void iterative_PRECISION_setup( int setup_iter, level_struct *l, struct Thread *
   if ( l->depth == 0 ) {
     switch ( g.interpolation ) {
       case 2: inv_iter_inv_fcycle_PRECISION( setup_iter, l, threading ); break;
-      case 3: inv_iter_inv_fcycle_PRECISION( setup_iter, l, threading ); break;
-      case 4: read_tv_from_file_PRECISION( l, threading ); break;//if we read test vectors from a file for each level, we should have not done the initial setup of test vectors via smoothing????
+      case 3: read_tv_from_file_PRECISION( l, threading ); break;
       default: inv_iter_2lvl_extension_setup_PRECISION( setup_iter, l, threading ); break;
     }
   }
@@ -350,7 +351,7 @@ static void inv_iter_2lvl_extension_setup_PRECISION( int setup_iter, level_struc
     
     START_LOCKED_MASTER(threading)
     fgmres_PRECISION_struct_init( &gmres );
-    fgmres_PRECISION_struct_alloc( g.coarse_iter, g.coarse_restart, _ORDINARY, g.coarse_tol, 
+    fgmres_PRECISION_struct_alloc( g.max_iter[g.num_levels-1], g.max_restart[g.num_levels-1], _ORDINARY, g.tol[g.num_levels-1], 
                                    _COARSE_SOLVER, _NOTHING, NULL, apply_coarse_operator_PRECISION, &gmres, l->next_level );
     if ( g.odd_even && l->next_level->level == 0 )
       gmres.v_end = l->next_level->oe_op_PRECISION.num_even_sites*l->next_level->num_lattice_site_var;
@@ -442,12 +443,10 @@ static void inv_iter_inv_fcycle_PRECISION( int setup_iter, level_struct *l, stru
   
   START_LOCKED_MASTER(threading)
   if ( l->depth == 0 )
-    set_kcycle_tol_PRECISION( g.coarse_tol, l );
+    set_kcycle_tol_PRECISION( g.setup_tol, l );
   END_LOCKED_MASTER(threading)
-    //  SYNC_MASTER_TO_ALL(threading)
 
   int nvec = l->num_eig_vect;
-  //l->p_PRECISION.x.num_vect_now = num_loop;
   
   if ( !l->idle ) {
     for ( int j=0; j<setup_iter; j++ ) {

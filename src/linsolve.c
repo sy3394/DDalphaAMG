@@ -210,12 +210,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
   if ( p->sp.num_vect < num_loop )
     error0("fgmres: memory corruption\n");
 #endif
-  /*
-  p->dp.w.num_vect_now = n_vect; p->dp.x.num_vect_now = n_vect; p->dp.r.num_vect_now = n_vect; p->dp.b.num_vect_now = n_vect;
-  p->sp.w.num_vect_now = n_vect; p->sp.x.num_vect_now = n_vect; p->sp.r.num_vect_now = n_vect; p->sp.b.num_vect_now = n_vect;
-  //p->sp.Z[0].num_vect_now = n_vect;p->sp.V[0].num_vect_now = n_vect;//!!!!!!!
-  p->sp.V[0].num_vect_now = n_vect;
-  */
+
   VECTOR_LOOP(i, n_vect, jj, norm_r0[i+jj]=1;
                              gamma_jp1[i+jj]=1;)
   
@@ -223,7 +218,7 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
 #ifndef WILSON_BENCHMARK
   if ( l->depth==0 && ( p->dp.timing || p->dp.print ) ) prof_init( l );
 #endif
-  if ( l->level==0 && g.num_levels > 1 && g.interpolation ) p->dp.tol = g.coarse_tol;
+  if ( l->level==0 && g.num_levels > 1 && g.interpolation ) p->dp.tol = g.tol[g.num_levels-1];
   if ( l->depth > 0 ) p->dp.timing = 1;
   if ( l->depth == 0 ) t0 = MPI_Wtime();
 #if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)

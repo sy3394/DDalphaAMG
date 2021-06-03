@@ -46,7 +46,7 @@ void DDalphaAMG_initialize( DDalphaAMG_init *mg_init, DDalphaAMG_parameters *mg_
   /*
    * BEGIN: method_init( &argc, &argv, &l );
    */
-  MPI_Comm_rank( mg_init->comm_cart, &(g.my_rank) );//predefine_rank(mg_init->comm_cart);
+  MPI_Comm_rank( mg_init->comm_cart, &(g.my_rank) );
 
   g_init();
   l_init( &l );
@@ -129,7 +129,7 @@ void DDalphaAMG_get_parameters( DDalphaAMG_parameters *mg_params ){
   mg_params->interpolation = g.interpolation;
   mg_params->mixed_precision = g.mixed_precision;
   mg_params->kcycle_tolerance = g.kcycle_tol;
-  mg_params->coarse_tolerance = g.coarse_tol;
+  mg_params->coarse_tolerance = g.tol[g.num_levels-1];
   mg_params->smoother_iterations = g.post_smooth_iter[0];
   mg_params->conf_index_fct = conf_index_fct;
   mg_params->vector_index_fct = vector_index_fct;
@@ -314,12 +314,12 @@ void DDalphaAMG_update_parameters( DDalphaAMG_parameters *mg_params, DDalphaAMG_
       }
     } else {
       // double coarse_tolerance;
-      if ( mg_params->coarse_tolerance != g.coarse_tol ){
-        g.coarse_tol = mg_params->coarse_tolerance;
+      if ( mg_params->coarse_tolerance != g.tol[g.num_levels-1] ){
+        g.tol[g.num_levels-1] = mg_params->coarse_tolerance;
         if (g.setup_flag && g.mixed_precision )
-          l_tmp->p_float.tol = g.coarse_tol;
+          l_tmp->p_float.tol = g.tol[g.num_levels-1];
         else if(g.setup_flag)
-          l_tmp->p_float.tol = g.coarse_tol;
+          l_tmp->p_float.tol = g.tol[g.num_levels-1];
       }
     }
     

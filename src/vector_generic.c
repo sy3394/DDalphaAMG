@@ -118,6 +118,7 @@ void set_boundary_PRECISION( vector_PRECISION *phi, complex_PRECISION alpha, lev
 }
 
 
+// NOTE: rand() is not thread-safe (also, we want each thread to have its own seed value); so this function is to be used only by a master thread
 void vector_PRECISION_define_random( vector_PRECISION *phi, int start, int end, level_struct *l ) {
   
   int thread = omp_get_thread_num();

@@ -410,8 +410,6 @@ void operator_PRECISION_test_routine( operator_PRECISION_struct *op, level_struc
 
   if(threading->n_core > 1) {
     apply_operator_PRECISION( &vp[1], &vp[0], &(l->p_PRECISION), l, threading );
-    //SYNC_MASTER_TO_ALL(threading)
-    //SYNC_CORES(threading)
 
     START_LOCKED_MASTER(threading)
     trans_back_PRECISION( &vd[2], &vp[1], op->translation_table, l, no_threading );

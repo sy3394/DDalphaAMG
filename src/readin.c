@@ -135,13 +135,10 @@ static void read_global_info( FILE *in ) {
   // right hand side
   save_pt = &(g.rhs);  g.rhs = 1;
   read_parameter( &save_pt, "right hand side:", "%d", 1, in, _DEFAULT_SET );
-  if ( g.rhs == 4 ) {//no corresponding option in the input file????????????
+  // TODO: support the case below
+  if ( g.rhs == 4 ) {
     save_pt = &(g.source_list);
     read_parameter( &save_pt, "source list:", "%s", 1, in, _NO_DEFAULT_SET );
-  }
-  else if ( g.rhs == 3 ) {//no corresponding option in the input file?????????
-    save_pt = g.propagator_coords;
-    read_parameter( &save_pt, "propagator coordinates:", "%d", 4, in, _DEFAULT_SET );
   }
   save_pt = &(g.num_rhs_vect); g.num_rhs_vect=1;
   read_parameter( &save_pt, "number of rhs vectors:", "%d", 1, in, _DEFAULT_SET );
@@ -315,7 +312,7 @@ static void read_geometry_data( FILE *in, int ls ) {
             }
           }
           
-          if ( flag == 1 && g.method == 2 && nb == 1 ) {//??????
+          if ( flag == 1 && g.method == 2 && nb == 1 ) {
             mu = shortest_dir( g.local_lattice[i] );
             if ( g.global_lattice[i][mu] > g.local_lattice[i][mu] ) {
               g.local_lattice[i][mu] *= lcm( g.local_lattice[i][mu],
@@ -427,15 +424,18 @@ static void read_solver_parameters( FILE *in ) {
     save_pt = &(g.interpolation); g.interpolation = 2;
     read_parameter( &save_pt, "interpolation:", "%d", 1, in, _DEFAULT_SET );
   }
-  
+
+  int db = g.num_levels-1;
   save_pt = &(g.randomize); g.randomize = 0;
   read_parameter( &save_pt, "randomize test vectors:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.coarse_iter); g.coarse_iter = 200;
+  save_pt = &(g.max_iter[db]); g.max_iter[db] = 200;
   read_parameter( &save_pt, "coarse grid iterations:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.coarse_restart); g.coarse_restart = 10;
+  save_pt = &(g.max_restart[db]); g.max_restart[db] = 10;
   read_parameter( &save_pt, "coarse grid restarts:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.coarse_tol); g.coarse_tol = 1E-1;
+  save_pt = &(g.tol[db]); g.tol[db] = 1E-1;
   read_parameter( &save_pt, "coarse grid tolerance:", "%le", 1, in, _DEFAULT_SET );
+  save_pt = &(g.setup_tol); g.setup_tol = g.tol[db];
+  read_parameter( &save_pt, "adaptive setup tolerance:", "%le", 1, in, _DEFAULT_SET );
   save_pt = &(g.odd_even); g.odd_even = 1;
   read_parameter( &save_pt, "odd even preconditioning:", "%d", 1, in, _DEFAULT_SET );
 
@@ -460,11 +460,11 @@ static void read_solver_parameters( FILE *in ) {
   
   save_pt = &(g.method); g.method = 2;
   read_parameter( &save_pt, "method:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.restart); g.restart = 30;
+  save_pt = &(g.max_iter[0]); g.max_iter[0] = 30;
   read_parameter( &save_pt, "iterations between restarts:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.max_restart); g.max_restart = 20;
+  save_pt = &(g.max_restart[0]); g.max_restart[0] = 20;
   read_parameter( &save_pt, "maximum of restarts:", "%d", 1, in, _DEFAULT_SET );
-  save_pt = &(g.tol); g.tol = 1E-10;
+  save_pt = &(g.tol[0]); g.tol[0] = 1E-10;
   read_parameter( &save_pt, "tolerance for relative residual:", "%le", 1, in, _DEFAULT_SET );
   save_pt = &(g.print); g.print = 0;
   read_parameter( &save_pt, "print mode:", "%d", 1, in, _DEFAULT_SET );
@@ -540,6 +540,12 @@ static void read_kcycle_data( FILE *in ) {
   read_parameter( &save_pt, "kcycle restarts:", "%d", 1, in, _DEFAULT_SET );
   save_pt = &(g.kcycle_tol); g.kcycle_tol = 1E-1;
   read_parameter( &save_pt, "kcycle tolerance:", "%le", 1, in, _DEFAULT_SET );
+
+  for ( int i=1; i<g.num_levels-1; i++ ) {
+    g.max_iter[i] = g.kcycle_restart;
+    g.max_restart[i] = g.kcycle_max_restart;
+    g.tol[i] = g.kcycle_tol;
+  }
 }
 
 static void validate_parameters( int ls, level_struct *l ) {
@@ -607,6 +613,15 @@ static void validate_parameters( int ls, level_struct *l ) {
 	warning0("Number of deflating eigenvectors for FABULOUS solvers (depth %d) must be non-negative.\n         Setting it to 0.\n", i);
 	g.k[i] = 0;
       }
+      int nvec = num_loop;
+#ifdef HAVE_TM1p1
+      if ( g.epsbar == 0 && g.epsbar_ig5_odd_shift == 0 && g.epsbar_ig5_odd_shift == 0 )
+	nvec *= 2;
+#endif
+      if ( g.solver[i] == _GCRO && g.k[i] > 2*g.max_iter[i]-nvec ) {
+	warning0("Deflation space size should be smaller than %d.\n         Setting it to %d.\n", 2*g.max_iter[i]-nvec, 2*g.max_iter[i]-nvec);
+	g.k[i] = 2*g.max_iter[i]-nvec;
+      }
     }
   } else if ( solver != 0 ) {
     // TODO: for g.method > 3, we can write fabulous version
@@ -650,16 +665,17 @@ static void validate_parameters( int ls, level_struct *l ) {
       ASSERT( num_blocks >= 2 );
     }
   }
-  
+  /* TODO: perhaps support this
   for ( mu=0; mu<4; mu++ )
     ASSERT( IMPLIES( g.rhs == 3, ASCENDING( 0, g.propagator_coords[mu], l->global_lattice[mu]-1 ) ) );
+  */
   
-  ASSERT( IMPLIES( g.method > 0 && g.interpolation > 0, g.coarse_iter > 0 ) );
-  ASSERT( IMPLIES( g.method > 0 && g.interpolation > 0, g.coarse_restart > 0 ) );
-  ASSERT( IMPLIES( g.method > 0 && g.interpolation > 0, 0 < g.coarse_tol && g.coarse_tol < 1 ) );
+  ASSERT( IMPLIES( g.method > 0 && g.interpolation > 0, g.max_iter[g.num_levels-1] > 0 ) );
+  ASSERT( IMPLIES( g.method > 0 && g.interpolation > 0, g.max_restart[g.num_levels-1] > 0 ) );
+  ASSERT( IMPLIES( g.method > 0 && g.interpolation > 0, 0 < g.tol[g.num_levels-1] && g.tol[g.num_levels-1] < 1 ) );
   ASSERT( IMPLIES( g.method > 0, l->n_cy > 0 ) );
-  ASSERT( g.max_restart > 0 );
-  ASSERT( 0 < g.tol && g.tol < 1 );
+  ASSERT( g.max_restart[0] > 0 );
+  ASSERT( 0 < g.tol[0] && g.tol[0] < 1 );
   ASSERT( ASCENDING( 0, g.kcycle, 1 ) );
   ASSERT( IMPLIES( g.kcycle && g.method > 0, g.kcycle_restart > 0 ) );
   ASSERT( IMPLIES( g.kcycle && g.method > 0, g.kcycle_max_restart > 0 ) );
@@ -709,6 +725,9 @@ static void allocate_for_global_struct_after_read_global_info( int ls ) {
 #ifdef HAVE_TM1p1
   MALLOC( g.epsbar_factor, double, ls );
 #endif
+  MALLOC( g.max_iter, int, ls );
+  MALLOC( g.max_restart, int, ls );
+  MALLOC( g.tol, double, ls );
   MALLOC( g.iter_times, double, ls );
   MALLOC( g.iter_counts, int, ls );
   MALLOC( g.block_iter, int, ls );
@@ -780,7 +799,7 @@ void lg_in( char *inputfile, level_struct *l ) {
   read_solver_parameters( in ); 
   read_geometry_data( in, ls );
 
-  ls = MAX(g.num_levels,2); // update ls
+  ls = MAX(g.num_levels,2); // update ls; could be changed in read_geometry_data
 
   set_level_and_global_structs_according_to_global_struct( l );
 
@@ -865,7 +884,7 @@ void set_DDalphaAMG_parameters( struct init *params, level_struct *l ) {
   read_solver_parameters( in );
   read_geometry_data( in, ls );
   
-  ls = MAX(g.num_levels,2);
+  ls = MAX(g.num_levels,2); // update ls; could be changed in read_geometry_data
   
   set_level_and_global_structs_according_to_global_struct( l );
 
