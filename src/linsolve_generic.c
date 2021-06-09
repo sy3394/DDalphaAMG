@@ -151,7 +151,7 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
       if ( prec_kind == _RIGHT ) {
 	k = m+1;
       } else {
-	k = 1;//?????
+	k = 1;
       }
       MALLOC( p->Z, vector_PRECISION, k );
     } else {
@@ -161,8 +161,8 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
 	MALLOC( p->Z, vector_PRECISION, k );
       }
 #else
-      k = m;//0;//temp fix!!!!!!!
-      MALLOC( p->Z, vector_PRECISION, k );//tempfix!!!!!!!
+      k = 0; //m;//0;//temp fix!!!!!!!
+      //MALLOC( p->Z, vector_PRECISION, k );//tempfix!!!!!!!
 #endif
     }
 
@@ -237,7 +237,7 @@ void fgmres_PRECISION_struct_free( gmres_PRECISION_struct *p, level_struct *l ) 
       k = p->restart_length+2;
     }
 #else
-    k = p->restart_length;//0;//temp fix!!!!!!!
+    k = 0;//p->restart_length;//0;//temp fix!!!!!!!
 #endif
   }
 
@@ -281,7 +281,7 @@ void change_to_n_flavours_PRECISION( gmres_PRECISION_struct *p, int nf, struct l
       k = p->restart_length+2;
     }
 #else
-    k = p->restart_length;//0;//temp fix!!!!!!!#endif
+    k = 0;//p->restart_length;//0;//temp fix!!!!!!!#endif
 #endif
   };
 
@@ -387,6 +387,16 @@ int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
       END_LOCKED_MASTER(threading)
     }
   }
+  // Report statistics at coarse levels
+#ifdef COARSE_RES
+  if ( l->depth > 0 ) {
+    START_MASTER(threading)
+    char number[3]; sprintf( number, "%2d", 31+l->depth ); printf0("\033[1;%2sm|", number );
+    for (i=0; i<n_vect; i++ ) printf0(" - depth: %d, gmres iter: %2d, approx rel res: %le |", l->depth, iter, g.resids[i] );
+    printf0("\033[0m\n"); fflush(0);
+    END_MASTER(threading)
+  }
+#endif
   // Report profiling
   if ( l->depth == 0 && ( p->timing || p->print ) && !(g.vt.p_end != NULL )  ) {
     START_MASTER(threading)
@@ -466,7 +476,6 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
 	  END_LOCKED_MASTER(threading)
 	}
         p->preconditioner( &(p->w), NULL, &(p->Z[0]), _NO_RES, l, threading );
-	//p->preconditioner( &(p->w), NULL, &(p->Z[0]), res, l, threading ); <- shuoldn't this be correct?
       } else {
         apply_operator_PRECISION( &(p->w), &(p->x), p, l, threading ); // compute w = D*x
       }
@@ -530,6 +539,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
       VECTOR_LOOP(i, n_vect, jj, H_tot += (double) cabs_PRECISION( p->H[j][(j+1)*n_vect+i+jj] );)//what is this for????
       if ( H_tot > n_vect*p->tol/10 ) {
       */
+      // should be H_min?????
       H_max = (double) cabs_PRECISION(p->H[j][(j+1)*n_vectmf]);
       for ( i=1; i<nrhs; i++ ) if ( H_max < (double) cabs_PRECISION(p->H[j][(j+1)*n_vectmf+i])) H_max = (double) cabs_PRECISION(p->H[j][(j+1)*n_vectmf+i]);
       if ( H_max > p->tol/10 ) {
@@ -539,7 +549,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
 #if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
         if ( iter%10 == 0 || p->preconditioner != NULL || l->depth > 0 ) {
           START_MASTER(threading)
-	  if ( p->print && g.print > 0 )//printed only at the top
+	  if ( p->print && g.print > 0 )
             for( i=0; i<n_vect; i++ )
 	      printf0("| vector %d, depth: %d, approx. rel. res. after  %-6d iterations: %e |\n", i, l->depth, iter, gamma_jp1[i]/norm_r0[i]);
           END_MASTER(threading)
@@ -570,11 +580,15 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   START_LOCKED_MASTER(threading)
   if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0; g.max_rel_res_norm = gamma_max ; VECTOR_LOOP(i, n_vect, jj, g.resids[i+jj] = gamma_jp1[i+jj]/norm_r0[i+jj]); }
   END_LOCKED_MASTER(threading)
+#ifdef COARSE_RES
+  if ( p->print || l->depth > 0 ) {
+#else
   if ( p->print ) {
+#endif
     //-- Compute relative residual norms for reporting
     //    (While g.resids & max_rel_res_norm could be set to their values at each level, this does not affect the report at the top level,
     //     as they are overwritten to the top-level values when completing the top-level loop)
-#ifdef FGMRES_RESTEST
+#if defined(FGMRES_RESTEST) && !defined(COARSE_RES)
     // compute the true residual
     apply_operator_PRECISION( &(p->w), &(p->x), p, l, threading );              // w = Dx
     vector_PRECISION_minus( &(p->r), &(p->b), &(p->w), start, end, l );         // r = b-Dx
@@ -585,23 +599,13 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
 #endif
     START_MASTER(threading)
     g.max_rel_res_norm = 0;
-    VECTOR_LOOP(i, n_vect, jj, if(g.max_rel_res_norm<beta[i+jj]/norm_r0[i+jj]) g.max_rel_res_norm = beta[i+jj]/norm_r0[i+jj];)//not really used anymore????
+    VECTOR_LOOP(i, n_vect, jj, if(g.max_rel_res_norm<beta[i+jj]/norm_r0[i+jj]) g.max_rel_res_norm = beta[i+jj]/norm_r0[i+jj];)//not really used anymore!!! eliminate
     VECTOR_LOOP(i, n_vect, jj, g.resids[i+jj] = beta[i]/norm_r0[i] );
 #if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
     if ( g.print > 0 ) printf0("+----------------------------------------------------------+\n\n");
 #endif
     END_MASTER(threading)
   }
-  //-- Report statistics at coarse levels: This part is FGMRES specific
-#ifdef COARSE_RES
-  if ( l->depth > 0 ) {
-    START_MASTER(threading)
-    char number[3]; sprintf( number, "%2d", 31+l->depth ); printf0("\033[1;%2sm|", number );
-    for (i=0; i<n_vect; i++ ) printf0(" - depth: %d, gmres iter: %2d, approx rel res: %le |", l->depth, iter, gamma_jp1[i]/norm_r0[i] );
-    printf0("\033[0m\n"); fflush(0);
-    END_MASTER(threading)
-  }
-#endif
 
   return iter;
 }
@@ -692,7 +696,11 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
 #endif
   int j, jj;
   PRECISION norm[nvecsf], norm2[nvecsf];
-  if ( l->depth == 0 || p->print > 0 ) {
+#ifdef COARSE_RES
+  if ( p->print || l->depth > 0 ) {
+#else
+  if ( p->print ) {
+#endif
     apply_operator_PRECISION( &(fab->B0), &(p->x), p, l, threading );              // compute w = D*x
     vector_PRECISION_minus( &(fab->B0), &(p->b), &(fab->B0), start, end, l );     // compute r = b - w = b - D*x
     global_norm_PRECISION( norm, &(fab->B0), p->v_start, p->v_end, l, threading ); // norm  = ||r||
@@ -753,7 +761,6 @@ int arnoldi_step_PRECISION( vector_PRECISION *V, vector_PRECISION *Z, vector_PRE
     MPI_Status stat;
     compute_core_start_end_cutom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var);
 
-    //V[j].num_vect_now = nvec;  V[j+1].num_vect_now = nvec; Z[j].num_vect_now = nvec; Z[j+1].num_vect_now = nvec;
     if ( j == 0 )
       vector_PRECISION_copy( &Z[0], &V[0], start, end, l );
     else
@@ -889,7 +896,6 @@ int arnoldi_step_PRECISION( vector_PRECISION *V, vector_PRECISION *Z, vector_PRE
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads????
   compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var);
 
-  //V[j].num_vect_now = nvec;  V[j+1].num_vect_now = nvec; Z[j].num_vect_now = nvec; // can move to fgmres????
   // apply preconditioner if provided
   if ( prec != NULL ) { 
     if ( p->kind == _LEFT ) {
@@ -897,7 +903,7 @@ int arnoldi_step_PRECISION( vector_PRECISION *V, vector_PRECISION *Z, vector_PRE
       prec( w, NULL, &Z[0], _NO_RES, l, threading );
     } else {
       if ( l->level == 0 ) { 
-        apply_operator_PRECISION( w, &Z[j], p, l, threading );
+        apply_operator_PRECISION( w, &Z[j], p, l, threading ); // here, the preconditioner should be applied to Z if non-flexible prec is defined
       } else {
         if ( g.mixed_precision == 2 && (g.method >= 1 && g.method <= 2 || g.method ==4) ) {
           prec( &Z[j], w, &V[j], _NO_RES, l, threading ); // obtains w = D * Z[j] from Schwarz
@@ -913,7 +919,6 @@ int arnoldi_step_PRECISION( vector_PRECISION *V, vector_PRECISION *Z, vector_PRE
   }
 
   // Compute the (j+1)^th column of Hessenberg matrix
-  //printf0("ar %d %d\n",nvec,nvecsf);
   complex_PRECISION tmp[(j+1)*nvec];
   process_multi_inner_product_PRECISION( j+1, tmp, V, w, p->v_start, p->v_end, l, threading );
   START_MASTER(threading)

@@ -32,7 +32,7 @@ void vcycle_PRECISION( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRE
     for ( int i=0; i<l->n_cy; i++ ) {
       //--- compute the residual
       if ( i==0 && res == _NO_RES ) {
-	// if the initial guess is 0, the resid on the next level is the restircted rhs
+	// if the initial guess is 0, the resid on the next level is the restircted rhs; r_{l+1} = R b_l
         restrict_PRECISION( &(l->next_level->p_PRECISION.b), eta, l, threading );
       } else {
 	// otherwise, compute b_(l+1) = R(b_l - D_l eta_l)
@@ -56,7 +56,6 @@ void vcycle_PRECISION( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRE
 	    solver_PRECISION( &(l->next_level->p_PRECISION), l->next_level, threading );//in this function, call vcycle as p_PRECISION use it as prec
 	  else {
 	    // dive one level down 
-	    //l->next_level->p_PRECISION.x.num_vect_now = nvec;
 	    vcycle_PRECISION( &(l->next_level->p_PRECISION.x), NULL, &(l->next_level->p_PRECISION.b), _NO_RES, l->next_level, threading );
 	  }
 	} else { 
@@ -74,7 +73,6 @@ void vcycle_PRECISION( vector_PRECISION *phi, vector_PRECISION *Dphi, vector_PRE
         END_MASTER(threading)
       }
       //--- interpolate the correction      
-      //l->next_level->p_PRECISION.x.num_vect_now = num_loop;
       if( i == 0 && res == _NO_RES )
         interpolate3_PRECISION( phi, &(l->next_level->p_PRECISION.x), l, threading );
       else

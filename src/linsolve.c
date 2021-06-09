@@ -123,7 +123,7 @@ void fgmres_MP_struct_alloc( int m, int n, const int vl_type, double tol, const 
     if ( prec_kind == _RIGHT ) {
       k = m+1;
     } else {
-      k = m;//m debug!!!originally 0
+      k = 0;//m;//m debug!!!originally 0
     }
     MALLOC( p->sp.Z, vector_float, k );
   }
@@ -155,7 +155,7 @@ void fgmres_MP_struct_free( gmres_MP_struct *p, level_struct *l ) {
     if ( p->sp.kind == _RIGHT ) {
       k = p->dp.restart_length+1;
     } else {
-      k = p->dp.restart_length;//m debug!!!originally 0
+      k = 0;//p->dp.restart_length;//m debug!!!originally 0
     }
   }
 
@@ -228,7 +228,6 @@ int fgmres_MP( gmres_MP_struct *p, level_struct *l, struct Thread *threading ) {
 
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-  //compute_core_start_end(p->dp.v_start, p->dp.v_end, &start, &end, l, threading);
   compute_core_start_end_custom(p->dp.v_start, p->dp.v_end, &start, &end, l, threading, l->num_lattice_site_var);
   
   // Outer loop in double precision
@@ -406,18 +405,14 @@ void arnoldi_step_MP( vector_float *V, vector_float *Z, vector_float *w,
 #endif
   double H_tot;
   complex_float H_float[n_vect];
-  // start and end indices for vector functions depending on thread
   int start;
   int end;
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
   compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var);
 
-  //V[j].num_vect_now = n_vect; V[j+1].num_vect_now = n_vect;//can move to fgmres????   
-  //  printf0("a mp %d %d %d %d\n",n_vect,V[j].num_vect_now,V[j+1].num_vect_now ,Z[j].num_vect_now);
   //--- apply D (and preconditioner) to V[j]
   if ( prec != NULL ) {
-    //    Z[j].num_vect_now = n_vect;
     if ( p->kind == _LEFT ) {
       apply_operator_float( &Z[0], &V[j], p, l, threading );
       prec( w, NULL, &Z[0], _NO_RES, l, threading );
@@ -476,9 +471,7 @@ void compute_solution_MP( vector_float *x, vector_float *V, complex_double *y,
   if ( g.n_flavours > 1 )
     n_vect *= g.n_flavours;
 #endif
-  //  printf0("sol mp %d\n",n_vect);
   complex_float y_float[n_vect];
-  // start and end indices for vector functions depending on thread
   int start;
   int end;
   // compute start and end indices for core
