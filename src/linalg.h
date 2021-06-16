@@ -16,10 +16,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * copied:11/30/2019
- * changed from sbacchio
- * chekced: 12/07/2019
- * 1st cleanup:12/18/2019
+ *
  */
 
 #ifndef LINALG_HEADER

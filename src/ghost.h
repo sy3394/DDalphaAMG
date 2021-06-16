@@ -16,18 +16,16 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * copied:11/30/2019
- * not changed from sbacchio
- * glanced over: 12/04/2019
+ *
  */
 
 #ifndef GHOST_HEADER
   #define GHOST_HEADER
 
-  void neighbor_define( level_struct *l );
   void predefine_rank( MPI_Comm comm );
   void cart_validate( MPI_Comm comm, level_struct *l );
   void cart_define( MPI_Comm comm, level_struct *l );
   void cart_free( level_struct *l );
+  void neighbor_define( level_struct *l );
 
 #endif 

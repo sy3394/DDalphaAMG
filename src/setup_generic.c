@@ -327,8 +327,16 @@ static void test_vector_PRECISION_update( int i, level_struct *l, struct Thread 
 
 static void set_kcycle_tol_PRECISION( PRECISION tol, level_struct *l ) {
   
-  if ( !l->idle )
+  if ( !l->idle ) {
     l->p_PRECISION.tol = tol;
+#ifdef HAVE_FABULOUS
+    if ( g.solver[l->depth] ) {
+      PRECISION tolerance[1] = { tol };
+      fabulous_PRECISION_struct *fab = &(l->p_PRECISION.fab);
+      fabulous_set_parameters( fab->mvp, fab->max_iter, tolerance, 1, fab->handle );
+    }
+#endif
+  }
   
   if ( l->level > 1 )
     set_kcycle_tol_PRECISION( tol, l->next_level );

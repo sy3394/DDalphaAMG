@@ -408,7 +408,7 @@ static void read_geometry_data( FILE *in, int ls ) {
     read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
     
     sprintf( inputstr, "d%d fabulous compute real residual:", i );
-    save_pt = &(g.real_residual[i]); g.real_residual[i] = 0;
+    save_pt = &(g.comp_residual[i]); g.comp_residual[i] = 0;
     read_parameter( &save_pt, inputstr, "%d", 1, in, _DEFAULT_SET );
 #endif
   }
@@ -741,7 +741,7 @@ static void allocate_for_global_struct_after_read_global_info( int ls ) {
   MALLOC( g.max_kept_direction, int, ls );
   MALLOC( g.k, int, ls );
   MALLOC( g.max_mvp, int, ls );
-  MALLOC( g.real_residual, int, ls );
+  MALLOC( g.comp_residual, int, ls );
 #endif
   for ( i=1; i<ls; i++ ) {
     g.global_lattice[i] = g.global_lattice[0] + i*4;

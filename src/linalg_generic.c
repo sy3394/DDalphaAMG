@@ -411,9 +411,9 @@ void gram_schmidt_on_aggregates_PRECISION( vector_PRECISION *phi, const int num_
       norm1 = 1/sqrt(norm1); norm2 = 1/sqrt(norm2);
       for ( i=0; i<aggregate_size; ) {
         for ( k=0; k<offset; k++, i++ )
-          phi_pt[(j*aggregate_size+i)*nvec_phi+k1] =  norm1 * creal_PRECISION(phi_pt[(j*aggregate_size+i)*nvec_phi+k1]) + I * norm1 * cimag_PRECISION(phi_pt[(j*aggregate_size+i)*nvec_phi+k1]);
+          phi_pt[(j*aggregate_size+i)*nvec_phi+k1] =  norm1 * ( creal_PRECISION(phi_pt[(j*aggregate_size+i)*nvec_phi+k1]) + I * cimag_PRECISION(phi_pt[(j*aggregate_size+i)*nvec_phi+k1]) );
         for ( k=0; k<offset; k++, i++ )
-          phi_pt[(j*aggregate_size+i)*nvec_phi+k1] =  norm2 * creal_PRECISION(phi_pt[(j*aggregate_size+i)*nvec_phi+k1]) + I * norm2 * cimag_PRECISION(phi_pt[(j*aggregate_size+i)*nvec_phi+k1]);
+          phi_pt[(j*aggregate_size+i)*nvec_phi+k1] =  norm2 * ( creal_PRECISION(phi_pt[(j*aggregate_size+i)*nvec_phi+k1]) + I * cimag_PRECISION(phi_pt[(j*aggregate_size+i)*nvec_phi+k1]) );
       }
     }
   }

@@ -323,6 +323,7 @@ void vector_PRECISION_saxpy( vector_PRECISION *z, vector_PRECISION *x, vector_PR
   if (thread == 0 && start != end )
     PROF_PRECISION_START( _LA8 );
 
+  // can avoid branch prediction if prepare a = sign*alpha!!!!!
   //int sgn = ( sign == 1 )? 1:-1;//we can shorten!!!!!!!!!
   if ( sign == 1)
     for( i=start; i<end; i++) 

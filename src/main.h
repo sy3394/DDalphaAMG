@@ -408,7 +408,7 @@
     int *ortho_iter;           // #iteration for Iterated Schemas (IMGS and ICGS); Must be positive integer >= 2
     int *max_kept_direction;   // max #kept direction per iteration
     int *max_mvp;              
-    int *real_residual;        // if 1, compute X and R at each iteration such that the user can access them in fabulous CallBack funciton
+    int *comp_residual;        // if 1, compute X and R at each iteration such that the user can access them in fabulous CallBack funciton
     int *k;                    // #deflating eigevecs at each level
     int n_defl_updates;        // #updates for deflation space
     int logger_user_data_size; // #slots for user data when calling fabulous_set_iteration_user_data()

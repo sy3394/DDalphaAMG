@@ -407,7 +407,6 @@ void arnoldi_step_MP( vector_float *V, vector_float *Z, vector_float *w,
   complex_float H_float[n_vect];
   int start;
   int end;
-  // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
   compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var);
 
@@ -474,7 +473,6 @@ void compute_solution_MP( vector_float *x, vector_float *V, complex_double *y,
   complex_float y_float[n_vect];
   int start;
   int end;
-  // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
   compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var );
 

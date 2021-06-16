@@ -42,7 +42,7 @@ void preconditioner( vector_double *phi, vector_double *Dphi, vector_double *eta
   } else { // if g.method>=4
     // TODO: Note for future developers
     // 1) needs to work both w/ & w/t even-odd prec.
-    //      As of now, tested only for even-odd prec. case though no idea why serial_to_oddeven is necessary
+    //      As of now, tested only for even-odd precision case, though no idea why serial_to_oddeven is necessary
     // 2) needs to work when g.method==4
     // 3) At present, g.mixed_precision==2 is incompatible with the choice of g.method==4,5
     if ( g.mixed_precision ) {

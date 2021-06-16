@@ -52,7 +52,7 @@ static void change_to_n_flavours( gmres_MP_struct *p, int nf ) {
     if ( p->sp.kind == _RIGHT ) {
       k = p->dp.restart_length+1;
     } else {
-      k = p->dp.restart_length;//m debug!!!originally 0
+      k = 0;
     }
   }
 

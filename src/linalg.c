@@ -16,10 +16,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * checked:11/30/2019: change #differing #vectors
- * changed from sbacchio
- * checked:12/03/2019
- * 1st cleanup: 12/18/2019
+ *
  */
 
 #include "main.h"

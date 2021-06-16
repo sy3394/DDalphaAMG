@@ -195,9 +195,6 @@ void DDalphaAMG_update_parameters( DDalphaAMG_parameters *mg_params, DDalphaAMG_
   
   t0 = MPI_Wtime();
   
-  g.coarse_time = 0;
-  g.iter_count = 0;
-  g.coarse_iter_count = 0;
   for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
   for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
   
@@ -412,11 +409,11 @@ void DDalphaAMG_update_parameters( DDalphaAMG_parameters *mg_params, DDalphaAMG_
 #else
   int update_fab = 0;
   for ( i=0; i<g.num_levels; i++ ) {
-    if ( mg_params->fab_orthoscheme[i] != g.f_orthoscheme[i] ||
-	 mg_params->fab_orthotype[i] != g.f_orthotype[i] ||
-	 mg_params->fab_ortho_iter[i] != g.ortho_iter[i] ||
-	 mg_params->fab_max_kept_direction[i] != g.max_kept_direction[i] ||
-	 mg_params->fab_num_deflating_eig[i] != g.k[i] )
+    if ( mg_params->fab_orthoscheme[i] != 0 ||
+	 mg_params->fab_orthotype[i] != 0 ||
+	 mg_params->fab_ortho_iter[i] != 2 ||
+	 mg_params->fab_max_kept_direction[i] != -1 ||
+	 mg_params->fab_num_deflating_eig[i] != 0 )
       update_fab ++;
   }
   if ( update_fab )
@@ -489,9 +486,6 @@ void DDalphaAMG_change_mu_sign( DDalphaAMG_status *mg_status ) {
   
   double t0, t1;
   t0 = MPI_Wtime();
-  g.coarse_time = 0;
-  g.iter_count = 0;
-  g.coarse_iter_count = 0;
   for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
   for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
   mg_status->success = 0;
@@ -651,9 +645,6 @@ void DDalphaAMG_setup( DDalphaAMG_status * mg_status ) {
   int i;
   double t0, t1;
   t0 = MPI_Wtime();
-  g.coarse_time = 0;
-  g.iter_count = 0;
-  g.coarse_iter_count = 0;
   for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
   for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
   mg_status->success = 0;
@@ -685,9 +676,6 @@ void DDalphaAMG_update_setup( int iterations, DDalphaAMG_status * mg_status ) {
   if(g.setup_flag) {
     double t0, t1;
     t0 = MPI_Wtime();
-    g.coarse_time = 0;
-    g.iter_count = 0;
-    g.coarse_iter_count = 0;
     for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
     for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
     mg_status->success = 0;
@@ -848,9 +836,6 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
 
   double t0, t1;
   t0 = MPI_Wtime();
-  //g.coarse_time = 0;
-  //g.iter_count = 0;
-  //g.coarse_iter_count = 0;
   for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
   for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
   mg_status->success = 0;

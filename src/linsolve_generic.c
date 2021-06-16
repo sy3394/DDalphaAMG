@@ -67,7 +67,7 @@ void fgmres_PRECISION_struct_alloc( int m, int n, const int vl_type, PRECISION t
 * void (*precond): Function pointer to the preconditioner                      
 * level_struct *l: level structure of the current level
 *
-* Output:
+* Oucoarsetput:
 * gmres_PRECISION_struct *p
 *   V: a orthonormalized Krylov basis (max size = m)
 *   Z:= D*V
@@ -338,7 +338,7 @@ int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   END_LOCKED_MASTER(threading)
 
 #ifdef HAVE_FABULOUS
-  if ( p->fab.handle != NULL && !(g.use_only_fgrmes_at_setup && g.in_setup) ) //need more generality if we are to use this as generic entry pt
+  if ( !g.solver[l->depth] && !(g.use_only_fgrmes_at_setup && g.in_setup) )
     iter = fabulous_PRECISION( p, threading );
   else
 #endif
@@ -347,11 +347,6 @@ int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   START_LOCKED_MASTER(threading)
   g.iter_counts[l->depth] += iter;
   END_LOCKED_MASTER(threading)
-  if ( l->level == 0 ) {
-    START_LOCKED_MASTER(threading)
-    g.coarse_iter_count += iter;
-    END_LOCKED_MASTER(threading)
-  }
 
   // Report the statistics
   if ( p->print ) {
@@ -382,8 +377,8 @@ int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
       printf0("solve time: %le seconds\n", g.total_time );
       g.vt.p_end->values[_SLV_TIME] += g.total_time/((double)g.vt.average_over);
       g.vt.p_end->values[_SLV_ITER] += iter/((double)g.vt.average_over);
-      g.vt.p_end->values[_CRS_ITER] += (((double)g.coarse_iter_count)/((double)iter))/((double)g.vt.average_over);
-      g.vt.p_end->values[_CRS_TIME] += g.coarse_time/((double)g.vt.average_over);
+      g.vt.p_end->values[_CRS_ITER] += (((double)g.iter_counts[g.num_levels-1])/((double)iter))/((double)g.vt.average_over);
+      g.vt.p_end->values[_CRS_TIME] += g.iter_times[1]/((double)g.vt.average_over);
       END_LOCKED_MASTER(threading)
     }
   }
@@ -435,7 +430,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   
   int nrhs = n_vect;  
   double H_tot, H_max;
-  PRECISION beta[n_vect], norm_r0[n_vect], gamma_jp1[n_vect], gamma_max, gamma0_real[n_vect], t0=0, t1=0;
+  PRECISION beta[n_vect], norm_r0[n_vect], gamma_jp1[n_vect], gamma_max, gamma0_real[n_vect], t0=0;
 
 #ifdef DEBUG
   if ( nrhs > n_vect )
@@ -578,7 +573,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   
   //-----------  Compute the statistics
   START_LOCKED_MASTER(threading)
-  if ( l->depth == 0 ) { t1 = MPI_Wtime(); g.iter_times[0] = t1-t0; g.max_rel_res_norm = gamma_max ; VECTOR_LOOP(i, n_vect, jj, g.resids[i+jj] = gamma_jp1[i+jj]/norm_r0[i+jj]); }
+  if ( l->depth == 0 ) { g.iter_times[0] = MPI_Wtime()-t0; g.max_rel_res_norm = gamma_max ; VECTOR_LOOP(i, n_vect, jj, g.resids[i+jj] = gamma_jp1[i+jj]/norm_r0[i+jj]); }
   END_LOCKED_MASTER(threading)
 #ifdef COARSE_RES
   if ( p->print || l->depth > 0 ) {

@@ -333,7 +333,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 	  printf0("|      fabulous max kept dir: %-2d                              |\n", g.max_kept_direction[i] );
 	  printf0("|      fabulous number of deflating eigenvectors for fabulous: %-2d                |\n", g.k[i] );
 	  printf0("|      max number of mat-vec products in fabulous solver: %-2d                |\n", g.max_mvp[i] );
-	  printf0("|      fabulous compute real residual: %-2d           |\n", g.real_residual[i] );
+	  printf0("|      fabulous compute real residual: %-2d           |\n", g.comp_residual[i] );
 #endif
 	}
         if ( i+1 < g.num_levels ) {
@@ -638,7 +638,7 @@ void method_finalize( level_struct *l ) {
   FREE( g.max_kept_direction, int, ls );
   FREE( g.k, int, ls );
   FREE( g.max_mvp, int, ls );
-  FREE( g.real_residual, int, ls) ;
+  FREE( g.comp_residual, int, ls) ;
 #endif
   cart_free( l );
   var_table_free( &(g.vt) );

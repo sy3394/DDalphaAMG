@@ -40,6 +40,8 @@ void fabulous_PRECISION_init( fabulous_PRECISION_struct *fab ) {
   fab->ldb = 0;
   fab->ldx = 0;
   fab->ldu = 0;
+  fab->max_iter = 0;
+  fab->mvp = 0;
   fab->dsize= 0;
   fab->U = NULL;
   fab->l = NULL;
@@ -54,14 +56,17 @@ void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_stru
    */
 
   fabulous_PRECISION_struct *fab = &(p->fab);
-  int dim = (g.odd_even&&l->level==0)?(l->num_inner_lattice_sites/2)*l->num_lattice_site_var:p->v_end, nrhs = p->num_vect;
   
-  fab->nrhs = num_loop;
-  fab->dim  = dim;
-  fab->ldb  = dim;
-  fab->ldx  = dim;
-  fab->l    = l;
+  int dim = (g.odd_even&&l->level==0)?(l->num_inner_lattice_sites/2)*l->num_lattice_site_var:p->v_end, nrhs = p->num_vect;
+  fab->nrhs     = num_loop;
+  fab->dim      = dim;
+  fab->ldb      = dim;
+  fab->ldx      = dim;
+  fab->mvp      = (nrhs*p->restart_length*p->num_restart < g.max_mvp[l->depth])? g.max_mvp[l->depth]:nrhs*p->restart_length*p->num_restart;
+  fab->max_iter = nrhs*p->restart_length;
+  fab->l        = l;
   fab->threading = threading;
+  
 #ifdef HAVE_TM1p1
   // In this case, fabulous is used only in the solver phase
   if ( g.epsbar != 0 || g.epsbar_ig5_odd_shift != 0 || g.epsbar_ig5_odd_shift != 0 )
@@ -97,17 +102,15 @@ void setup_fabulous_PRECISION( gmres_PRECISION_struct *p, int v_type, level_stru
   if ( g.solver[l->depth] && l->level > 0 )
     fabulous_set_rightprecond(&fabulous_rightprecond_PRECISION, fab->handle);
   if ( p->print && g.print > 0 ) {
-    if ( g.solver[l->depth] != _GCR )
-      g.real_residual[l->depth] = 1;
+    if ( g.solver[l->depth] != _GCR ) g.comp_residual[l->depth] = 1;
     fabulous_set_callback(&fabulous_print_PRECISION, fab->handle);
   }
   
   // Setup parameters:
-  fabulous_set_ortho_process(g.f_orthoscheme[l->depth], g.f_orthotype[l->depth], g.ortho_iter[l->depth], fab->handle);
-  int mvp = (nrhs*p->restart_length*p->num_restart < g.max_mvp[l->depth])? g.max_mvp[l->depth]:nrhs*p->restart_length*p->num_restart;
   PRECISION tolerance[1] = { p->tol };
-  fabulous_set_parameters( mvp, nrhs*p->restart_length, tolerance, 1, fab->handle );
-  fabulous_set_advanced_parameters( g.max_kept_direction[l->depth], g.real_residual[l->depth], g.logger_user_data_size, g.quiet, fab->handle );
+  fabulous_set_ortho_process(g.f_orthoscheme[l->depth], g.f_orthotype[l->depth], g.ortho_iter[l->depth], fab->handle);
+  fabulous_set_parameters( fab->mvp, fab->max_iter, tolerance, 1, fab->handle );
+  fabulous_set_advanced_parameters( g.max_kept_direction[l->depth], g.comp_residual[l->depth], g.logger_user_data_size, g.quiet, fab->handle );
 
 }
 
