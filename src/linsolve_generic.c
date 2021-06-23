@@ -338,7 +338,7 @@ int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
   END_LOCKED_MASTER(threading)
 
 #ifdef HAVE_FABULOUS
-  if ( !g.solver[l->depth] && !(g.use_only_fgrmes_at_setup && g.in_setup) )
+  if ( g.solver[l->depth] && !(g.use_only_fgrmes_at_setup && g.in_setup) )
     iter = fabulous_PRECISION( p, threading );
   else
 #endif
@@ -623,8 +623,8 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   if ( nvec != p->x.num_vect_now || nf*num_loop != nvec || fab->B.num_vect_now != nvec || fab->B0.num_vect_now != nvec || fab->nrhs > fab->B.num_vect_now )
     error0("fabulous_PRECISION: assumptions are not met %d %d %d %d %d %d\n",
 	   nvec, p->x.num_vect_now, nf*num_loop, fab->B.num_vect_now, fab->B0.num_vect_now, fab->nrhs );
-#endif
   printf0("begin PRECISION fab: solver %d depth %d: %d=%d? %d, sizes %d %d %d even sts %d\n", g.solver[l->depth], l->depth, fab->nrhs,fab->B.num_vect,p->b.num_vect_now, p->b.size, fab->B.size, fab->dim, 0);fflush(stdout);
+#endif
 
   START_LOCKED_MASTER(threading)
   if ( l->depth == 0 ) t0 = MPI_Wtime();
@@ -671,7 +671,7 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   vector_PRECISION_change_layout( &(fab->X), &(fab->X), _NVEC_INNER, no_threading );
   END_LOCKED_MASTER(threading)
   vector_PRECISION_copy( &(p->x), &(fab->X), start, end, l );
-  
+
 #ifdef DEBUG
   printf0("fab%d (guess %d, iter=%d),  nrhs:%d dim:%d (ivs %d vs psize %d, ldx %d ldb %d; B(%d %d) X(%d %d) px %d pb %d; (v_start,v_end)=(%d %d)\n",l->depth,p->initial_guess_zero,iter,fab->nrhs,fab->dim, l->inner_vector_size,p->b.size, fab->ldx, fab->ldb, fab->B.num_vect_now, fab->B.num_vect, fab->X.num_vect_now, fab->X.num_vect, p->x.num_vect_now,p->b.num_vect_now,p->v_start,p->v_end);  
 

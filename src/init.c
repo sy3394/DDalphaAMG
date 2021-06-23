@@ -72,7 +72,7 @@ void g_init(){
   g.in_setup = 0;
   g.num_rhs_vect = 0;
   g.num_vect_now=0;
-  g.use_only_fgrmes_at_setup = 1;
+  g.use_only_fgrmes_at_setup = 0;
     
 }
 
@@ -342,7 +342,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
           printf0("|              setup iter: %-3d                             |\n", g.setup_iter[i] );
           printf0("|            test vectors: %-3d                             |\n", g.num_eig_vect[i] );
         } else {
-          printf0("|      coarse grid solver: %-30s  |\n", g.odd_even?"odd even GMRES":"GMRES" );
+          printf0("|      coarse grid solver: %-30s  |\n", g.odd_even?"odd even preconditioned":"no odd-even preconditioning" );
           printf0("|              iterations: %-6d                          |\n", g.max_iter[i] );
           printf0("|                  cycles: %-6d                          |\n", g.max_restart[i] );
           printf0("|               tolerance: %-5.2le                           |\n", g.tol[i] );

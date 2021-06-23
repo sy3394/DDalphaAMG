@@ -330,7 +330,7 @@ static void set_kcycle_tol_PRECISION( PRECISION tol, level_struct *l ) {
   if ( !l->idle ) {
     l->p_PRECISION.tol = tol;
 #ifdef HAVE_FABULOUS
-    if ( g.solver[l->depth] ) {
+    if ( g.solver[l->depth] && !g.use_only_fgrmes_at_setup && l->depth > 0 ) {
       PRECISION tolerance[1] = { tol };
       fabulous_PRECISION_struct *fab = &(l->p_PRECISION.fab);
       fabulous_set_parameters( fab->mvp, fab->max_iter, tolerance, 1, fab->handle );
