@@ -144,7 +144,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
 
   START_LOCKED_MASTER(threading)
   g.in_setup = 1;
-  if ( g.vt.evaluation ) {//?????
+  if ( g.vt.evaluation ) { // if evaluation of the performance is to be done, this field needs to be set
     l->level = g.num_levels-1;
   }
   

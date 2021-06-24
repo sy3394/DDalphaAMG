@@ -240,7 +240,7 @@
   enum { _ADD, _COPY };
   enum { _NULL, _ORDINARY, _SCHWARZ, _ODDEVEN, _INNER, _EVEN_INNER };
   enum { _RES, _NO_RES };// _RES: Use residual r as the right-side; _NO_RES: Use b as the right-hand side, which occurs when x=0 as r=b-Ax_0 = b.  
-  enum { _STANDARD, _LIME }; //formats
+  enum { _STANDARD, _LIME };
   enum { _READ, _WRITE };
   enum { _NO_SHIFT };
   enum { _BTWN_ORTH = 20 };
@@ -253,7 +253,7 @@
 	 _SM1, _SM2, _SM3, _SM4, _SMALL1, _SMALL2, _RS, _RL, _FIP, _FALLR, _FMVP, _FAB_COPY, _NUM_PROF }; // _NUM_PROF has always to be the last constant!
   enum { _VTS = 20 };
   enum { _TRCKD_VAL, _STP_TIME, _SLV_ITER, _SLV_TIME, _CRS_ITER, _CRS_TIME, _SLV_ERR, _CGNR_ERR, _NUM_OPTB };
-  enum { _NVEC_OUTER, _NVEC_INNER }; //vector layout: spin first; vector first
+  enum { _NVEC_OUTER, _NVEC_INNER }; // vector layout: _NVEC_OUTER => spin_color->site->vectors; _NVEC_INNER => vectors->spin_color->site
   enum { _FGMRES, _BGMRES, _GCR, _GCRO, _IB, _DR, _IBDR, _QR, _QRIB, _QRDR, _QRIBDR , _NUM_SOLVER};
 
   // structures
@@ -273,13 +273,15 @@
   
   typedef struct plot_table_line {
     
+    // store values on a line in a table for report for evaluation of the performance
     double values[_NUM_OPTB];
     struct plot_table_line *next;
     
   } plot_table_line;
   
   typedef struct var_table_entry { 
-    
+
+    // store a single parameter info from input
     void *pt;
     char name[STRINGLENGTH];
     char datatype[20];
@@ -287,11 +289,11 @@
     
   } var_table_entry;
   
-  typedef struct var_table {// top level struct
+  typedef struct var_table {
     
     int evaluation, multiplicative, shift_update, re_setup,
         track_error, track_cgn_error, average_over;
-    char scan_var[STRINGLENGTH];
+    char scan_var[STRINGLENGTH]; // the name of the input parameter to scan through its value
     double start_val, end_val, step_size, *output_table[6];
     var_table_entry *entry, *iterator; // iterator is temp field to iterate over chain of var_table_entry's; entry pts to the actual var_table_entry w/ data
     plot_table_line *p, *p_end;

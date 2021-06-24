@@ -621,8 +621,8 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   nf = g.n_flavours;
 #endif
   if ( nvec != p->x.num_vect_now || nf*num_loop != nvec || fab->B.num_vect_now != nvec || fab->B0.num_vect_now != nvec || fab->nrhs > fab->B.num_vect_now )
-    error0("fabulous_PRECISION: assumptions are not met %d %d %d %d %d %d\n",
-	   nvec, p->x.num_vect_now, nf*num_loop, fab->B.num_vect_now, fab->B0.num_vect_now, fab->nrhs );
+    error0("fabulous_PRECISION: assumptions are not met %d %d %d %d %d %d at depth = %d\n",
+	   nvec, p->x.num_vect_now, nf*num_loop, fab->B.num_vect_now, fab->B0.num_vect_now, fab->nrhs, l->depth );
   printf0("begin PRECISION fab: solver %d depth %d: %d=%d? %d, sizes %d %d %d even sts %d\n", g.solver[l->depth], l->depth, fab->nrhs,fab->B.num_vect,p->b.num_vect_now, p->b.size, fab->B.size, fab->dim, 0);fflush(stdout);
 #endif
 

@@ -182,6 +182,21 @@ void rhs_define( vector_double *rhs, level_struct *l, struct Thread *threading )
     if ( g.print > 0 ) printf0("rhs = random\n");
     END_MASTER(threading)
   } else if ( g.rhs == 3 ) {
+    for ( int n=0; n<rhs->num_vect; n++ ) {
+      int i, x, y, z, t, desired_rank, *ll = l->local_lattice, *gl = g.global_lattice[0], size = l->inner_vector_size, idf = l->num_lattice_site_var;
+      int s = n/idf, sc = n%idf;
+      t = s%gl[T]; z = (s/gl[T])%gl[Z]; y = (s/gl[T]/gl[Z])%gl[Y]; x = (s/gl[T]/gl[Z]/gl[Y])%gl[X];
+      desired_rank = process_index( t, z, y, x, ll );
+      if ( g.my_rank == desired_rank ) {
+        t = t%ll[T]; z = z%ll[Z]; y = y%ll[Y]; x = x%ll[X];
+        i = lex_index(t, z, y, x, ll );
+        rhs->vector_buffer[(i*idf+sc)*rhs->num_vect+n] = 1.0;
+      }
+    }
+    START_MASTER(threading)
+    if ( g.print > 0 ) printf0("rhs = point source\n");
+    END_MASTER(threading)
+  } else if ( g.rhs == 4 ) {
     vector_double_define( rhs, 0, start, end, l );
     if ( g.print > 0 ) printf0("rhs = 0's\n");
   } else {
@@ -192,11 +207,11 @@ void rhs_define( vector_double *rhs, level_struct *l, struct Thread *threading )
 
 static void solve( vector_double *solution, vector_double *source, level_struct *l, struct Thread *threading ) {
   
-  if ( g.vt.evaluation ) {//?????
+  if ( g.vt.evaluation ) {
     vector_double rhs = g.mixed_precision==2?g.p_MP.dp.b:g.p.b;
-    // this would yield different results if we threaded it, so we don't
+    // this would yield different results if we threaded it, so we don't (rand() is not thread-safe) 
     START_LOCKED_MASTER(threading)
-    vector_double_define_random( &rhs, 0, l->inner_vector_size, l ); rhs.num_vect_now = g.num_rhs_vect;
+    vector_double_define_random( &rhs, 0, l->inner_vector_size, l );
     scan_var( &(g.vt), l );
     END_LOCKED_MASTER(threading)
   } else {

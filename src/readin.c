@@ -568,7 +568,7 @@ static void validate_parameters( int ls, level_struct *l ) {
     }
   }
 
-  ASSERT( ASCENDING( 0, g.rhs, 2 ) );
+  ASSERT( ASCENDING( 0, g.rhs, 3 ) );
   ASSERT( ASCENDING( -1, g.method, 5 ) );
   if ( g.method < 1 ) {
     warning0("Multigrid is not supported.\n         Switching to the chosen method with no AMG (g.interpolation=0).\n");
@@ -629,7 +629,7 @@ static void validate_parameters( int ls, level_struct *l ) {
   }
 #endif
 
-  ASSERT( IMPLIES( g.vt.evaluation, g.rhs <= 2 ) );
+  ASSERT( IMPLIES( g.vt.evaluation, g.rhs <= 3 ) );
 
   ASSERT( DIVIDES( num_loop, g.num_rhs_vect ) );
   for ( i=0; i<g.num_levels-1; i++ )
@@ -667,7 +667,7 @@ static void validate_parameters( int ls, level_struct *l ) {
   }
   /* TODO: perhaps support this
   for ( mu=0; mu<4; mu++ )
-    ASSERT( IMPLIES( g.rhs == 3, ASCENDING( 0, g.propagator_coords[mu], l->global_lattice[mu]-1 ) ) );
+    ASSERT( IMPLIES( g.rhs == 5, ASCENDING( 0, g.propagator_coords[mu], l->global_lattice[mu]-1 ) ) );
   */
   
   ASSERT( IMPLIES( g.method > 0 && g.interpolation > 0, g.max_iter[g.num_levels-1] > 0 ) );
@@ -937,7 +937,7 @@ void parameter_update( level_struct *l ) {
   if(l->depth>0)
     l->num_parent_eig_vect = g.num_eig_vect[l->depth-1];
   else
-    l->num_parent_eig_vect = 6;
+    l->num_parent_eig_vect = 6; // (inner d.o.f. = 12)/2
   
   if ( l->level > 0 && l->next_level != NULL ) 
     parameter_update( l->next_level );

@@ -32,12 +32,13 @@ static void testvector_analysis_PRECISION( vector_PRECISION *test_vectors, level
 static void read_tv_from_file_PRECISION( level_struct *l, struct Thread *threading );
 
 
-void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct Thread *threading ) {//why vector_double?????
+void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct Thread *threading ) {
   /**********************************
    * The initial step of setting up the interpolation operator out of test vectors using only smoothing at the level = l->level  
    * Set up l->is_PRECISION.operator (interpolation_PRECISION_struct) in level_struct *l
    * The interpolation/restriction operators constructed out of test vectors on the level=l->level can be used to restrict vectors 
    *  on the l->level and interpolate vectors on the l->level->next_level
+   * When V != NULL, test vectors are provided from a file, whose precision is assumed to be double
    **********************************/
   
   int k, i, j, jj, n = l->num_eig_vect, idof = l->num_lattice_site_var;
@@ -103,8 +104,8 @@ void interpolation_PRECISION_define( vector_double *V, level_struct *l, struct T
 #endif
     
   } else if ( g.interpolation < 3 ){
-      // if the initial test vectors are provided, reorder them to make the interpolation op from them.
-      // test vectors are read from a file later when g.interpolation == 3
+    // if the initial test vectors are provided, reorder them to make the interpolation op from them.
+    // test vectors are read from a file later when g.interpolation == 3
     trans_PRECISION( &(l->is_PRECISION.test_vector_vec), V, l->s_PRECISION.op.translation_table, l, threading );
   }
 
@@ -282,7 +283,7 @@ void re_setup_PRECISION( level_struct *l, struct Thread *threading ) {
                                threading->start_index[l->depth], threading->end_index[l->depth], l );
       
       gram_schmidt_on_aggregates_PRECISION( &(l->is_PRECISION.interpolation_vec), l->num_eig_vect, l, threading );
-      if ( l->depth > 0 )
+      if ( l->depth > -1 )
         gram_schmidt_on_aggregates_PRECISION( &(l->is_PRECISION.interpolation_vec), l->num_eig_vect, l, threading );
       define_interpolation_PRECISION_operator( &(l->is_PRECISION.interpolation_vec), l, threading );
       START_LOCKED_MASTER(threading)
@@ -416,7 +417,7 @@ static void inv_iter_2lvl_extension_setup_PRECISION( int setup_iter, level_struc
       vector_PRECISION_copy( &(l->is_PRECISION.interpolation_vec), &(l->is_PRECISION.test_vector_vec),
 			     threading->start_index[l->depth], threading->end_index[l->depth], l );
       gram_schmidt_on_aggregates_PRECISION( &(l->is_PRECISION.interpolation_vec), l->num_eig_vect, l, threading );
-      if ( l->depth > 0 )
+      if ( l->depth > -1 )
         gram_schmidt_on_aggregates_PRECISION( &(l->is_PRECISION.interpolation_vec), l->num_eig_vect, l, threading );
       define_interpolation_PRECISION_operator( &(l->is_PRECISION.interpolation_vec), l, threading );
 

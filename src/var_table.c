@@ -16,10 +16,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * checked:11/30/2019
- * not changed from sbacchio
- * glanced over: 12/05/2019
- * glanced over:12/18/2019
+ *
  */
 
 #include "main.h"
@@ -35,12 +32,14 @@ void var_table_init( var_table *t ) {
 // append an entry to the end of the chain of the entries in t
 void var_table_insert( var_table *t, var_table_entry e ) {
 
-  if ( t->entry == NULL ) { // if e is the first one in the chain
+  if ( t->entry == NULL ) {
+    // if e is the first one in the chain
     MALLOC( t->entry, var_table_entry, 1 );
     *(t->entry) = e;
     t->entry->next = NULL;
     
-  } else { // if not, go down the chain using iterator for temp storage to find the last one.
+  } else {
+    // if not, go down the chain using iterator for temp storage to find the last one.
     t->iterator = t->entry;
     while ( t->iterator->next != NULL )
       t->iterator = t->iterator->next;
@@ -67,9 +66,15 @@ void var_table_free( var_table *t ) {
   }
 }
 
-
+// scan through the values of the specified parameter
+// Assume: the parameter is a real number
 void scan_var( var_table *t, level_struct *l ) {
-  
+
+  int nvec = num_loop;
+#ifdef HAVE_TM1p1
+  nvec *= g.n_flavours/g.num_indep_flav;
+#endif
+  // loop over entries (metadata for read parameters) and find the entry for a scanned parameter
   t->iterator = t->entry;
   while( t->iterator != NULL  ) {
     if ( strcmp( t->iterator->name, t->scan_var ) != 0 )
@@ -77,29 +82,33 @@ void scan_var( var_table *t, level_struct *l ) {
     else
       break;
   }
-  
+
+  // if the entry not found, error; otherwise scan through the values of the parameter
   if ( t->iterator == NULL ) {
     error0("unable to scan variable \"%s\"\n", t->scan_var );
   } else {
     if ( strcmp( t->iterator->datatype,"int" ) == 0 )
-      SCAN_VAR( t->iterator->pt, int, t->start_val, t->end_val, t->step_size, t->multiplicative, t->iterator->name, l )//!!!!!!!!
+      SCAN_VAR( t->iterator->pt, int, t->start_val, t->end_val, t->step_size, t->multiplicative, t->iterator->name, nvec, l );
     else
-      SCAN_VAR( t->iterator->pt, double, t->start_val, t->end_val, t->step_size, t->multiplicative, t->iterator->name, l )//!!!!!!!1
+      SCAN_VAR( t->iterator->pt, double, t->start_val, t->end_val, t->step_size, t->multiplicative, t->iterator->name, nvec, l );
   }
   
   plot_table( t );
 }
 
-
+// append table_line for report at the end of the chain
 void new_plot_table_line( var_table *t ) {
+
   
   if ( t->p == NULL ) {
+    // if the chain is empty, create the first line entry  and initialize the columns
     MALLOC( t->p, plot_table_line, 1 );
     t->p_end = t->p;
     for ( int i=0; i<_NUM_OPTB; i++ )
       t->p->values[i] = 0.0;
     t->p->next = NULL;
   } else {
+    // if not, grab the last element and append the new line entry next to this one
     ASSERT( t->p_end->next == NULL );
     MALLOC( t->p_end->next, plot_table_line, 1 );
     t->p_end = t->p_end->next;
