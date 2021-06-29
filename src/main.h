@@ -412,6 +412,7 @@
     int *max_mvp;              
     int *comp_residual;        // if 1, compute X and R at each iteration such that the user can access them in fabulous CallBack funciton
     int *k;                    // #deflating eigevecs at each level
+    int *n_defl_updated;       // counter for the number of updates of deflation space during the solver phase
     int n_defl_updates;        // #updates for deflation space
     int logger_user_data_size; // #slots for user data when calling fabulous_set_iteration_user_data()
     int quiet;                 // if 1, no output to stdout when running

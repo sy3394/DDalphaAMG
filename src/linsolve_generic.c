@@ -623,7 +623,7 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   if ( nvec != p->x.num_vect_now || nf*num_loop != nvec || fab->B.num_vect_now != nvec || fab->B0.num_vect_now != nvec || fab->nrhs > fab->B.num_vect_now )
     error0("fabulous_PRECISION: assumptions are not met %d %d %d %d %d %d at depth = %d\n",
 	   nvec, p->x.num_vect_now, nf*num_loop, fab->B.num_vect_now, fab->B0.num_vect_now, fab->nrhs, l->depth );
-  printf0("begin PRECISION fab: solver %d depth %d: %d=%d? %d, sizes %d %d %d even sts %d\n", g.solver[l->depth], l->depth, fab->nrhs,fab->B.num_vect,p->b.num_vect_now, p->b.size, fab->B.size, fab->dim, 0);fflush(stdout);
+  printf0("begin PRECISION fab: solver %d depth %d: %d=%d? %d, sizes %d %d %d: update=%s\n", g.solver[l->depth], l->depth, fab->nrhs,fab->B.num_vect,p->b.num_vect_now, p->b.size, fab->B.size, fab->dim, g.iter_counts[l->depth-1]>g.n_defl_updates?"false":"true");fflush(stdout);
 #endif
 
   START_LOCKED_MASTER(threading)
@@ -647,12 +647,15 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
 #ifdef FAB_OPENMP
   END_LOCKED_MASTER(threading)
 #endif
+  if ( g.solver[l->depth] == _GCRO && fab->U != NULL ) g.n_defl_updated[l->depth]++;
+  
   void *X = fab->X.vector_buffer, *B = fab->B.vector_buffer;
   switch ( g.solver[l->depth] ) {
   case _GCR:    iter = fabulous_solve_GCR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
     //case _GCRO:   iter = fabulous_solve_GCRO( fab->nrhs, B, fab->ldb, X, fab->ldx, (void **)&(fab->U), &(fab->ldu), fab->k, fab->eigvals, fab->handle ); break;
   case _GCRO:   iter = fabulous_solve_GCRO( fab->nrhs, B, fab->ldb, X, fab->ldx,
-					    (void **)&(fab->U), &(fab->ldu), &(fab->dsize), fab->k, fab->eigvals, g.iter_counts[l->depth]>g.n_defl_updates, fab->handle ); break;
+					    (void **)&(fab->U), &(fab->ldu), &(fab->dsize), fab->k, fab->eigvals, (1-g.in_setup)*g.n_defl_updated[l->depth]/g.n_defl_updates,
+					    fab->handle ); break;
   case _IB:     iter = fabulous_solve_IB( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
   case _DR:     iter = fabulous_solve_DR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
   case _IBDR:   iter = fabulous_solve_IBDR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
@@ -673,10 +676,11 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   vector_PRECISION_copy( &(p->x), &(fab->X), start, end, l );
 
 #ifdef DEBUG
+  if ( g.solver[l->depth] == _GCRO )
+    printf0("fab: eigvec size= %d at %p (%d many; update = %s)\n",fab->ldu, fab->U, fab->dsize, (1-g.in_setup)*g.n_defl_updated[l->depth]/g.n_defl_updates?"false":"true");
+
   printf0("fab%d (guess %d, iter=%d),  nrhs:%d dim:%d (ivs %d vs psize %d, ldx %d ldb %d; B(%d %d) X(%d %d) px %d pb %d; (v_start,v_end)=(%d %d)\n",l->depth,p->initial_guess_zero,iter,fab->nrhs,fab->dim, l->inner_vector_size,p->b.size, fab->ldx, fab->ldb, fab->B.num_vect_now, fab->B.num_vect, fab->X.num_vect_now, fab->X.num_vect, p->x.num_vect_now,p->b.num_vect_now,p->v_start,p->v_end);  
 
-  if ( g.solver[l->depth] == _GCRO )
-    printf0("fab: eigvec size= %d at %p (%d many)\n",fab->ldu, fab->U, fab->dsize);
 
   FILE *fp;
   fp = fopen("fabConvHist","w");

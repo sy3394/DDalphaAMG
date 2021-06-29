@@ -568,7 +568,7 @@ static void validate_parameters( int ls, level_struct *l ) {
     }
   }
 
-  ASSERT( ASCENDING( 0, g.rhs, 3 ) );
+  ASSERT( ASCENDING( 0, g.rhs, 4 ) );
   ASSERT( ASCENDING( -1, g.method, 5 ) );
   if ( g.method < 1 ) {
     warning0("Multigrid is not supported.\n         Switching to the chosen method with no AMG (g.interpolation=0).\n");
@@ -618,9 +618,15 @@ static void validate_parameters( int ls, level_struct *l ) {
       if ( g.epsbar == 0 && g.epsbar_ig5_odd_shift == 0 && g.epsbar_ig5_odd_shift == 0 )
 	nvec *= 2;
 #endif
-      if ( g.solver[i] == _GCRO && g.k[i] > 2*g.max_iter[i]-nvec ) {
-	warning0("Deflation space size should be smaller than %d.\n         Setting it to %d.\n", 2*g.max_iter[i]-nvec, 2*g.max_iter[i]-nvec);
-	g.k[i] = 2*g.max_iter[i]-nvec;
+      if ( g.solver[i] == _GCRO ) {
+	if ( g.k[i] > (g.max_iter[i]-1)*nvec ) {
+	  warning0("Deflation space size should be smaller than %d.\n         Setting it to %d.\n", (g.max_iter[i]-1)*nvec, (g.max_iter[i]-1)*nvec);
+	  g.k[i] = (g.max_iter[i]-1)*nvec;
+	}
+	if ( g.n_defl_updates < 1 ) {
+	  warning0("The number of deflation space updated should be greater than 0.\n         Setting it to 1.\n");
+	  g.n_defl_updates = 1;
+	}
       }
     }
   } else if ( solver != 0 ) {
@@ -740,6 +746,7 @@ static void allocate_for_global_struct_after_read_global_info( int ls ) {
   MALLOC( g.ortho_iter, int, ls );
   MALLOC( g.max_kept_direction, int, ls );
   MALLOC( g.k, int, ls );
+  MALLOC( g.n_defl_updated, int, ls );
   MALLOC( g.max_mvp, int, ls );
   MALLOC( g.comp_residual, int, ls );
 #endif

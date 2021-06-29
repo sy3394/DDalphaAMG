@@ -81,7 +81,7 @@ void prof_PRECISION_init( level_struct *l ) {
     sprintf( l->prof_PRECISION.name[_SMALL2], "Hessenberg - bkwd subst, PRECISION" );
     
     sprintf( l->prof_PRECISION.name[_FIP], "fabulous - block inner prod., PRECISION" );
-    sprintf( l->prof_PRECISION.name[_FIP], "fabulous - allreduces, PRECISION" );
+    sprintf( l->prof_PRECISION.name[_FALLR], "fabulous - allreduces, PRECISION" );
     sprintf( l->prof_PRECISION.name[_FMVP], "fabulous - block mvp, PRECISION" );
     sprintf( l->prof_PRECISION.name[_FAB_COPY], "fabulous - copy, PRECISION" );
     sprintf( l->prof_PRECISION.name[_RL], "change layout, PRECISION" );

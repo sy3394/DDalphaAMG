@@ -637,6 +637,7 @@ void method_finalize( level_struct *l ) {
   FREE( g.ortho_iter, int, ls );
   FREE( g.max_kept_direction, int, ls );
   FREE( g.k, int, ls );
+  FREE( g.n_defl_updated, int, ls );
   FREE( g.max_mvp, int, ls );
   FREE( g.comp_residual, int, ls) ;
 #endif

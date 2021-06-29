@@ -83,7 +83,7 @@
 
 #ifdef HAVE_FABULOUS
   typedef struct {
-    // max k-value = (max def space size) = (Max Krylov space size) x 2 - nrhs (<- Max Krylov space size = nrhs*iter_before_restart)
+    // max k-value = (max def space size) = (Max Krylov space size - 1) * nrhs (<- Max Krylov space size = nrhs*iter_before_restart)
     int nrhs, dim, ldb, ldx, ldu, k, dsize, max_iter, mvp;
     vector_PRECISION B, X, B0, X0, C0;
     void *eigvals, *U;  

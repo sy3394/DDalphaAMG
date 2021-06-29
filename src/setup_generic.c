@@ -283,8 +283,8 @@ void re_setup_PRECISION( level_struct *l, struct Thread *threading ) {
                                threading->start_index[l->depth], threading->end_index[l->depth], l );
       
       gram_schmidt_on_aggregates_PRECISION( &(l->is_PRECISION.interpolation_vec), l->num_eig_vect, l, threading );
-      if ( l->depth > -1 )
-        gram_schmidt_on_aggregates_PRECISION( &(l->is_PRECISION.interpolation_vec), l->num_eig_vect, l, threading );
+      //if ( l->depth > -1 )
+      gram_schmidt_on_aggregates_PRECISION( &(l->is_PRECISION.interpolation_vec), l->num_eig_vect, l, threading );
       define_interpolation_PRECISION_operator( &(l->is_PRECISION.interpolation_vec), l, threading );
       START_LOCKED_MASTER(threading)
       coarse_operator_PRECISION_setup( &(l->is_PRECISION.interpolation_vec), l );
@@ -301,6 +301,16 @@ void re_setup_PRECISION( level_struct *l, struct Thread *threading ) {
       if ( !l->next_level->idle && l->next_level->level == 0 && g.odd_even ) {
         coarse_oddeven_setup_PRECISION( &(l->next_level->s_PRECISION.op), _NO_REORDERING, l->next_level, threading );
       }
+#ifdef HAVE_FABULOUS
+      if ( g.solver[l->depth+1] == _GCRO ) {
+	/* P_l updated => D_(l+1) updated => its deflation space needs to be updated */
+	if ( l->next_level->p_PRECISION.fab.U  != NULL ) free(l->next_level->p_PRECISION.fab.U);
+	l->next_level->p_PRECISION.fab.U       = NULL;
+	l->next_level->p_PRECISION.fab.ldu     = 0;
+	l->next_level->p_PRECISION.fab.dsize   = 0;
+	for ( int i=0; i<l->next_level->p_PRECISION.fab.k; i++ ) ((complex_PRECISION *) l->next_level->p_PRECISION.fab.eigvals)[i] = 0;
+      }
+#endif
       re_setup_PRECISION( l->next_level, threading );
     }
   }  
@@ -417,8 +427,8 @@ static void inv_iter_2lvl_extension_setup_PRECISION( int setup_iter, level_struc
       vector_PRECISION_copy( &(l->is_PRECISION.interpolation_vec), &(l->is_PRECISION.test_vector_vec),
 			     threading->start_index[l->depth], threading->end_index[l->depth], l );
       gram_schmidt_on_aggregates_PRECISION( &(l->is_PRECISION.interpolation_vec), l->num_eig_vect, l, threading );
-      if ( l->depth > -1 )
-        gram_schmidt_on_aggregates_PRECISION( &(l->is_PRECISION.interpolation_vec), l->num_eig_vect, l, threading );
+      //if ( l->depth > -1 )
+      gram_schmidt_on_aggregates_PRECISION( &(l->is_PRECISION.interpolation_vec), l->num_eig_vect, l, threading );
       define_interpolation_PRECISION_operator( &(l->is_PRECISION.interpolation_vec), l, threading );
 
       //--- update the coarse op
@@ -485,7 +495,7 @@ static void inv_iter_inv_fcycle_PRECISION( int setup_iter, level_struct *l, stru
 	// apply K-cycle
 	vcycle_PRECISION( &(l->p_PRECISION.x), NULL, &buf, _NO_RES, l, threading );
 	test_vector_PRECISION_update( i, l, threading );
-
+	
 	pc += l->post_smooth_iter*num_loop;
 #ifdef DEBUG
 	START_MASTER(threading)

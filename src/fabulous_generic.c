@@ -204,16 +204,16 @@ int64_t mvpf_PRECISION(  void *user_env, int N,
 
   // may need to write a new dirac op function for column major order!!!!
   START_LOCKED_MASTER(threading)
-  vector_PRECISION_change_layout( &X0, &X0, _NVEC_INNER, no_threading );
-  vector_PRECISION_change_layout( &B0, &B0, _NVEC_INNER, no_threading );
+  vector_PRECISION_change_layout( &X0, &X0, _NVEC_INNER, threading );
+  vector_PRECISION_change_layout( &B0, &B0, _NVEC_INNER, threading );
   C0.layout = _NVEC_INNER;
   END_LOCKED_MASTER(threading)
-  vector_PRECISION_scale( &B0, &B0, betas, 0, start, end, fab->l );
-  p->eval_operator( &C0, &X0, p->op, l, no_threading ); // if(g.odd_even&&l->level==0), updates only even part
+  vector_PRECISION_scale( &B0, &B0, betas, 0, start, end, l );
+  p->eval_operator( &C0, &X0, p->op, l, threading ); // if(g.odd_even&&l->level==0), updates only even part
   vector_PRECISION_saxpy( &B0, &B0, &C0, alphas, 0, 1, start, end, l );
   START_LOCKED_MASTER(threading)
   X0.layout = _NVEC_OUTER;
-  vector_PRECISION_change_layout( &B0, &B0, _NVEC_OUTER, no_threading );
+  vector_PRECISION_change_layout( &B0, &B0, _NVEC_OUTER, threading );
   C0.layout = _NVEC_OUTER;
   END_LOCKED_MASTER(threading)
     vector_PRECISION_copy_fab( &B, &B0, vi, ns-d, -1, start, end, l );
@@ -325,7 +325,7 @@ int64_t fabulous_rightprecond_PRECISION(void *user_env, int N,
   //printf0("fab PRECISION prec: at %d nrhs=%d vs %d, nvec(%d,%d): layout(%d %d): ld (B,X)=%d,%d vs %d, size %d, %d\n",l->depth,N, n,X0.num_vect_now,B0.num_vect_now,B.layout,X.layout,ldx,ldb,dim, B0.size,X0.size);fflush(stdout);
 
   if ( l->level > 0 ) {
-    
+    //if(N>n)error0("fab prec error\n");
     compute_core_start_end_custom(0, fab->dim, &start, &end, l, threading, l->num_lattice_site_var );    
     vector_PRECISION_copy_fab( &X0, &X, 0, N, 1, start, end, l );
     for ( int i=N; i<n; i++ )  vector_PRECISION_copy_fab( &X0, &X, i, 1, -1, start, end, l );// just to avoid overall divergence due to unused vector fields in FGMRES

@@ -117,8 +117,9 @@ void test_routine( level_struct *l, struct Thread *threading ) {
 void prof_init( level_struct *l ) {
   if ( l->depth == 0 ) {
     g.coarse_time=0; g.coarse_iter_count=0;
-    for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
-    for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
+    for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+    for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
+    for ( int i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
   }
   prof_double_init( l );
   prof_float_init( l );

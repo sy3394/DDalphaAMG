@@ -87,8 +87,9 @@ void DDalphaAMG_initialize( DDalphaAMG_init *mg_init, DDalphaAMG_parameters *mg_
   MALLOC( g.odd_even_table, int, l.num_inner_lattice_sites );
   define_odd_even_table( &l );
 
-  for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
-  for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
+  for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
+  for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+  for ( int i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
   
   /*
    * BEGIN: setup_threading( ... );
@@ -195,8 +196,9 @@ void DDalphaAMG_update_parameters( DDalphaAMG_parameters *mg_params, DDalphaAMG_
   
   t0 = MPI_Wtime();
   
-  for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
-  for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
+  for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
+  for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+  for ( i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
   
   // int method;
   if ( mg_params->method != g.method ) {
@@ -486,8 +488,9 @@ void DDalphaAMG_change_mu_sign( DDalphaAMG_status *mg_status ) {
   
   double t0, t1;
   t0 = MPI_Wtime();
-  for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
-  for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
+  for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
+  for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+  for ( int i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
   mg_status->success = 0;
   mg_status->info = 0;  
   
@@ -645,12 +648,13 @@ void DDalphaAMG_setup( DDalphaAMG_status * mg_status ) {
   int i;
   double t0, t1;
   t0 = MPI_Wtime();
-  for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
-  for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
+  for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
+  for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+  for ( i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
   mg_status->success = 0;
   mg_status->info = 0;
   
-  if(g.conf_flag == 1) {
+  if(g.conf_flag == 1) {//??????
     if ( g.setup_flag )
       method_free( &l );
     THREADED(threading[0]->n_core)
@@ -676,8 +680,9 @@ void DDalphaAMG_update_setup( int iterations, DDalphaAMG_status * mg_status ) {
   if(g.setup_flag) {
     double t0, t1;
     t0 = MPI_Wtime();
-    for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
-    for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
+    for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
+    for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+    for ( int i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
     mg_status->success = 0;
     mg_status->info = 0;
 
@@ -836,8 +841,9 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
 
   double t0, t1;
   t0 = MPI_Wtime();
-  for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
-  for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
+  for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
+  for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+  for ( i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
   mg_status->success = 0;
   mg_status->info = 0;
 
@@ -1207,8 +1213,9 @@ static inline void DDalphaAMG_proj_driver( float *vector_out, float *vector_in, 
 
   double t0, t1;
   t0 = MPI_Wtime();
-  for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i] = 0;
-  for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]  = 0;
+  for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
+  for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+  for ( i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
   mg_status->success = 0;
   mg_status->info = 0;
   
