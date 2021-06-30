@@ -125,7 +125,10 @@ void fabulous_PRECISION_free( fabulous_PRECISION_struct *fab, level_struct *l, s
   int sol = g.solver[l->depth];
   if ( fab->k > 0 && ( sol==_GCRO || sol==_DR || sol==_IBDR || sol==_QRDR || sol==_QRIBDR ))
      PUBLIC_FREE( fab->eigvals, complex_PRECISION, fab->k );
-  if(fab->U != NULL) free(fab->U);
+  if(fab->U != NULL) {
+    free(fab->U);
+    fab->U = NULL;
+  }
   
   fabulous_destroy(fab->handle);
   fab->handle = NULL;

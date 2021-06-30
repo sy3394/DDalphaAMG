@@ -608,7 +608,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
 //#define FAB_OPENMP
 int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
 
-  int iter = 0;
+  int nmvp, iter = 0;
 #ifdef HAVE_FABULOUS
   fabulous_PRECISION_struct *fab = &(p->fab);
   level_struct *l = fab->l;
@@ -651,19 +651,19 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   
   void *X = fab->X.vector_buffer, *B = fab->B.vector_buffer;
   switch ( g.solver[l->depth] ) {
-  case _GCR:    iter = fabulous_solve_GCR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
+  case _GCR:    nmvp = fabulous_solve_GCR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
     //case _GCRO:   iter = fabulous_solve_GCRO( fab->nrhs, B, fab->ldb, X, fab->ldx, (void **)&(fab->U), &(fab->ldu), fab->k, fab->eigvals, fab->handle ); break;
-  case _GCRO:   iter = fabulous_solve_GCRO( fab->nrhs, B, fab->ldb, X, fab->ldx,
+  case _GCRO:   nmvp = fabulous_solve_GCRO( fab->nrhs, B, fab->ldb, X, fab->ldx,
 					    (void **)&(fab->U), &(fab->ldu), &(fab->dsize), fab->k, fab->eigvals, (1-g.in_setup)*g.n_defl_updated[l->depth]/g.n_defl_updates,
 					    fab->handle ); break;
-  case _IB:     iter = fabulous_solve_IB( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
-  case _DR:     iter = fabulous_solve_DR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
-  case _IBDR:   iter = fabulous_solve_IBDR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
-  case _QR:     iter = fabulous_solve_QR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
-  case _QRIB:   iter = fabulous_solve_QRIB( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
-  case _QRDR:   iter = fabulous_solve_QRDR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
-  case _QRIBDR: iter = fabulous_solve_QRIBDR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
-  default:      iter = fabulous_solve( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
+  case _IB:     nmvp = fabulous_solve_IB( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
+  case _DR:     nmvp = fabulous_solve_DR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
+  case _IBDR:   nmvp = fabulous_solve_IBDR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
+  case _QR:     nmvp = fabulous_solve_QR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
+  case _QRIB:   nmvp = fabulous_solve_QRIB( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
+  case _QRDR:   nmvp = fabulous_solve_QRDR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
+  case _QRIBDR: nmvp = fabulous_solve_QRIBDR( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->k, fab->eigvals, fab->handle ); break;
+  default:      nmvp = fabulous_solve( fab->nrhs, B, fab->ldb, X, fab->ldx, fab->handle ); break;
   }
   resids = fabulous_get_logs(&iter, fab->handle);
   
