@@ -89,7 +89,9 @@ void DDalphaAMG_initialize( DDalphaAMG_init *mg_init, DDalphaAMG_parameters *mg_
 
   for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
   for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+#ifdef HAVE_FABULOUS
   for ( int i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
+#endif
   
   /*
    * BEGIN: setup_threading( ... );
@@ -198,7 +200,9 @@ void DDalphaAMG_update_parameters( DDalphaAMG_parameters *mg_params, DDalphaAMG_
   
   for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
   for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+#ifdef HAVE_FABULOUS
   for ( i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
+#endif
   
   // int method;
   if ( mg_params->method != g.method ) {
@@ -490,7 +494,9 @@ void DDalphaAMG_change_mu_sign( DDalphaAMG_status *mg_status ) {
   t0 = MPI_Wtime();
   for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
   for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+#ifdef HAVE_FABULOUS
   for ( int i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
+#endif
   mg_status->success = 0;
   mg_status->info = 0;  
   
@@ -650,7 +656,9 @@ void DDalphaAMG_setup( DDalphaAMG_status * mg_status ) {
   t0 = MPI_Wtime();
   for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
   for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+#ifdef HAVE_FABULOUS
   for ( i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
+#endif
   mg_status->success = 0;
   mg_status->info = 0;
   
@@ -682,7 +690,9 @@ void DDalphaAMG_update_setup( int iterations, DDalphaAMG_status * mg_status ) {
     t0 = MPI_Wtime();
     for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
     for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+#ifdef HAVE_FABULOUS
     for ( int i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
+#endif
     mg_status->success = 0;
     mg_status->info = 0;
 
@@ -843,7 +853,9 @@ static inline void DDalphaAMG_driver( double *vector1_out, double *vector1_in, d
   t0 = MPI_Wtime();
   for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
   for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+#ifdef HAVE_FABULOUS
   for ( i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
+#endif
   mg_status->success = 0;
   mg_status->info = 0;
 
@@ -1215,7 +1227,9 @@ static inline void DDalphaAMG_proj_driver( float *vector_out, float *vector_in, 
   t0 = MPI_Wtime();
   for ( i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
   for ( i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
+#ifdef HAVE_FABULOUS
   for ( i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
+#endif
   mg_status->success = 0;
   mg_status->info = 0;
   

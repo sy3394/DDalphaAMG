@@ -595,7 +595,7 @@ int fgmres_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
     START_MASTER(threading)
     g.max_rel_res_norm = 0;
     VECTOR_LOOP(i, n_vect, jj, if(g.max_rel_res_norm<beta[i+jj]/norm_r0[i+jj]) g.max_rel_res_norm = beta[i+jj]/norm_r0[i+jj];)//not really used anymore!!! eliminate
-    VECTOR_LOOP(i, n_vect, jj, g.resids[i+jj] = beta[i]/norm_r0[i] );
+    VECTOR_LOOP(i, n_vect, jj, g.resids[i+jj] = beta[i+jj]/norm_r0[i+jj] );
 #if defined(TRACK_RES) && !defined(WILSON_BENCHMARK)
     if ( g.print > 0 ) printf0("+----------------------------------------------------------+\n\n");
 #endif
@@ -634,7 +634,7 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
 #ifdef FAB_OPENMP
   fab->threading = threading; // if fabulous is OpenMP safe.  This can be uncommented.
 #endif
-  
+
   vector_PRECISION_copy( &(fab->B), &(p->b), start, end, l );
   if( p->initial_guess_zero ) {
     vector_PRECISION_define( &(fab->X), 0, start, end, l );
@@ -679,8 +679,7 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
   if ( g.solver[l->depth] == _GCRO )
     printf0("fab: eigvec size= %d at %p (%d many; update = %s)\n",fab->ldu, fab->U, fab->dsize, (1-g.in_setup)*g.n_defl_updated[l->depth]/g.n_defl_updates?"false":"true");
 
-  printf0("fab%d (guess %d, iter=%d),  nrhs:%d dim:%d (ivs %d vs psize %d, ldx %d ldb %d; B(%d %d) X(%d %d) px %d pb %d; (v_start,v_end)=(%d %d)\n",l->depth,p->initial_guess_zero,iter,fab->nrhs,fab->dim, l->inner_vector_size,p->b.size, fab->ldx, fab->ldb, fab->B.num_vect_now, fab->B.num_vect, fab->X.num_vect_now, fab->X.num_vect, p->x.num_vect_now,p->b.num_vect_now,p->v_start,p->v_end);  
-
+  printf0("fab_PRECISION%d (guess %d, iter=%d),  nrhs:%d dim:%d (ivs %d vs psize %d, ldx %d ldb %d; B(%d %d) X(%d %d) px %d pb %d; (v_start,v_end)=(%d %d) fab(X/B)layout = (%d %d)\n",l->depth,p->initial_guess_zero,iter,fab->nrhs,fab->dim, l->inner_vector_size,p->b.size, fab->ldx, fab->ldb, fab->B.num_vect_now, fab->B.num_vect, fab->X.num_vect_now, fab->X.num_vect, p->x.num_vect_now,p->b.num_vect_now,p->v_start,p->v_end, fab->B.layout, fab->X.layout);  
 
   FILE *fp;
   fp = fopen("fabConvHist","w");
@@ -700,13 +699,13 @@ int fabulous_PRECISION( gmres_PRECISION_struct *p, struct Thread *threading ) {
 #else
   if ( p->print ) {
 #endif
-    apply_operator_PRECISION( &(fab->B0), &(p->x), p, l, threading );              // compute w = D*x
-    vector_PRECISION_minus( &(fab->B0), &(p->b), &(fab->B0), start, end, l );     // compute r = b - w = b - D*x
-    global_norm_PRECISION( norm, &(fab->B0), p->v_start, p->v_end, l, threading ); // norm  = ||r||
-    global_norm_PRECISION( norm2, &(p->b), p->v_start, p->v_end, l, threading );   // norm2 = ||b||
+    apply_operator_PRECISION( &(fab->B0), &(p->x), p, l, threading );         // compute w = D*x
+    vector_PRECISION_minus( &(fab->B0), &(p->b), &(fab->B0), start, end, l ); // compute r = b - w = b - D*x
+    global_norm_PRECISION( norm, &(fab->B0), 0,fab->dim , l, threading );     // norm  = ||r||
+    global_norm_PRECISION( norm2, &(p->b), 0,fab->dim, l, threading );        // norm2 = ||b||
     START_LOCKED_MASTER(threading)
     VECTOR_LOOP(j, nvecsf, jj, if(g.max_rel_res_norm<norm[j+jj]/norm2[j+jj]) g.max_rel_res_norm = norm[j+jj]/norm2[j+jj];)
-    VECTOR_LOOP(j, nvecsf, jj, g.resids[j+jj] = norm[j+jj]/norm2[j+jj];)
+    VECTOR_LOOP(j, nvecsf, jj, g.resids[j+jj] = norm[j+jj]/norm2[j+jj];);
     END_LOCKED_MASTER(threading)
   }
 

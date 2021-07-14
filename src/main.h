@@ -518,12 +518,12 @@
 static inline void printfv_float ( vector_float *v ) {
   int vjj, vj;
   for ( int vi=0; vi<v->size; vi++ )
-    VECTOR_LOOP(vj, v->num_vect_now, vjj, printf("v_%d[%d,%d]=%g %g ",vj+vjj,vi/v->l->num_lattice_site_var,vi%v->l->num_lattice_site_var,creal_float((float)v->vector_buffer[vi*v->num_vect+vj+vjj]),cimag_float((float)v->vector_buffer[vi*v->num_vect+vj+vjj]));)
+    VECTOR_LOOP(vj, v->num_vect_now, vjj, printf("v_%d[%d,%d]=%.8g %.8g ",vj+vjj,vi/v->l->num_lattice_site_var,vi%v->l->num_lattice_site_var,creal_float((float)v->vector_buffer[vi*v->num_vect+vj+vjj]),cimag_float((float)v->vector_buffer[vi*v->num_vect+vj+vjj]));)
 }
 static inline void printfv_double ( vector_double *v ) {
   int vjj, vj;
   for ( int vi=0; vi<v->size; vi++ )
-    VECTOR_LOOP(vj, v->num_vect_now, vjj, printf("v_%d[%d]=%g %g ",vj+vjj,vi,creal_float((double)v->vector_buffer[vi*v->num_vect+vj+vjj]),cimag_double((float)v->vector_buffer[vi*v->num_vect+vj+vjj]));)
+    VECTOR_LOOP(vj, v->num_vect_now, vjj, printf("v_%d[%d]=%.16g %.16g ",vj+vjj,vi,creal_float((double)v->vector_buffer[vi*v->num_vect+vj+vjj]),cimag_double((float)v->vector_buffer[vi*v->num_vect+vj+vjj]));)
       }
   static inline void warning( char* format, ... ) {
     printf("\x1b[31mwarning, rank %d: ", g.my_rank);

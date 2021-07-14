@@ -48,7 +48,7 @@ void global_norm_PRECISION( PRECISION *res, vector_PRECISION *x, int start, int 
 
   //thread == core here: distribute entries from start to end among cores
   int core_start, core_end;
-  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, l->num_lattice_site_var );
+  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, 1 );
 
   VECTOR_LOOP(j, nvec, jj, res[j+jj]=0;)
 
@@ -169,7 +169,7 @@ void process_multi_inner_product_PRECISION( int count, complex_PRECISION *result
 #endif
   
   int core_start, core_end;
-  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, l->num_lattice_site_var);
+  compute_core_start_end_custom(start, end, &core_start, &core_end, l, threading, 1);
 
   int thread = omp_get_thread_num();
   if(thread == 0 && core_start != core_end)

@@ -119,7 +119,9 @@ void prof_init( level_struct *l ) {
     g.coarse_time=0; g.coarse_iter_count=0;
     for ( int i=0; i<g.num_levels; i++ ) g.iter_times[i]     = 0;
     for ( int i=0; i<g.num_levels; i++ ) g.iter_counts[i]    = 0;
+#ifdef HAVE_FABULOUS
     for ( int i=0; i<g.num_levels; i++ ) g.n_defl_updated[i] = 0;
+#endif
   }
   prof_double_init( l );
   prof_float_init( l );

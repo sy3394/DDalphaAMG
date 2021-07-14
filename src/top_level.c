@@ -159,7 +159,7 @@ void rhs_define( vector_double *rhs, level_struct *l, struct Thread *threading )
   int end = threading->end_index[l->depth];
 
   if ( g.rhs == 0 ) {
-    vector_double_define( rhs, 1, start, end, l );
+    vector_double_define( rhs, 1.0, start, end, l );
     START_MASTER(threading)
     if ( g.print > 0 ) printf0("rhs = ones\n");
     END_MASTER(threading)
@@ -182,8 +182,9 @@ void rhs_define( vector_double *rhs, level_struct *l, struct Thread *threading )
     if ( g.print > 0 ) printf0("rhs = random\n");
     END_MASTER(threading)
   } else if ( g.rhs == 3 ) {
+    vector_double_define( rhs, 0, start, end, l );
+    int i, x, y, z, t, desired_rank, *ll = l->local_lattice, *gl = g.global_lattice[0], size = l->inner_vector_size, idf = l->num_lattice_site_var;
     for ( int n=0; n<rhs->num_vect; n++ ) {
-      int i, x, y, z, t, desired_rank, *ll = l->local_lattice, *gl = g.global_lattice[0], size = l->inner_vector_size, idf = l->num_lattice_site_var;
       int s = n/idf, sc = n%idf;
       t = s%gl[T]; z = (s/gl[T])%gl[Z]; y = (s/gl[T]/gl[Z])%gl[Y]; x = (s/gl[T]/gl[Z]/gl[Y])%gl[X];
       desired_rank = process_index( t, z, y, x, ll );

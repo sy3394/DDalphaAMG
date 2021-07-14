@@ -16,8 +16,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with the DDalphaAMG solver library. If not, see http://www.gnu.org/licenses/.
- * checked:11/30/2019
- * changed from sbacchio
+ *
  */
 
 #ifndef MAIN_POST_DEF_PRECISION_HEADER
