@@ -371,6 +371,7 @@ void method_setup( vector_double *V, level_struct *l, struct Thread *threading )
       printf0("|          K-cycle length: %-6d                          |\n", g.kcycle_restart );
       printf0("|        K-cycle restarts: %-6d                          |\n", g.kcycle_max_restart );
       printf0("|       K-cycle tolerance: %-5.0le                           |\n", g.kcycle_tol );
+      printf0("|     Setup K-cycle tolerance: %-5.0le                        |\n", g.setup_tol );
     }
     printf0("+----------------------------------------------------------+\n");
     printf0("\n");

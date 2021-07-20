@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2016, Matthias Rottmann, Artur Strebel, Simon Heybrock, Simone Bacchio, Bjoern Leder.
  * 
@@ -57,9 +58,9 @@ static int read_parameter( void **save_at, char *search_pattern, char *read_form
   // Note: as it is a while loop, only the first occurance of search_pattern counts
   while ( !match && fgets( read_pattern, 100000, read_from ) ) {
 
-    // Find out if the current line, read_pattern, mathces with earch_pattern
+    // Find out if the current line, read_pattern, mathces with search_pattern
     k = strlen( read_pattern );
-    if(k>n) { // Note: read_pattern from fgets contains a new line character
+    if(k>n) { // Note: read_pattern from fgets contains ':' as well as param values
       match = 1;
       i = 0;
       while ( i<n && match ) { 
@@ -70,7 +71,7 @@ static int read_parameter( void **save_at, char *search_pattern, char *read_form
     }
   }
 
-  // deal with initial white spaces
+  // skip to a pos at the right of ':' and deal with initial white spaces
   read_pattern_pt = read_pattern+i;
   while ( *read_pattern_pt == ' ' )
     read_pattern_pt++;

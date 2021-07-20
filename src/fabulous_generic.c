@@ -255,6 +255,8 @@ int64_t dot_product_PRECISION(void *user_env,
 #ifdef DEBUG
   if(dim > lda )
     error0("fabulous dot_product_PRECISION: assumptions are not met %d %d %d\n",dim,lda,ldb);
+  if(ldc < M )
+    error0("incorrect assumption on the shape of C (%d %d %d)\n", M,N,ldc);
 #endif
 #endif
   int start;

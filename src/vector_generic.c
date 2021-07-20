@@ -353,7 +353,7 @@ void vector_PRECISION_multi_saxpy( vector_PRECISION *z, vector_PRECISION *V, com
   
   complex_PRECISION alpha_signed[count*z->num_vect];
   for ( c=0; c<count; c++ )
-    VECTOR_LOOP(j, z->num_vect, jj, alpha_signed[c*z->num_vect+j+jj] = sign*alpha[c*z->num_vect+j+jj];)
+    VECTOR_LOOP(j, z->num_vect, jj, alpha_signed[c*nvec+j+jj] = sign*alpha[c*nvec+j+jj];)
 
   for ( c=0; c<count; c++ )
     for ( i=start; i<end; i++)

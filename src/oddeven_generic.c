@@ -376,8 +376,10 @@ void oddeven_setup_PRECISION( operator_double_struct *in, level_struct *l ) {// 
   l->sp_PRECISION.v_end = op->num_even_sites*l->num_lattice_site_var;
 }
 
-// not checked!!!!!!
+
 void oddeven_free_PRECISION( level_struct *l ) {
+
+  warning0("oddeven_free_PRECISION: not tested\n");
   
   int mu, nu, nc_size = 9, lu_dec_size = 42, nvec = l->oe_op_PRECISION.pr_num_vect,
       *ll = l->local_lattice, n = l->num_inner_lattice_sites, bs;
@@ -735,214 +737,99 @@ void hopping_term_PRECISION( vector_PRECISION *eta, vector_PRECISION *phi, opera
   config_PRECISION D_pt;
   g.num_vect_pass1 = nvec; 
   
-/*#ifdef HAVE_TM1p1_old
-  if( g.n_flavours == 2 ) {
-    // project in negative directions
-    complex_PRECISION pbuf[12];
-    for ( i=12*start, phi_pt=phi->vector_buffer+24*start; i<12*n; i+=12, phi_pt+=24 ) {
-      dprp_T_PRECISION( op->prnT+i, phi_pt );
-      dprp_Z_PRECISION( op->prnZ+i, phi_pt );
-      dprp_Y_PRECISION( op->prnY+i, phi_pt );
-      dprp_X_PRECISION( op->prnX+i, phi_pt );
-    }
-    // start communication in negative direction
-    START_LOCKED_MASTER(threading)
-    ghost_sendrecv_PRECISION( op->prnT, T, -1, &(op->c), minus_dir_param, l );
-    ghost_sendrecv_PRECISION( op->prnZ, Z, -1, &(op->c), minus_dir_param, l );
-    ghost_sendrecv_PRECISION( op->prnY, Y, -1, &(op->c), minus_dir_param, l );
-    ghost_sendrecv_PRECISION( op->prnX, X, -1, &(op->c), minus_dir_param, l );
-    END_LOCKED_MASTER(threading) 
-    // project plus dir and multiply with U dagger
-    for ( phi_pt=phi->vector_buffer+24*start, end_pt=phi->vector_buffer+24*n, D_pt = op->D+36*start, nb_pt=neighbor+4*start; phi_pt<end_pt; phi_pt+=24 ) {
-      // T dir
-      i = 12*(*nb_pt); nb_pt++;
-      dprn_T_PRECISION( pbuf, phi_pt );
-      mvmh_PRECISION( op->prpT+i, D_pt, pbuf );
-      mvmh_PRECISION( op->prpT+i+3, D_pt, pbuf+3 );
-      mvmh_PRECISION( op->prpT+i+6, D_pt, pbuf+6 );
-      mvmh_PRECISION( op->prpT+i+9, D_pt, pbuf+9 ); D_pt += 9;
-      // Z dir
-      i = 12*(*nb_pt); nb_pt++;
-      dprn_Z_PRECISION( pbuf, phi_pt );
-      mvmh_PRECISION( op->prpZ+i, D_pt, pbuf );
-      mvmh_PRECISION( op->prpZ+i+3, D_pt, pbuf+3 );
-      mvmh_PRECISION( op->prpZ+i+6, D_pt, pbuf+6 );
-      mvmh_PRECISION( op->prpZ+i+9, D_pt, pbuf+9 ); D_pt += 9;
-      // Y dir
-      i = 12*(*nb_pt); nb_pt++;
-      dprn_Y_PRECISION( pbuf, phi_pt );
-      mvmh_PRECISION( op->prpY+i, D_pt, pbuf );
-      mvmh_PRECISION( op->prpY+i+3, D_pt, pbuf+3 );
-      mvmh_PRECISION( op->prpY+i+6, D_pt, pbuf+6 );
-      mvmh_PRECISION( op->prpY+i+9, D_pt, pbuf+9 ); D_pt += 9;
-      // X dir
-      i = 12*(*nb_pt); nb_pt++;
-      dprn_X_PRECISION( pbuf, phi_pt );
-      mvmh_PRECISION( op->prpX+i, D_pt, pbuf );
-      mvmh_PRECISION( op->prpX+i+3, D_pt, pbuf+3 );
-      mvmh_PRECISION( op->prpX+i+6, D_pt, pbuf+6 );
-      mvmh_PRECISION( op->prpX+i+9, D_pt, pbuf+9 ); D_pt += 9;
-    }
-    if ( amount == _EVEN_SITES ) {
-      start = start_even, n = end_even;
-    } else if ( amount == _ODD_SITES ) {
-      start = start_odd, n = end_odd;
-    }  
-    // start communication in positive direction
-    START_LOCKED_MASTER(threading)
-    ghost_sendrecv_PRECISION( op->prpT, T, +1, &(op->c), plus_dir_param, l );
-    ghost_sendrecv_PRECISION( op->prpZ, Z, +1, &(op->c), plus_dir_param, l );
-    ghost_sendrecv_PRECISION( op->prpY, Y, +1, &(op->c), plus_dir_param, l );
-    ghost_sendrecv_PRECISION( op->prpX, X, +1, &(op->c), plus_dir_param, l );
-    // wait for communication in negative direction
-    ghost_wait_PRECISION( op->prnT, T, -1, &(op->c), minus_dir_param, l );
-    ghost_wait_PRECISION( op->prnZ, Z, -1, &(op->c), minus_dir_param, l );
-    ghost_wait_PRECISION( op->prnY, Y, -1, &(op->c), minus_dir_param, l );
-    ghost_wait_PRECISION( op->prnX, X, -1, &(op->c), minus_dir_param, l );
-    END_LOCKED_MASTER(threading) 
-    // multiply with U and lift up minus dir
-    for ( eta_pt=eta->vector_buffer+24*start, end_pt=eta->vector_buffer+24*n, D_pt = op->D+36*start, nb_pt=neighbor+4*start; eta_pt<end_pt; eta_pt+=24 ) {
-      // T dir
-      i = 12*(*nb_pt); nb_pt++;
-      mvm_PRECISION( pbuf, D_pt, op->prnT+i );
-      mvm_PRECISION( pbuf+3, D_pt, op->prnT+i+3 );
-      mvm_PRECISION( pbuf+6, D_pt, op->prnT+i+6 );
-      mvm_PRECISION( pbuf+9, D_pt, op->prnT+i+9 );
-      dpbp_su3_T_PRECISION( pbuf, eta_pt ); D_pt += 9;
-      // Z dir
-      i = 12*(*nb_pt); nb_pt++;
-      mvm_PRECISION( pbuf, D_pt, op->prnZ+i );
-      mvm_PRECISION( pbuf+3, D_pt, op->prnZ+i+3 );
-      mvm_PRECISION( pbuf+6, D_pt, op->prnZ+i+6 );
-      mvm_PRECISION( pbuf+9, D_pt, op->prnZ+i+9 );
-      dpbp_su3_Z_PRECISION( pbuf, eta_pt ); D_pt += 9;
-      // Y dir
-      i = 12*(*nb_pt); nb_pt++;
-      mvm_PRECISION( pbuf, D_pt, op->prnY+i );
-      mvm_PRECISION( pbuf+3, D_pt, op->prnY+i+3 );
-      mvm_PRECISION( pbuf+6, D_pt, op->prnY+i+6 );
-      mvm_PRECISION( pbuf+9, D_pt, op->prnY+i+9 );
-      dpbp_su3_Y_PRECISION( pbuf, eta_pt ); D_pt += 9;
-      // X dir
-      i = 12*(*nb_pt); nb_pt++;
-      mvm_PRECISION( pbuf, D_pt, op->prnX+i );
-      mvm_PRECISION( pbuf+3, D_pt, op->prnX+i+3 );
-      mvm_PRECISION( pbuf+6, D_pt, op->prnX+i+6 );
-      mvm_PRECISION( pbuf+9, D_pt, op->prnX+i+9 );
-      dpbp_su3_X_PRECISION( pbuf, eta_pt ); D_pt += 9;
-    }
-    // wait for communication in positive direction
-    START_LOCKED_MASTER(threading)
-    ghost_wait_PRECISION( op->prpT, T, +1, &(op->c), plus_dir_param, l );
-    ghost_wait_PRECISION( op->prpZ, Z, +1, &(op->c), plus_dir_param, l );
-    ghost_wait_PRECISION( op->prpY, Y, +1, &(op->c), plus_dir_param, l );
-    ghost_wait_PRECISION( op->prpX, X, +1, &(op->c), plus_dir_param, l );
-    END_LOCKED_MASTER(threading) 
-    // lift up plus dir
-    for ( i=12*start, eta_pt=eta->vector_buffer+24*start; i<12*n; i+=12, eta_pt+=24 ) {
-      dpbn_su3_T_PRECISION( op->prpT+i, eta_pt );
-      dpbn_su3_Z_PRECISION( op->prpZ+i, eta_pt );
-      dpbn_su3_Y_PRECISION( op->prpY+i, eta_pt );
-      dpbn_su3_X_PRECISION( op->prpX+i, eta_pt );
-    }
-  } else {
-#endif*/
-    // project in negative directions
-    complex_PRECISION pbuf[6*nvec];
-    for ( i=6*start, phi_pt=phi->vector_buffer+12*start*nvec_phi; i<6*n; i+=6, phi_pt+=12*nvec_phi ) {
-      prp_T_PRECISION( op->prnT+i*nvec_op, phi_pt, nvec, nvec_op, nvec_phi );
-      prp_Z_PRECISION( op->prnZ+i*nvec_op, phi_pt, nvec, nvec_op, nvec_phi );
-      prp_Y_PRECISION( op->prnY+i*nvec_op, phi_pt, nvec, nvec_op, nvec_phi );
-      prp_X_PRECISION( op->prnX+i*nvec_op, phi_pt, nvec, nvec_op, nvec_phi );
-    }
-    // start communication in negative direction
-    START_LOCKED_MASTER(threading)
-    g.num_vect_pass2 = nvec_op;
-    ghost_sendrecv_PRECISION( op->prnT, T, -1, &(op->c), minus_dir_param, l );
-    ghost_sendrecv_PRECISION( op->prnZ, Z, -1, &(op->c), minus_dir_param, l );
-    ghost_sendrecv_PRECISION( op->prnY, Y, -1, &(op->c), minus_dir_param, l );
-    ghost_sendrecv_PRECISION( op->prnX, X, -1, &(op->c), minus_dir_param, l );
-    END_LOCKED_MASTER(threading) 
-    // project plus dir and multiply with U dagger
-    for ( phi_pt=phi->vector_buffer+12*start*nvec_phi, end_pt=phi->vector_buffer+12*n*nvec_phi, D_pt = op->D+36*start, nb_pt=neighbor+4*start; phi_pt<end_pt; phi_pt+=12*nvec_phi ) {
-      // T dir
-      i = 6*(*nb_pt); nb_pt++;
-      prn_T_PRECISION( pbuf, phi_pt, nvec, nvec, nvec_phi );
-      mvmh_PRECISION( op->prpT+i*nvec_op, D_pt, pbuf, nvec, nvec_op, nvec );
-      mvmh_PRECISION( op->prpT+(i+3)*nvec_op, D_pt, pbuf+3*nvec, nvec, nvec_op, nvec ); D_pt += 9;
-      // Z dir
-      i = 6*(*nb_pt); nb_pt++;
-      prn_Z_PRECISION( pbuf, phi_pt, nvec, nvec, nvec_phi );
-      mvmh_PRECISION( op->prpZ+i*nvec_op, D_pt, pbuf, nvec, nvec_op, nvec );
-      mvmh_PRECISION( op->prpZ+(i+3)*nvec_op, D_pt, pbuf+3*nvec, nvec, nvec_op, nvec ); D_pt += 9;
-      // Y dir
-      i = 6*(*nb_pt); nb_pt++;
-      prn_Y_PRECISION( pbuf, phi_pt, nvec, nvec, nvec_phi );
-      mvmh_PRECISION( op->prpY+i*nvec_op, D_pt, pbuf, nvec, nvec_op, nvec );
-      mvmh_PRECISION( op->prpY+(i+3)*nvec_op, D_pt, pbuf+3*nvec, nvec, nvec_op, nvec ); D_pt += 9;
-      // X dir
-      i = 6*(*nb_pt); nb_pt++;
-      prn_X_PRECISION( pbuf, phi_pt, nvec, nvec, nvec_phi );
-      mvmh_PRECISION( op->prpX+i*nvec_op, D_pt, pbuf, nvec, nvec_op, nvec );
-      mvmh_PRECISION( op->prpX+(i+3)*nvec_op, D_pt, pbuf+3*nvec, nvec, nvec_op, nvec ); D_pt += 9;
-    }
-    if ( amount == _EVEN_SITES ) {
-      start = start_even, n = end_even;
-    } else if ( amount == _ODD_SITES ) {
-      start = start_odd, n = end_odd;
-    }  
-    // start communication in positive direction
-    START_LOCKED_MASTER(threading)
-    ghost_sendrecv_PRECISION( op->prpT, T, +1, &(op->c), plus_dir_param, l );
-    ghost_sendrecv_PRECISION( op->prpZ, Z, +1, &(op->c), plus_dir_param, l );
-    ghost_sendrecv_PRECISION( op->prpY, Y, +1, &(op->c), plus_dir_param, l );
-    ghost_sendrecv_PRECISION( op->prpX, X, +1, &(op->c), plus_dir_param, l );
-    // wait for communication in negative direction
-    ghost_wait_PRECISION( op->prnT, T, -1, &(op->c), minus_dir_param, l );
-    ghost_wait_PRECISION( op->prnZ, Z, -1, &(op->c), minus_dir_param, l );
-    ghost_wait_PRECISION( op->prnY, Y, -1, &(op->c), minus_dir_param, l );
-    ghost_wait_PRECISION( op->prnX, X, -1, &(op->c), minus_dir_param, l );
-    END_LOCKED_MASTER(threading) 
-    // multiply with U and lift up minus dir
-    for ( eta_pt=eta->vector_buffer+12*start*nvec_eta, end_pt=eta->vector_buffer+12*n*nvec_eta, D_pt = op->D+36*start, nb_pt=neighbor+4*start; eta_pt<end_pt; eta_pt+=12*nvec_eta ) {
-      // T dir
-      i = 6*(*nb_pt); nb_pt++;
-      mvm_PRECISION( pbuf, D_pt, op->prnT+i*nvec_op, nvec, nvec, nvec_op );
-      mvm_PRECISION( pbuf+3*nvec, D_pt, op->prnT+(i+3)*nvec_op, nvec, nvec, nvec_op );
-      pbp_su3_T_PRECISION( pbuf, eta_pt, nvec, nvec, nvec_eta ); D_pt += 9;
-      // Z dir
-      i = 6*(*nb_pt); nb_pt++;
-      mvm_PRECISION( pbuf, D_pt, op->prnZ+i*nvec_op, nvec, nvec, nvec_op );
-      mvm_PRECISION( pbuf+3*nvec, D_pt, op->prnZ+(i+3)*nvec_op, nvec, nvec, nvec_op );
-      pbp_su3_Z_PRECISION( pbuf, eta_pt, nvec, nvec, nvec_eta ); D_pt += 9;
-      // Y dir
-      i = 6*(*nb_pt); nb_pt++;
-      mvm_PRECISION( pbuf, D_pt, op->prnY+i*nvec_op, nvec, nvec, nvec_op );
-      mvm_PRECISION( pbuf+3*nvec, D_pt, op->prnY+(i+3)*nvec_op, nvec, nvec, nvec_op );
-      pbp_su3_Y_PRECISION( pbuf, eta_pt, nvec, nvec, nvec_eta ); D_pt += 9;
-      // X dir
-      i = 6*(*nb_pt); nb_pt++;
-      mvm_PRECISION( pbuf, D_pt, op->prnX+i*nvec_op, nvec, nvec, nvec_op );
-      mvm_PRECISION( pbuf+3*nvec, D_pt, op->prnX+(i+3)*nvec_op, nvec, nvec, nvec_op );
-      pbp_su3_X_PRECISION( pbuf, eta_pt, nvec, nvec, nvec_eta ); D_pt += 9;
-    }
-    // wait for communication in positive direction
-    START_LOCKED_MASTER(threading)
-    ghost_wait_PRECISION( op->prpT, T, +1, &(op->c), plus_dir_param, l );
-    ghost_wait_PRECISION( op->prpZ, Z, +1, &(op->c), plus_dir_param, l );
-    ghost_wait_PRECISION( op->prpY, Y, +1, &(op->c), plus_dir_param, l );
-    ghost_wait_PRECISION( op->prpX, X, +1, &(op->c), plus_dir_param, l );
-    END_LOCKED_MASTER(threading) 
-    // lift up plus dir
-    for ( i=6*start, eta_pt=eta->vector_buffer+12*start*nvec_eta; i<6*n; i+=6, eta_pt+=12*nvec_eta ) {
-      pbn_su3_T_PRECISION( op->prpT+i*nvec_op, eta_pt, nvec, nvec_op, nvec_eta );
-      pbn_su3_Z_PRECISION( op->prpZ+i*nvec_op, eta_pt, nvec, nvec_op, nvec_eta );
-      pbn_su3_Y_PRECISION( op->prpY+i*nvec_op, eta_pt, nvec, nvec_op, nvec_eta );
-      pbn_su3_X_PRECISION( op->prpX+i*nvec_op, eta_pt, nvec, nvec_op, nvec_eta );
-    }
-/*#ifdef HAVE_TM1p1_old
+  // project in negative directions
+  complex_PRECISION pbuf[6*nvec];
+  for ( i=6*start, phi_pt=phi->vector_buffer+12*start*nvec_phi; i<6*n; i+=6, phi_pt+=12*nvec_phi ) {
+    prp_T_PRECISION( op->prnT+i*nvec_op, phi_pt, nvec, nvec_op, nvec_phi );
+    prp_Z_PRECISION( op->prnZ+i*nvec_op, phi_pt, nvec, nvec_op, nvec_phi );
+    prp_Y_PRECISION( op->prnY+i*nvec_op, phi_pt, nvec, nvec_op, nvec_phi );
+    prp_X_PRECISION( op->prnX+i*nvec_op, phi_pt, nvec, nvec_op, nvec_phi );
   }
-#endif*/
+  // start communication in negative direction
+  START_LOCKED_MASTER(threading)
+  g.num_vect_pass2 = nvec_op;
+  ghost_sendrecv_PRECISION( op->prnT, T, -1, &(op->c), minus_dir_param, l );
+  ghost_sendrecv_PRECISION( op->prnZ, Z, -1, &(op->c), minus_dir_param, l );
+  ghost_sendrecv_PRECISION( op->prnY, Y, -1, &(op->c), minus_dir_param, l );
+  ghost_sendrecv_PRECISION( op->prnX, X, -1, &(op->c), minus_dir_param, l );
+  END_LOCKED_MASTER(threading) 
+  // project plus dir and multiply with U dagger
+  for ( phi_pt=phi->vector_buffer+12*start*nvec_phi, end_pt=phi->vector_buffer+12*n*nvec_phi, D_pt = op->D+36*start, nb_pt=neighbor+4*start; phi_pt<end_pt; phi_pt+=12*nvec_phi ) {
+    // T dir
+    i = 6*(*nb_pt); nb_pt++;
+    prn_T_PRECISION( pbuf, phi_pt, nvec, nvec, nvec_phi );
+    mvmh_PRECISION( op->prpT+i*nvec_op, D_pt, pbuf, nvec, nvec_op, nvec );
+    mvmh_PRECISION( op->prpT+(i+3)*nvec_op, D_pt, pbuf+3*nvec, nvec, nvec_op, nvec ); D_pt += 9;
+    // Z dir
+    i = 6*(*nb_pt); nb_pt++;
+    prn_Z_PRECISION( pbuf, phi_pt, nvec, nvec, nvec_phi );
+    mvmh_PRECISION( op->prpZ+i*nvec_op, D_pt, pbuf, nvec, nvec_op, nvec );
+    mvmh_PRECISION( op->prpZ+(i+3)*nvec_op, D_pt, pbuf+3*nvec, nvec, nvec_op, nvec ); D_pt += 9;
+    // Y dir
+    i = 6*(*nb_pt); nb_pt++;
+    prn_Y_PRECISION( pbuf, phi_pt, nvec, nvec, nvec_phi );
+    mvmh_PRECISION( op->prpY+i*nvec_op, D_pt, pbuf, nvec, nvec_op, nvec );
+    mvmh_PRECISION( op->prpY+(i+3)*nvec_op, D_pt, pbuf+3*nvec, nvec, nvec_op, nvec ); D_pt += 9;
+    // X dir
+    i = 6*(*nb_pt); nb_pt++;
+    prn_X_PRECISION( pbuf, phi_pt, nvec, nvec, nvec_phi );
+    mvmh_PRECISION( op->prpX+i*nvec_op, D_pt, pbuf, nvec, nvec_op, nvec );
+    mvmh_PRECISION( op->prpX+(i+3)*nvec_op, D_pt, pbuf+3*nvec, nvec, nvec_op, nvec ); D_pt += 9;
+  }
+  if ( amount == _EVEN_SITES ) {
+    start = start_even, n = end_even;
+  } else if ( amount == _ODD_SITES ) {
+    start = start_odd, n = end_odd;
+  }  
+  // start communication in positive direction
+  START_LOCKED_MASTER(threading)
+  ghost_sendrecv_PRECISION( op->prpT, T, +1, &(op->c), plus_dir_param, l );
+  ghost_sendrecv_PRECISION( op->prpZ, Z, +1, &(op->c), plus_dir_param, l );
+  ghost_sendrecv_PRECISION( op->prpY, Y, +1, &(op->c), plus_dir_param, l );
+  ghost_sendrecv_PRECISION( op->prpX, X, +1, &(op->c), plus_dir_param, l );
+  // wait for communication in negative direction
+  ghost_wait_PRECISION( op->prnT, T, -1, &(op->c), minus_dir_param, l );
+  ghost_wait_PRECISION( op->prnZ, Z, -1, &(op->c), minus_dir_param, l );
+  ghost_wait_PRECISION( op->prnY, Y, -1, &(op->c), minus_dir_param, l );
+  ghost_wait_PRECISION( op->prnX, X, -1, &(op->c), minus_dir_param, l );
+  END_LOCKED_MASTER(threading) 
+  // multiply with U and lift up minus dir
+  for ( eta_pt=eta->vector_buffer+12*start*nvec_eta, end_pt=eta->vector_buffer+12*n*nvec_eta, D_pt = op->D+36*start, nb_pt=neighbor+4*start; eta_pt<end_pt; eta_pt+=12*nvec_eta ) {
+    // T dir
+    i = 6*(*nb_pt); nb_pt++;
+    mvm_PRECISION( pbuf, D_pt, op->prnT+i*nvec_op, nvec, nvec, nvec_op );
+    mvm_PRECISION( pbuf+3*nvec, D_pt, op->prnT+(i+3)*nvec_op, nvec, nvec, nvec_op );
+    pbp_su3_T_PRECISION( pbuf, eta_pt, nvec, nvec, nvec_eta ); D_pt += 9;
+    // Z dir
+    i = 6*(*nb_pt); nb_pt++;
+    mvm_PRECISION( pbuf, D_pt, op->prnZ+i*nvec_op, nvec, nvec, nvec_op );
+    mvm_PRECISION( pbuf+3*nvec, D_pt, op->prnZ+(i+3)*nvec_op, nvec, nvec, nvec_op );
+    pbp_su3_Z_PRECISION( pbuf, eta_pt, nvec, nvec, nvec_eta ); D_pt += 9;
+    // Y dir
+    i = 6*(*nb_pt); nb_pt++;
+    mvm_PRECISION( pbuf, D_pt, op->prnY+i*nvec_op, nvec, nvec, nvec_op );
+    mvm_PRECISION( pbuf+3*nvec, D_pt, op->prnY+(i+3)*nvec_op, nvec, nvec, nvec_op );
+    pbp_su3_Y_PRECISION( pbuf, eta_pt, nvec, nvec, nvec_eta ); D_pt += 9;
+    // X dir
+    i = 6*(*nb_pt); nb_pt++;
+    mvm_PRECISION( pbuf, D_pt, op->prnX+i*nvec_op, nvec, nvec, nvec_op );
+    mvm_PRECISION( pbuf+3*nvec, D_pt, op->prnX+(i+3)*nvec_op, nvec, nvec, nvec_op );
+    pbp_su3_X_PRECISION( pbuf, eta_pt, nvec, nvec, nvec_eta ); D_pt += 9;
+  }
+  // wait for communication in positive direction
+  START_LOCKED_MASTER(threading)
+  ghost_wait_PRECISION( op->prpT, T, +1, &(op->c), plus_dir_param, l );
+  ghost_wait_PRECISION( op->prpZ, Z, +1, &(op->c), plus_dir_param, l );
+  ghost_wait_PRECISION( op->prpY, Y, +1, &(op->c), plus_dir_param, l );
+  ghost_wait_PRECISION( op->prpX, X, +1, &(op->c), plus_dir_param, l );
+  END_LOCKED_MASTER(threading) 
+  // lift up plus dir
+  for ( i=6*start, eta_pt=eta->vector_buffer+12*start*nvec_eta; i<6*n; i+=6, eta_pt+=12*nvec_eta ) {
+    pbn_su3_T_PRECISION( op->prpT+i*nvec_op, eta_pt, nvec, nvec_op, nvec_eta );
+    pbn_su3_Z_PRECISION( op->prpZ+i*nvec_op, eta_pt, nvec, nvec_op, nvec_eta );
+    pbn_su3_Y_PRECISION( op->prpY+i*nvec_op, eta_pt, nvec, nvec_op, nvec_eta );
+    pbn_su3_X_PRECISION( op->prpX+i*nvec_op, eta_pt, nvec, nvec_op, nvec_eta );
+  }
 
   SYNC_CORES(threading)
 }
@@ -1064,11 +951,11 @@ static void diag_oo_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operato
   END_UNTHREADED_FUNCTION(threading)
 }
 
+// used when g.method > 3 in which case clover term is LU decomposed and clover_doublet_oo_inv is defined both on even and odd sites
+// NOTE: clover_oo_inv is not defined for non-block oe_op
 static void diag_oo_inv_PRECISION( vector_PRECISION *y, vector_PRECISION *x, operator_PRECISION_struct *op,
                             level_struct *l, int start, int end ) {
 
-  // used when g.method > 3 in which case clover term is LU decomposed and clover_doublet_oo_inv is defined both on even and odd sites
-  // clover_oo_inv is not defined for non-block oe_op
   int i, j, jj, nvec = x->num_vect_now, nvec_x = x->num_vect, nvec_y = y->num_vect;
 #ifdef HAVE_TM
   int factor = 1;
@@ -1123,15 +1010,15 @@ void apply_schur_complement_PRECISION( vector_PRECISION *out, vector_PRECISION *
    * Applies the Schur complement to a vector.
    *********************************************************************************/
 
-  // start and end indices for vector functions depending on thread
   int start_even, end_even, start_odd, end_odd;
 
   compute_core_start_end_custom(0, op->num_even_sites*l->num_lattice_site_var, &start_even, &end_even, l, threading, l->num_lattice_site_var );
   compute_core_start_end_custom(op->num_even_sites*l->num_lattice_site_var, l->inner_vector_size, &start_odd, &end_odd, l, threading, l->num_lattice_site_var );
-  
+#ifdef DEBUG
   if ( out->num_vect < in->num_vect_now )
     error0("apply_schur_complement_PRECISION: assumptions are not met\n");
-
+#endif
+  
   vector_PRECISION *tmp = op->buffer;
   tmp[0].num_vect_now = in->num_vect_now; tmp[1].num_vect_now = in->num_vect_now;
 
@@ -1221,9 +1108,8 @@ void oddeven_to_serial_PRECISION( vector_double *out, vector_PRECISION *in, leve
   int i, j, k, jj, jjj;
   int nvec = in->num_vect_now, nvec_in = in->num_vect, nvec_out = out->num_vect;
   int nsv = l->num_lattice_site_var, *tt = l->oe_op_PRECISION.translation_table;
-  int start;// = threading->start_site[l->depth];
-  int end;//   = threading->end_site[l->depth];
-  compute_core_start_end_custom(0, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );
+  int start = threading->start_site[l->depth];
+  int end   = threading->end_site[l->depth];
 
   if ( nvec_out < nvec )
     error0("oddeven_to_serial_PRECISION: assumptions are not met\n");
@@ -1251,9 +1137,8 @@ void serial_to_oddeven_PRECISION( vector_PRECISION *out, vector_double *in, leve
   int i, j, k, jj, jjj;
   int nvec = in->num_vect_now, nvec_in = in->num_vect, nvec_out = out->num_vect;
   int nsv = l->num_lattice_site_var, *tt = l->oe_op_PRECISION.translation_table;
-  int start;// = threading->start_site[l->depth];
-  int end;//   = threading->end_site[l->depth];
-  compute_core_start_end_custom(0, l->inner_vector_size, &start, &end, l, threading, l->num_lattice_site_var );
+  int start = threading->start_site[l->depth];
+  int end   = threading->end_site[l->depth];
 
   if ( nvec_out < nvec )
     error0("oddeven_to_serial_PRECISION: assumptions are not met\n");
@@ -1326,7 +1211,7 @@ void oddeven_PRECISION_test( level_struct *l ) {
   for( int i=0; i<nvecsf; i++ )
     test0_PRECISION("depth: %d, correctness of odd even layout: %le\n", l->depth, diff1_d[i]/diff2_d[i] );
     
-  // --------------
+  // -------------- //
   
   vector_PRECISION_copy( &f[3], &f[0], 0, l->inner_vector_size, l );
   diag_oo_PRECISION( &f[2], &f[3], &(l->oe_op_PRECISION), l, no_threading );
@@ -1338,6 +1223,8 @@ void oddeven_PRECISION_test( level_struct *l ) {
   
   for( int i=0; i<nvecsf; i++ )
     test0_PRECISION("depth: %d, correctness of odd even diagonal term: %le\n", l->depth, diff1[i]/diff2[i] );
+
+  // -------------- //
     
   // transformation part
   vector_PRECISION_copy( &f[3], &f[0], 0, l->inner_vector_size, l );
@@ -1362,7 +1249,9 @@ void oddeven_PRECISION_test( level_struct *l ) {
   
   for( int i=0; i<nvecsf; i++ )
     test0_PRECISION("depth: %d, correctness of odd even schur complement: %le\n", l->depth, diff1[i]/diff2[i] );
-  
+
+  // -------------- //
+
   for(int i=0; i<3; i++)
     vector_double_free( &d[i], l, no_threading );
 

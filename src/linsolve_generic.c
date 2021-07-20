@@ -333,7 +333,16 @@ int solver_PRECISION( gmres_PRECISION_struct *p, level_struct *l, struct Thread 
 
   START_LOCKED_MASTER(threading)
   if ( l->depth==0 && ( p->timing || p->print ) ) prof_init( l );
-  if ( l->level==0 && g.num_levels > 1 && g.interpolation ) p->tol = g.tol[g.num_levels-1];
+  if ( l->level==0 && g.num_levels > 1 && g.interpolation ) {
+    p->tol = g.tol[g.num_levels-1];
+#ifdef HAVE_FABULOUS
+    if ( g.solver[l->depth] && !g.use_only_fgrmes_at_setup ) {
+      PRECISION tolerance[1] = { p->tol };
+      fabulous_PRECISION_struct *fab = &(p->fab);
+      fabulous_set_parameters( fab->mvp, fab->max_iter, tolerance, 1, fab->handle );
+    }
+#endif
+  }
   if ( l->depth > 0 ) p->timing = 1;
   END_LOCKED_MASTER(threading)
 
@@ -1046,7 +1055,7 @@ void compute_solution_PRECISION( vector_PRECISION *x, vector_PRECISION *V, compl
 #endif
   // compute start and end indices for core
   // this puts zero for all other hyperthreads, so we can call functions below with all hyperthreads
-  compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var );//!!!!!!!
+  compute_core_start_end_custom(p->v_start, p->v_end, &start, &end, l, threading, l->num_lattice_site_var );
 
   START_MASTER(threading)
   
@@ -1106,29 +1115,16 @@ void local_minres_PRECISION( vector_PRECISION *phi, vector_PRECISION *eta, vecto
   vector_PRECISION Dr, r, lphi;
 
 #if defined(DEBUG) && defined(HAVE_TM1p1)
-  if ( nvec != g.n_flavours*num_loop ) //g.num_vect_now )//!!!!!!!!
+  if ( nvec != g.n_flavours*num_loop )
     error0("local_minres_PRECISION: incosistent number of vectors %d %d\n",nvec,g.num_vect_now);
 #endif
   complex_PRECISION alpha[nvec];
   void (*block_op)() = (l->depth==0)?(g.odd_even?apply_block_schur_complement_PRECISION:block_d_plus_clover_PRECISION)
                                     :coarse_block_operator_PRECISION;
-  /*
-  Dr.vector_buffer   = s->local_minres_buffer[0]; // _SCHWARZ size 
-  r.vector_buffer    = s->local_minres_buffer[1]; // _SCHWARZ size 
-  lphi.vector_buffer = s->local_minres_buffer[2]; // _SCHWARZ size
-  
-  Dr.num_vect   = s->buf[0].num_vect;
-  r.num_vect    = s->buf[0].num_vect;
-  lphi.num_vect = s->buf[0].num_vect;
-  */
+
   Dr   = s->local_minres_buffer[0]; // _SCHWARZ size
   r    = s->local_minres_buffer[1]; // _SCHWARZ size
   lphi = s->local_minres_buffer[2]; // _SCHWARZ size
-  /*
-  Dr.num_vect_now   = nvec;
-  r.num_vect_now    = nvec;
-  lphi.num_vect_now = nvec;
-  */
 
   vector_PRECISION_copy( &r, eta, start, end, l );    // r = eta
   vector_PRECISION_define( &lphi, 0, start, end, l ); // phi = 0
